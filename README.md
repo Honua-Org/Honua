@@ -1,54 +1,116 @@
-# React + TypeScript + Vite
+# Honua Social
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A social platform built with React, TypeScript, and Supabase.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- User authentication
+- Profile management with avatar uploads
+- Social feed
+- Rewards system
+- Real-time updates
 
-## Expanding the ESLint configuration
+## Prerequisites
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Node.js (v18 or higher)
+- npm or yarn
+- Supabase CLI
+- Git
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+## Project Setup
+
+1. Clone the repository and install dependencies:
+
+```bash
+git clone <repository-url>
+cd honua-social
+yarn install # or npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+2. Set up environment variables:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Copy `.env.example` to `.env` and update the values:
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+```bash
+cp .env.example .env
 ```
+
+Required environment variables:
+
+```plaintext
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+## Supabase Setup
+
+1. Install Supabase CLI:
+
+```bash
+npm install -g supabase
+```
+
+2. Start Supabase locally:
+
+```bash
+supabase start
+```
+
+3. Run database migrations:
+
+```bash
+supabase migration up
+```
+
+This will apply all migrations in the `supabase/migrations` folder, including:
+- Initial schema setup
+- Storage configuration for avatars and media
+- User rewards system
+
+### Storage Setup
+
+The project uses Supabase Storage for managing user uploads. The following buckets are automatically created through migrations:
+
+- `avatars`: For user profile pictures
+- `posts`: For social feed media content
+
+Storage policies are configured to:
+- Allow authenticated users to upload their own avatars
+- Allow public read access to avatars
+- Restrict post uploads to authenticated users
+
+## Development
+
+Start the development server:
+
+```bash
+yarn dev # or npm run dev
+```
+
+The app will be available at `http://localhost:5173`
+
+## Database Schema
+
+Key tables in the database:
+
+- `profiles`: User profile information
+- `posts`: Social feed content
+- `user_rewards`: Tracks user achievements and points
+
+## Contributing
+
+1. Create a feature branch:
+```bash
+git checkout -b feature/your-feature-name
+```
+
+2. Make your changes and commit:
+```bash
+git commit -m "Add your feature description"
+```
+
+3. Push to your branch and create a pull request
+
+## License
+
+MIT
