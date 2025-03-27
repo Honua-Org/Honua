@@ -22,8 +22,8 @@ A social platform built with React, TypeScript, and Supabase.
 1. Clone the repository and install dependencies:
 
 ```bash
-git clone <repository-url>
-cd honua-social
+git clone https://github.com/Honua-Org/Honua
+cd honua
 yarn install # or npm install
 ```
 
