@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>eslint.config.js</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="doc-style.css" />
+  <script src="doc-filelist.js"></script>
+  <script>
+    var relativeDir = "";
+    var thisFile = "eslint.config.js";
+    var defaultSidebar = true;
+  </script>
+  <script src="doc-script.js"></script>
+
+</head>
+<body>
+  <div id="sidebar_wrapper">
+    <div id="sidebar_switch">
+      <span class="tree">Files</span>
+      <span class="headings">Headings</span>
+    </div>
+    <div id="tree"></div>
+    <div id="headings">
+
+    </div>
+  </div>
+  <div id="sidebar-toggle"></div>
+  <div id="container">
+    <div class="background highlight"></div>
+<table cellpadding="0" cellspacing="0">
+  <tbody>
+    
+      <tr>
+        <td class="docs">
+          <h1>eslint.config.js</h1>
+        </td>
+        <td class="code highlight"></td>
+      </tr>
+    
+    
+      <tr>
+        <td class="docs">
+          <div class="pilwrap">
+  <a class="pilcrow" href="#section-1" id="section-1"></a>
+</div>
+
+        </td>
+        <td class="code highlight">
+          <pre class="javascript"><span class="hljs-keyword">import</span> js <span class="hljs-keyword">from</span> <span class="hljs-string">'@eslint/js'</span>
+<span class="hljs-keyword">import</span> globals <span class="hljs-keyword">from</span> <span class="hljs-string">'globals'</span>
+<span class="hljs-keyword">import</span> reactHooks <span class="hljs-keyword">from</span> <span class="hljs-string">'eslint-plugin-react-hooks'</span>
+<span class="hljs-keyword">import</span> reactRefresh <span class="hljs-keyword">from</span> <span class="hljs-string">'eslint-plugin-react-refresh'</span>
+<span class="hljs-keyword">import</span> tseslint <span class="hljs-keyword">from</span> <span class="hljs-string">'typescript-eslint'</span>
+
+<span class="hljs-keyword">export</span> <span class="hljs-keyword">default</span> tseslint.config(
+  { <span class="hljs-attr">ignores</span>: [<span class="hljs-string">'dist'</span>] },
+  {
+    <span class="hljs-attr">extends</span>: [js.configs.recommended, ...tseslint.configs.recommended],
+    <span class="hljs-attr">files</span>: [<span class="hljs-string">'**/*.{ts,tsx}'</span>],
+    <span class="hljs-attr">languageOptions</span>: {
+      <span class="hljs-attr">ecmaVersion</span>: <span class="hljs-number">2020</span>,
+      <span class="hljs-attr">globals</span>: globals.browser,
+    },
+    <span class="hljs-attr">plugins</span>: {
+      <span class="hljs-string">'react-hooks'</span>: reactHooks,
+      <span class="hljs-string">'react-refresh'</span>: reactRefresh,
+    },
+    <span class="hljs-attr">rules</span>: {
+      ...reactHooks.configs.recommended.rules,
+      <span class="hljs-string">'react-refresh/only-export-components'</span>: [
+        <span class="hljs-string">'warn'</span>,
+        { <span class="hljs-attr">allowConstantExport</span>: <span class="hljs-literal">true</span> },
+      ],
+    },
+  },
+)
+
+</pre>
+        </td>
+      </tr>
+    
+  </tbody>
+</table>
+
+  </div>
+</body>
+</html>
