@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>README.md</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="doc-style.css" />
+  <script src="doc-filelist.js"></script>
+  <script>
+    var relativeDir = "";
+    var thisFile = "README.md";
+    var defaultSidebar = true;
+  </script>
+  <script src="doc-script.js"></script>
+
+</head>
+<body>
+  <div id="sidebar_wrapper">
+    <div id="sidebar_switch">
+      <span class="tree">Files</span>
+      <span class="headings">Headings</span>
+    </div>
+    <div id="tree"></div>
+    <div id="headings">
+
+      <div class="heading h1">
+        <a href="#react-+-typescript-+-vite">React + TypeScript + Vite</a>
+      </div>
+
+      <div class="heading h2">
+        <a href="#expanding-the-eslint-configuration">Expanding the ESLint configuration</a>
+      </div>
+
+    </div>
+  </div>
+  <div id="sidebar-toggle"></div>
+  <div id="container">
+    <div class="docs markdown"><div class="pilwrap" id="react-+-typescript-+-vite">
+  <h1>
+    <a href="#react-+-typescript-+-vite" name="react-+-typescript-+-vite" class="pilcrow"></a>
+React + TypeScript + Vite
+  </h1>
+</div>
+<p>This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.</p>
+<p>Currently, two official plugins are available:</p>
+<ul>
+<li><a href="https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md">@vitejs/plugin-react</a> uses <a href="https://babeljs.io/">Babel</a> for Fast Refresh</li>
+<li><a href="https://github.com/vitejs/vite-plugin-react-swc">@vitejs/plugin-react-swc</a> uses <a href="https://swc.rs/">SWC</a> for Fast Refresh</li>
+</ul>
+<div class="pilwrap" id="expanding-the-eslint-configuration">
+  <h2>
+    <a href="#expanding-the-eslint-configuration" name="expanding-the-eslint-configuration" class="pilcrow"></a>
+Expanding the ESLint configuration
+  </h2>
+</div>
+<p>If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:</p>
+<pre><code class="js"><span class="hljs-keyword">export</span> <span class="hljs-keyword">default</span> tseslint.config({
+  <span class="hljs-attr">extends</span>: [
+    <span class="hljs-comment">// Remove ...tseslint.configs.recommended and replace with this</span>
+    ...tseslint.configs.recommendedTypeChecked,
+    <span class="hljs-comment">// Alternatively, use this for stricter rules</span>
+    ...tseslint.configs.strictTypeChecked,
+    <span class="hljs-comment">// Optionally, add this for stylistic rules</span>
+    ...tseslint.configs.stylisticTypeChecked,
+  ],
+  <span class="hljs-attr">languageOptions</span>: {
+    <span class="hljs-comment">// other options...</span>
+    <span class="hljs-attr">parserOptions</span>: {
+      <span class="hljs-attr">project</span>: [<span class="hljs-string">'./tsconfig.node.json'</span>, <span class="hljs-string">'./tsconfig.app.json'</span>],
+      <span class="hljs-attr">tsconfigRootDir</span>: <span class="hljs-keyword">import</span>.meta.dirname,
+    },
+  },
+})
+</code></pre>
+<p>You can also install <a href="https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x">eslint-plugin-react-x</a> and <a href="https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom">eslint-plugin-react-dom</a> for React-specific lint rules:</p>
+<pre><code class="js"><span class="hljs-comment">// eslint.config.js</span>
+<span class="hljs-keyword">import</span> reactX <span class="hljs-keyword">from</span> <span class="hljs-string">'eslint-plugin-react-x'</span>
+<span class="hljs-keyword">import</span> reactDom <span class="hljs-keyword">from</span> <span class="hljs-string">'eslint-plugin-react-dom'</span>
+
+<span class="hljs-keyword">export</span> <span class="hljs-keyword">default</span> tseslint.config({
+  <span class="hljs-attr">plugins</span>: {
+    <span class="hljs-comment">// Add the react-x and react-dom plugins</span>
+    <span class="hljs-string">'react-x'</span>: reactX,
+    <span class="hljs-string">'react-dom'</span>: reactDom,
+  },
+  <span class="hljs-attr">rules</span>: {
+    <span class="hljs-comment">// other rules...</span>
+    <span class="hljs-comment">// Enable its recommended typescript rules</span>
+    ...reactX.configs[<span class="hljs-string">'recommended-typescript'</span>].rules,
+    ...reactDom.configs.recommended.rules,
+  },
+})
+</code></pre>
+</div>
+  </div>
+</body>
+</html>
