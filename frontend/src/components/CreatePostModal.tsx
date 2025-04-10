@@ -262,9 +262,6 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreated }: CreatePostModalProp
         console.log('Creating poll for post:', createdPost.id);
       }
 
-      // TODO: Handle media uploads and poll creation in separate API calls
-      // For now, we'll just create the basic post
-
       // Notify parent component about the new post
       if (onPostCreated) {
         onPostCreated(createdPost);
@@ -592,6 +589,6 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreated }: CreatePostModalProp
       </ModalContent>
     </Modal>
   );
-}
+};
 
 export default CreatePostModal;

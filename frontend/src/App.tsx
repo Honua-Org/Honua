@@ -19,6 +19,7 @@ import Community from './pages/communities/Community';
 import CreateCommunity from './pages/communities/CreateCommunity';
 import CreatePost from './pages/communities/CreatePost';
 import Post from './pages/communities/Post';
+import SinglePost from './pages/SinglePost';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -47,6 +48,7 @@ function AppRoutes() {
         <Route path="/communities/:communityName" element={!user ? <Navigate to="/login" replace /> : <Community />} />
         <Route path="/communities/:communityName/submit" element={!user ? <Navigate to="/login" replace /> : <CreatePost />} />
         <Route path="/communities/:communityName/posts/:postId" element={!user ? <Navigate to="/login" replace /> : <Post />} />
+        <Route path="/post/:id" element={<SinglePost />} />
         <Route path="/" element={user ? <Navigate to="/feed" replace /> : <Navigate to="/login" replace />} />
       </Routes>
     </Router>
