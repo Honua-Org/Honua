@@ -9,7 +9,6 @@ import {
   Box,
   useColorModeValue,
   Spinner,
-  IconButton,
   Drawer,
   DrawerBody,
   DrawerHeader,
@@ -18,6 +17,7 @@ import {
   DrawerCloseButton,
   useDisclosure,
   useBreakpointValue,
+  Input,
 } from '@chakra-ui/react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
@@ -29,7 +29,6 @@ import {
   FaUser,
   FaCog,
   FaUsers,
-  FaBars,
 } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import { userService, UserProfile } from '../api/user.api';
@@ -156,15 +155,41 @@ const Navigation = () => {
   if (isMobile) {
     return (
       <Box>
-        <IconButton
-          aria-label="Open menu"
-          icon={<Icon as={FaBars} />}
-          onClick={onOpen}
+        <HStack
           position="fixed"
           top="4"
           left="4"
+          right="4"
           zIndex="overlay"
-        />
+          spacing={4}
+          bg={useColorModeValue('white', 'gray.800')}
+          p={2}
+          borderRadius="lg"
+          boxShadow="sm"
+        >
+          <Button
+            variant="unstyled"
+            onClick={onOpen}
+            display="flex"
+            alignItems="center"
+            minW="auto"
+            p={0}
+          >
+            <Avatar
+              size="sm"
+              src={profile?.avatar_url}
+              name={profile?.full_name || profile?.username}
+            />
+          </Button>
+          <Input
+            placeholder="Search posts..."
+            size="sm"
+            bg={useColorModeValue('gray.50', 'gray.700')}
+            borderRadius="md"
+            flex="1"
+            display="block"
+          />
+        </HStack>
         <Drawer isOpen={isOpen} placement="left" onClose={onClose}>
           <DrawerOverlay />
           <DrawerContent>

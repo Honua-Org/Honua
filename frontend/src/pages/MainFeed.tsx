@@ -115,6 +115,24 @@ const MainFeed = () => {
         templateColumns={{ base: '1fr', md: '1fr 3fr 1fr' }}
         gap={6}
       >
+        {/* Mobile Profile and Search */}
+        <GridItem display={{ base: 'block', md: 'none' }} mb={4}>
+          <VStack spacing={4} width="100%">
+            <Box width="100%" px={4}>
+              <Navigation />
+            </Box>
+            <InputGroup>
+              <InputLeftElement pointerEvents="none">
+                <Icon as={FaSearch} color="gray.500" />
+              </InputLeftElement>
+              <Input
+                placeholder="Search posts..."
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+              />
+            </InputGroup>
+          </VStack>
+        </GridItem>
         {/* Navigation Menu */}
         <GridItem display={{ base: 'none', md: 'block' }}>
           <Box position="sticky" top={4}>
@@ -125,8 +143,8 @@ const MainFeed = () => {
         {/* Main Feed */}
         <GridItem>
           <VStack spacing={4} align="stretch" height="calc(100vh - 2rem)" overflow="hidden">
-            {/* Search and Filter */}
-            <HStack spacing={4}>
+            {/* Search and Filter - Desktop Only */}
+            <HStack spacing={4} display={{ base: 'none', md: 'flex' }}>
               <InputGroup flex={1}>
                 <InputLeftElement pointerEvents="none">
                   <Icon as={FaSearch} color="gray.500" />
