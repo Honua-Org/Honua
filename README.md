@@ -21,7 +21,6 @@ For inquiries, feedback, or support, connect with us through:
 - Node.js with TypeScript
 - Supabase for database and authentication
 - RESTful API architecture
-v
 
 ### Database
 - PostgreSQL (via Supabase)
