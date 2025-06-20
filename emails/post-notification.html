@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Post Notification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            width: 80%;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .content {
+            padding: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #777;
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="https://github.com/AfroTechBoss/images/blob/main/logo%20(1).svg" width="120" height="40" alt="Honua" style="margin: 0 auto; display: block;">
+            <h2>New Post Notification</h2>
+        </div>
+        <div class="content">
+            <p>Hello,</p>
+            <p>A new post has been created on Honua. Check it out!</p>
+            <p><strong>Post Title:</strong> {{post_title}}</p>
+            <p><strong>Author:</strong> {{author_name}}</p>
+            <a href="{{post_url}}" class="button">View Post</a>
+        </div>
+        <div class="footer">
+            <p>This is an automated email. Please do not reply.</p>
+            <p>&copy; 2024 Honua</p>
+        </div>
+    </div>
+</body>
+</html>

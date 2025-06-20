@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirm Your New Email Address - Honua</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Ubuntu, sans-serif;
+            background-color: #f6f9fc;
+            color: #374151;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            margin-bottom: 64px;
+        }
+        .header {
+            padding: 32px 24px;
+            text-align: center;
+            border-bottom: 1px solid #e6e6e6;
+        }
+        .logo {
+            width: 120px;
+            height: 40px;
+        }
+        .content {
+            padding: 32px 24px;
+        }
+        .heading {
+            color: #1f2937;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 0 0 24px;
+        }
+        .text {
+            color: #374151;
+            font-size: 16px;
+            line-height: 24px;
+            margin: 16px 0;
+        }
+        .button {
+            display: inline-block;
+            background-color: #22c55e;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            margin: 24px 0;
+        }
+        .warning-text {
+            background-color: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            color: #92400e;
+            font-size: 14px;
+            line-height: 20px;
+            margin: 16px 0;
+            padding: 12px;
+        }
+        .email-change-box {
+            background-color: #f0fdf4;
+            border: 1px solid #22c55e;
+            border-radius: 8px;
+            color: #15803d;
+            font-size: 16px;
+            line-height: 24px;
+            margin: 16px 0;
+            padding: 16px;
+        }
+        .token-info {
+            background-color: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            color: #374151;
+            font-size: 14px;
+            line-height: 20px;
+            margin: 16px 0;
+            padding: 12px;
+        }
+        .footer {
+            padding: 24px;
+            text-align: center;
+            border-top: 1px solid #e6e6e6;
+        }
+        .footer-text {
+            color: #8898aa;
+            font-size: 12px;
+            line-height: 16px;
+            margin: 8px 0;
+        }
+        .footer-link {
+            color: #22c55e;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <img src="https://github.com/AfroTechBoss/images/blob/main/logo%20(1).svg" alt="Honua" class="logo">
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <h1 class="heading">Email Address Update</h1>
+
+            <p class="text">Hi there,</p>
+
+            <p class="text">You asked to update your email address from <strong>{{ .Email }}</strong> to <strong>{{ .NewEmail }}</strong>.</p>
+
+            <div class="email-change-box">
+                📧 <strong>Current Email:</strong> {{ .Email }}<br>
+                ➡️ <strong>New Email:</strong> {{ .NewEmail }}
+            </div>
+
+            <p class="text">To complete this change, please confirm your new email address by clicking the button below:</p>
+
+            <a href="{{ .ConfirmationURL }}" class="button">Confirm New Email</a>
+
+            <div class="warning-text">
+                After confirmation, use {{ .NewEmail }} to sign in to your account.
+            </div>
+
+            <div class="token-info">
+                <strong>Confirmation Token:</strong> {{ .Token }}<br>
+                <strong>Token Hash:</strong> {{ .TokenHash }}
+            </div>
+
+            <p class="text">{{ .Data }}</p>
+
+            <p class="text">If you didn't make this request, please contact our support team.</p>
+
+            <p class="text">This confirmation link expires in 24 hours.</p>
+
+            {{ if .RedirectTo }}
+            <p class="text">After confirming your new email, you'll be redirected to: {{ .RedirectTo }}</p>
+            {{ end }}
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="footer-text">© 2024 Honua. Building a sustainable future together.</p>
+            <p class="footer-text">
+                <a href="{{ .SiteURL }}/unsubscribe" class="footer-link">Unsubscribe</a>
+                • <a href="{{ .SiteURL }}/privacy" class="footer-link">Privacy Policy</a>
+                • <a href="{{ .SiteURL }}/terms" class="footer-link">Terms of Service</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>
