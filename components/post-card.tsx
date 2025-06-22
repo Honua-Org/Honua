@@ -84,10 +84,31 @@ export default function PostCard({ post, onUpdate }: PostCardProps) {
       bookmarked_by_user: newIsBookmarked,
     })
 
-    toast({
-      title: newIsBookmarked ? "Post bookmarked!" : "Bookmark removed",
-      description: 'Saved to your bookmarks" : "Removed from bookmarks',
-    })
+    try {
+      const method = newIsBookmarked ? 'POST' : 'DELETE'
+      const response = await fetch(`/api/posts/${post.id}/bookmark`, { method })
+      
+      if (!response.ok) {
+        // Revert the optimistic update if API call fails
+        setIsBookmarked(!newIsBookmarked)
+        onUpdate(post.id, {
+          bookmarked_by_user: !newIsBookmarked,
+        })
+        throw new Error('Failed to update bookmark')
+      }
+
+      toast({
+        title: newIsBookmarked ? "Post bookmarked!" : "Bookmark removed",
+        description: newIsBookmarked ? "Saved to your bookmarks" : "Removed from bookmarks",
+      })
+    } catch (error) {
+      console.error('Error updating bookmark:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update bookmark",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleRepost = async () => {
@@ -122,7 +143,7 @@ export default function PostCard({ post, onUpdate }: PostCardProps) {
     setIsFollowing(!isFollowing)
     toast({
       title: isFollowing ? "Unfollowed" : "Following",
-      description: `${isFollowing ? "Unfollowed" : "Now following"} @${post.user.username}`,
+      description: `${isFollowing ? "Unfollowed" : "Now following"} @${post.user?.username || 'Unknown'}`,
     })
   }
 
@@ -147,21 +168,21 @@ export default function PostCard({ post, onUpdate }: PostCardProps) {
     <Card className="bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-shadow">
       <CardContent className="p-6">
         <div className="flex space-x-4">
-          <Link href={`/profile/${post.user.username}`}>
+          <Link href={`/profile/${post.user?.username || 'unknown'}`}>
             <Avatar className="w-12 h-12 cursor-pointer">
-              <AvatarImage src={post.user.avatar_url || "/placeholder.svg"} />
-              <AvatarFallback className="bg-green-500 text-white">{post.user.full_name.charAt(0)}</AvatarFallback>
+              <AvatarImage src={post.user?.avatar_url || "/placeholder.svg"} />
+              <AvatarFallback className="bg-green-500 text-white">{post.user?.full_name?.charAt(0) || 'U'}</AvatarFallback>
             </Avatar>
           </Link>
 
           <div className="flex-1 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <Link href={`/profile/${post.user.username}`} className="flex items-center space-x-2 hover:underline">
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">{post.user.full_name}</span>
-                  {post.user.verified && <CheckCircle className="w-4 h-4 text-blue-500" />}
+                <Link href={`/profile/${post.user?.username || 'unknown'}`} className="flex items-center space-x-2 hover:underline">
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">{post.user?.full_name || 'Unknown User'}</span>
+                  {post.user?.verified && <CheckCircle className="w-4 h-4 text-blue-500" />}
                 </Link>
-                <span className="text-gray-500 dark:text-gray-400">@{post.user.username}</span>
+                <span className="text-gray-500 dark:text-gray-400">@{post.user?.username || 'unknown'}</span>
                 <span className="text-gray-500 dark:text-gray-400">·</span>
                 <span className="text-gray-500 dark:text-gray-400">{formatTimeAgo(post.created_at)}</span>
               </div>
@@ -173,18 +194,18 @@ export default function PostCard({ post, onUpdate }: PostCardProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  {post.user.id !== session?.user?.id && (
+                  {post.user?.id !== session?.user?.id && (
                     <>
                       <DropdownMenuItem onClick={handleFollow}>
                         {isFollowing ? (
                           <>
                             <UserMinus className="mr-2 h-4 w-4" />
-                            Unfollow @{post.user.username}
+                            Unfollow @{post.user?.username || 'unknown'}
                           </>
                         ) : (
                           <>
                             <UserPlus className="mr-2 h-4 w-4" />
-                            Follow @{post.user.username}
+                            Follow @{post.user?.username || 'unknown'}
                           </>
                         )}
                       </DropdownMenuItem>

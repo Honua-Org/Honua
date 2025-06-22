@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useSession } from "@supabase/auth-helpers-react"
 import MainLayout from "@/components/main-layout"
 import PostCard from "@/components/post-card"
@@ -131,14 +131,73 @@ const mockPosts = [
 ]
 
 export default function HomeFeed() {
-  const [posts, setPosts] = useState(mockPosts)
-  const [loading, setLoading] = useState(false)
+  const [posts, setPosts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("for-you")
   const [createPostOpen, setCreatePostOpen] = useState(false)
   const session = useSession()
 
-  const handlePostUpdate = (postId: string, updates: any) => {
+  // Fetch posts from API
+  const fetchPosts = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/posts')
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Failed to fetch posts - Status:', response.status, 'Response:', errorText)
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
+      }
+      
+      const data = await response.json()
+      // Use real data from API, or empty array if no posts
+      setPosts(data || [])
+    } catch (error) {
+      console.error('Error fetching posts:', error)
+      console.error('This error is likely due to missing Supabase configuration.')
+      console.error('Please check your .env.local file and ensure Supabase environment variables are set.')
+      setPosts([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchPosts()
+  }, [])
+
+  const handlePostUpdate = async (postId: string, updates: any) => {
+    // Optimistically update the UI
     setPosts((prevPosts) => prevPosts.map((post) => (post.id === postId ? { ...post, ...updates } : post)))
+    
+    // If it's a like/unlike action, make API call
+    if ('liked_by_user' in updates) {
+      try {
+        const method = updates.liked_by_user ? 'POST' : 'DELETE'
+        const response = await fetch(`/api/posts/${postId}/like`, { method })
+        
+        if (!response.ok) {
+          // Revert the optimistic update if API call fails
+          setPosts((prevPosts) => prevPosts.map((post) => 
+            post.id === postId ? { 
+              ...post, 
+              liked_by_user: !updates.liked_by_user,
+              likes_count: updates.liked_by_user ? post.likes_count - 1 : post.likes_count + 1
+            } : post
+          ))
+        }
+      } catch (error) {
+        console.error('Error updating like:', error)
+        // Revert the optimistic update
+        setPosts((prevPosts) => prevPosts.map((post) => 
+          post.id === postId ? { 
+            ...post, 
+            liked_by_user: !updates.liked_by_user,
+            likes_count: updates.liked_by_user ? post.likes_count - 1 : post.likes_count + 1
+          } : post
+        ))
+      }
+    }
   }
 
   const LoadingSkeleton = () => (
@@ -218,7 +277,7 @@ export default function HomeFeed() {
         </Button>
 
         {/* Create Post Modal */}
-        <CreatePostModal open={createPostOpen} onOpenChange={setCreatePostOpen} />
+        <CreatePostModal open={createPostOpen} onOpenChange={setCreatePostOpen} onPostCreated={fetchPosts} />
       </div>
     </MainLayout>
   )

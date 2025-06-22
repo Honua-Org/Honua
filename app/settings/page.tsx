@@ -1,7 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
+
+import { useState, useRef, useEffect } from "react"
 import { useSession } from "@supabase/auth-helpers-react"
+import { createClient } from "@/lib/supabase/client"
+import { uploadAvatar } from "@/lib/storage"
 import MainLayout from "@/components/main-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -70,6 +74,38 @@ export default function SettingsPage() {
     cover_url: "/images/covers/sarah-green-cover.png",
     interests: ["Solar Energy", "Climate Action", "Renewable Energy"],
   })
+  
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Load current user profile data
+  useEffect(() => {
+    const loadProfileData = async () => {
+      if (session?.user?.user_metadata?.username) {
+        try {
+          const response = await fetch(`/api/profiles?username=${session.user.user_metadata.username}`)
+          if (response.ok) {
+            const data = await response.json()
+            const profile = data.profile
+            setProfileData({
+              full_name: profile.full_name || '',
+              username: profile.username || '',
+              bio: profile.bio || '',
+              location: profile.location || '',
+              website: profile.website || '',
+              avatar_url: profile.avatar_url || '',
+              cover_url: profile.cover_url || '',
+              interests: profile.interests || [],
+            })
+          }
+        } catch (error) {
+          console.error('Error loading profile data:', error)
+        }
+      }
+    }
+    
+    loadProfileData()
+  }, [session])
 
   // Account settings state
   const [accountData, setAccountData] = useState({
@@ -111,18 +147,81 @@ export default function SettingsPage() {
     high_contrast: false,
   })
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Check authentication
+    const supabase = createClient()
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    
+    if (!authUser) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to upload an avatar.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setUploadingAvatar(true)
+
+    try {
+      const result = await uploadAvatar(file, authUser.id)
+      
+      if (result.error) {
+        throw new Error(result.error)
+      }
+      
+      setProfileData(prev => ({
+        ...prev,
+        avatar_url: result.url
+      }))
+      
+      toast({
+        title: "Avatar uploaded!",
+        description: "Your profile picture has been updated successfully.",
+      })
+    } catch (error) {
+      console.error('Error uploading avatar:', error)
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload avatar. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setUploadingAvatar(false)
+      // Reset the file input
+      event.target.value = ''
+    }
+  }
+
   const handleSaveProfile = async () => {
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const response = await fetch('/api/profiles', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(profileData),
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to update profile')
+      }
+      
+      const data = await response.json()
+      
       toast({
         title: "Profile updated!",
         description: "Your profile information has been saved successfully.",
       })
     } catch (error) {
+      console.error('Error updating profile:', error)
       toast({
         title: "Error",
-        description: "Failed to update profile. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to update profile. Please try again.",
         variant: "destructive",
       })
     }
@@ -272,6 +371,8 @@ export default function SettingsPage() {
                       size="sm"
                       className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0"
                       variant="secondary"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingAvatar}
                     >
                       <Camera className="w-4 h-4" />
                     </Button>
@@ -279,11 +380,24 @@ export default function SettingsPage() {
                   <div className="space-y-2">
                     <h3 className="font-semibold text-gray-900 dark:text-gray-100">Profile Photo</h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Upload a new profile photo. JPG, PNG or GIF. Max size 5MB.
+                      Upload a new profile photo. JPG, PNG or GIF. Max size 10MB.
                     </p>
                     <div className="flex space-x-2">
-                      <Button size="sm" variant="outline">
-                        Upload Photo
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                        disabled={uploadingAvatar}
+                      />
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingAvatar}
+                      >
+                        {uploadingAvatar ? "Uploading..." : "Upload Photo"}
                       </Button>
                       <Button size="sm" variant="ghost" className="text-red-600">
                         Remove

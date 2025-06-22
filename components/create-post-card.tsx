@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useSession } from "@supabase/auth-helpers-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast"
 import { ImageIcon, MapPin, Smile, Calendar, Globe, Users, Lock, X } from "lucide-react"
 import Image from "next/image"
+import { uploadPostMedia, type UploadResult } from "@/lib/storage"
 
 const sustainabilityCategories = [
   "Solar Energy",
@@ -33,6 +34,8 @@ export default function CreatePostCard() {
   const [isExpanded, setIsExpanded] = useState(false)
   const [loading, setLoading] = useState(false)
   const [selectedImages, setSelectedImages] = useState<string[]>([])
+  const [uploadingImages, setUploadingImages] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const session = useSession()
   const { toast } = useToast()
 
@@ -48,19 +51,51 @@ export default function CreatePostCard() {
 
     setLoading(true)
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/posts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content,
+          media_urls: selectedImages,
+          location,
+          sustainability_category: selectedCategory,
+          impact_score: selectedCategory ? Math.floor(Math.random() * 100) + 1 : null
+        })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create post')
+      }
+
       toast({
         title: "Post created!",
-        description: "Your sustainability post has been shared with the community",
+        description: "Your post has been shared with the community.",
       })
+
+      // Reset form
       setContent("")
       setSelectedCategory("")
       setLocation("")
       setSelectedImages([])
       setIsExpanded(false)
+
+      // Note: If this component is used in a context where posts need to be refreshed,
+      // consider adding an onPostCreated prop similar to CreatePostModal
+    } catch (error) {
+      console.error('Error creating post:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create post",
+        variant: "destructive",
+      })
+    } finally {
       setLoading(false)
-    }, 1000)
+    }
   }
 
   const handleFocus = () => {
@@ -76,17 +111,81 @@ export default function CreatePostCard() {
   }
 
   const handleImageUpload = () => {
-    // Simulate image selection with real sustainability images
-    const mockImages = [
-      "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=600&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=600&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=600&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=600&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=600&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&h=400&fit=crop",
-    ]
-    const randomImage = mockImages[Math.floor(Math.random() * mockImages.length)]
-    setSelectedImages((prev) => [...prev, randomImage])
+    fileInputRef.current?.click()
+  }
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files || files.length === 0) return
+
+    if (!session?.user?.id) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to upload images",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Check if adding these files would exceed the limit (e.g., 4 images max)
+    if (selectedImages.length + files.length > 4) {
+      toast({
+        title: "Too many images",
+        description: "You can upload a maximum of 4 images per post",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setUploadingImages(true)
+
+    try {
+      const uploadPromises = Array.from(files).map(file => 
+        uploadPostMedia(file, session.user.id)
+      )
+      
+      const results = await Promise.all(uploadPromises)
+      
+      const successfulUploads: string[] = []
+      const errors: string[] = []
+      
+      results.forEach((result: UploadResult) => {
+        if (result.error) {
+          errors.push(result.error)
+        } else {
+          successfulUploads.push(result.url)
+        }
+      })
+      
+      if (successfulUploads.length > 0) {
+        setSelectedImages(prev => [...prev, ...successfulUploads])
+        toast({
+          title: "Images uploaded",
+          description: `Successfully uploaded ${successfulUploads.length} image(s)`,
+        })
+      }
+      
+      if (errors.length > 0) {
+        toast({
+          title: "Upload errors",
+          description: `Failed to upload ${errors.length} image(s): ${errors[0]}`,
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Upload error:', error)
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload images. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setUploadingImages(false)
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
   }
 
   const removeImage = (index: number) => {
@@ -168,14 +267,23 @@ export default function CreatePostCard() {
 
                 <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
                   <div className="flex items-center space-x-4">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
                     <Button
                       variant="ghost"
                       size="sm"
                       className="text-green-600 hover:text-green-700"
                       onClick={handleImageUpload}
+                      disabled={uploadingImages}
                     >
                       <ImageIcon className="w-4 h-4 mr-2" />
-                      Media
+                      {uploadingImages ? "Uploading..." : "Media"}
                     </Button>
                     <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700">
                       <Smile className="w-4 h-4 mr-2" />

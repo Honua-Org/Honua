@@ -2,8 +2,11 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
+import { useSession } from "@supabase/auth-helpers-react"
+import { createClient } from "@/lib/supabase/client"
+import { uploadCoverImage } from "@/lib/storage"
 import MainLayout from "@/components/main-layout"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -34,6 +37,7 @@ import {
   Trash2,
 } from "lucide-react"
 import Image from "next/image"
+import PostCard from "@/components/post-card"
 
 // Mock user data
 const mockUser = {
@@ -105,35 +109,117 @@ const mockUserPosts = [
 export default function ProfilePage() {
   const params = useParams()
   const username = params.username as string
+  const session = useSession()
   const { toast } = useToast()
-  const [user, setUser] = useState(mockUser)
-  const [posts, setPosts] = useState(mockUserPosts)
+  const [user, setUser] = useState<any>(null)
+  const [posts, setPosts] = useState<any[]>([])
   const [isFollowing, setIsFollowing] = useState(false)
   const [activeTab, setActiveTab] = useState("posts")
   const [showCoverEditModal, setShowCoverEditModal] = useState(false)
   const [selectedCoverImage, setSelectedCoverImage] = useState<string | null>(null)
+  const [uploadingCoverImage, setUploadingCoverImage] = useState(false)
+  const [loading, setLoading] = useState(true)
 
-  // Check if this is the current user's profile (in real app, compare with session)
-  const isOwnProfile = true // This would be determined by comparing with current user session
+  // Check if this is the current user's profile
+  const isOwnProfile = session?.user?.user_metadata?.username === username
+
+  // Fetch user profile and posts
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      setLoading(true)
+      try {
+        // Fetch user profile
+        const profileResponse = await fetch(`/api/profiles?username=${username}`)
+        if (!profileResponse.ok) {
+          throw new Error('Failed to fetch profile')
+        }
+        const profileData = await profileResponse.json()
+        setUser(profileData.profile)
+        
+        // Fetch user posts
+        const postsResponse = await fetch("/api/posts?limit=100&page=1");
+        let postsData = [];
+        if (postsResponse.ok) {
+          postsData = await postsResponse.json();
+        } else {
+          const errorObj = await postsResponse.json();
+          throw new Error("Error fetching posts: " + (errorObj.error || postsResponse.statusText));
+        }
+        setPosts((postsData || []).map((post: any) => ({ ...post, user: post.profiles })));
+      } catch (error) {
+        console.error('Error fetching profile data:', error)
+        toast({
+          title: 'Error',
+          description: 'Failed to load profile data',
+          variant: 'destructive',
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    if (username) {
+      fetchUserProfile()
+    }
+  }, [username, toast])
 
   const handleFollow = () => {
     setIsFollowing(!isFollowing)
-    setUser((prev) => ({
+    setUser((prev: any) => ({
       ...prev,
       followers_count: isFollowing ? prev.followers_count - 1 : prev.followers_count + 1,
     }))
+
+    toast({
+      title: isFollowing ? "Unfollowed" : "Followed",
+      description: isFollowing
+        ? `You have unfollowed ${user?.full_name}`
+        : `You are now following ${user?.full_name}`,
+    })
   }
 
   const handlePostUpdate = (postId: string, updates: any) => {
     setPosts((prevPosts) => prevPosts.map((post) => (post.id === postId ? { ...post, ...updates } : post)))
   }
 
-  const handleCoverImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file) {
-      // In a real app, you would upload the file to your storage service
-      const imageUrl = URL.createObjectURL(file)
-      setSelectedCoverImage(imageUrl)
+    if (!file) return
+
+    // Check authentication
+    const supabase = createClient()
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    
+    if (!authUser) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to upload a cover image.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setUploadingCoverImage(true)
+
+    try {
+      const result = await uploadCoverImage(file, authUser.id)
+      setSelectedCoverImage(result.url)
+      
+      toast({
+        title: "Cover image uploaded!",
+        description: "Your cover image has been uploaded successfully.",
+      })
+    } catch (error) {
+      console.error('Error uploading cover image:', error)
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload cover image. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setUploadingCoverImage(false)
+      // Reset the file input
+      event.target.value = ''
     }
   }
 
@@ -143,7 +229,7 @@ export default function ProfilePage() {
         // Simulate API call to save cover image
         await new Promise((resolve) => setTimeout(resolve, 1000))
 
-        setUser((prev) => ({
+        setUser((prev: any) => ({
           ...prev,
           cover_url: selectedCoverImage,
         }))
@@ -170,7 +256,7 @@ export default function ProfilePage() {
       // Simulate API call to remove cover image
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
-      setUser((prev) => ({
+      setUser((prev: any) => ({
         ...prev,
         cover_url: "",
       }))
@@ -194,27 +280,36 @@ export default function ProfilePage() {
   return (
     <MainLayout>
       <div className="max-w-4xl mx-auto pb-20 lg:pb-4">
-        {/* Cover Image */}
-        <div className="relative h-48 md:h-64 bg-gradient-to-r from-green-400 to-emerald-500 group">
-          {user.cover_url ? (
-            <Image src={user.cover_url || "/placeholder.svg"} alt="Profile cover" fill className="object-cover" />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-r from-green-400 to-emerald-500" />
-          )}
-          <div className="absolute inset-0 bg-black/20" />
+        {loading ? (
+          <div className="flex items-center justify-center h-screen">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-t-green-500 border-gray-200 rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-400">Loading profile...</p>
+            </div>
+          </div>
+        ) : user ? (
+          <>
+            {/* Cover Image */}
+            <div className="relative h-48 md:h-64 bg-gradient-to-r from-green-400 to-emerald-500 group">
+              {user.cover_url ? (
+                <Image src={user.cover_url || "/placeholder.svg"} alt="Profile cover" fill className="object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-r from-green-400 to-emerald-500" />
+              )}
+              <div className="absolute inset-0 bg-black/20" />
 
-          {/* Cover Photo Edit Button - Only show for own profile */}
-          {isOwnProfile && (
-            <Button
-              onClick={() => setShowCoverEditModal(true)}
-              className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-              size="sm"
-            >
-              <Camera className="w-4 h-4 mr-2" />
-              Edit Cover
-            </Button>
-          )}
-        </div>
+              {/* Cover Photo Edit Button - Only show for own profile */}
+              {isOwnProfile && (
+                <Button
+                  onClick={() => setShowCoverEditModal(true)}
+                  className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  size="sm"
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  Edit Cover
+                </Button>
+              )}
+            </div>
 
         {/* Profile Header */}
         <div className="relative px-4 pb-4">
@@ -317,19 +412,19 @@ export default function ProfilePage() {
             <div className="flex items-center space-x-6 text-sm">
               <div className="flex items-center space-x-1">
                 <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  {user.following_count.toLocaleString()}
+                  {(user.following_count || 0).toLocaleString()}
                 </span>
                 <span className="text-gray-600 dark:text-gray-400">Following</span>
               </div>
               <div className="flex items-center space-x-1">
                 <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  {user.followers_count.toLocaleString()}
+                  {(user.followers_count || 0).toLocaleString()}
                 </span>
                 <span className="text-gray-600 dark:text-gray-400">Followers</span>
               </div>
               <div className="flex items-center space-x-1">
                 <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  {user.posts_count.toLocaleString()}
+                  {(user.posts_count || 0).toLocaleString()}
                 </span>
                 <span className="text-gray-600 dark:text-gray-400">Posts</span>
               </div>
@@ -337,7 +432,7 @@ export default function ProfilePage() {
 
             {/* Sustainability Categories */}
             <div className="flex flex-wrap gap-2">
-              {user.sustainability_categories.map((category) => (
+              {user.sustainability_categories?.map((category: string) => (
                 <Badge
                   key={category}
                   variant="secondary"
@@ -357,7 +452,7 @@ export default function ProfilePage() {
             <CardContent className="p-4">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">Achievements</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {user.achievements.map((achievement, index) => (
+                {user.achievements?.map((achievement: any, index: number) => (
                   <div
                     key={index}
                     className="flex items-center space-x-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20"
@@ -408,70 +503,7 @@ export default function ProfilePage() {
         {/* Posts Section */}
         <div className="px-4 space-y-6">
           {posts.map((post) => (
-            <Card key={post.id} className="bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex space-x-4">
-                  <Avatar className="w-12 h-12">
-                    <AvatarImage src={post.user.avatar_url || "/placeholder.svg"} />
-                    <AvatarFallback className="bg-green-500 text-white">{post.user.full_name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-semibold text-gray-900 dark:text-gray-100">{post.user.full_name}</span>
-                      {post.user.verified && <CheckCircle className="w-4 h-4 text-blue-500" />}
-                      <span className="text-gray-500 dark:text-gray-400">@{post.user.username}</span>
-                      <span className="text-gray-500 dark:text-gray-400">·</span>
-                      <span className="text-gray-500 dark:text-gray-400">
-                        {new Date(post.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-
-                    <p className="text-gray-900 dark:text-gray-100 leading-relaxed">{post.content}</p>
-
-                    {post.media_urls && post.media_urls.length > 0 && (
-                      <div
-                        className={`grid gap-2 rounded-lg overflow-hidden ${
-                          post.media_urls.length === 1
-                            ? "grid-cols-1"
-                            : post.media_urls.length === 2
-                              ? "grid-cols-2"
-                              : "grid-cols-2"
-                        }`}
-                      >
-                        {post.media_urls.map((url, index) => (
-                          <div key={index} className="relative aspect-video bg-gray-100 dark:bg-gray-700">
-                            <Image
-                              src={url || "/placeholder.svg"}
-                              alt={`Post media ${index + 1}`}
-                              fill
-                              className="object-cover"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                      {post.location && (
-                        <div className="flex items-center space-x-1">
-                          <MapPin className="w-3 h-3" />
-                          {post.location}
-                        </div>
-                      )}
-                      {post.sustainability_category && (
-                        <Badge
-                          variant="secondary"
-                          className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                        >
-                          {post.sustainability_category}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <PostCard key={post.id} post={post} onUpdate={handlePostUpdate} />
           ))}
         </div>
 
@@ -504,11 +536,11 @@ export default function ProfilePage() {
 
               {/* Upload Button */}
               <div className="flex items-center justify-center">
-                <label htmlFor="cover-upload" className="cursor-pointer">
-                  <Button variant="outline" asChild>
+                <label htmlFor="cover-upload" className={uploadingCoverImage ? "cursor-not-allowed" : "cursor-pointer"}>
+                  <Button variant="outline" asChild disabled={uploadingCoverImage}>
                     <span>
                       <Upload className="w-4 h-4 mr-2" />
-                      Choose New Photo
+                      {uploadingCoverImage ? "Uploading..." : "Choose New Photo"}
                     </span>
                   </Button>
                 </label>
@@ -518,6 +550,7 @@ export default function ProfilePage() {
                   accept="image/*"
                   onChange={handleCoverImageUpload}
                   className="hidden"
+                  disabled={uploadingCoverImage}
                 />
               </div>
             </div>
@@ -535,15 +568,23 @@ export default function ProfilePage() {
                 </Button>
                 <Button
                   onClick={handleSaveCoverImage}
-                  disabled={!selectedCoverImage}
+                  disabled={!selectedCoverImage || uploadingCoverImage}
                   className="sustainability-gradient"
                 >
-                  Save Changes
+                  {uploadingCoverImage ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+          </>
+        ) : (
+          <div className="flex items-center justify-center h-screen">
+            <div className="text-center">
+              <p className="text-gray-600 dark:text-gray-400">Profile not found</p>
+            </div>
+          </div>
+        )}
       </div>
     </MainLayout>
   )
