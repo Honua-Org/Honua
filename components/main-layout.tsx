@@ -59,11 +59,17 @@ const navigationItems = [
 export default function MainLayout({ children }: MainLayoutProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const session = useSession()
   const router = useRouter()
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
   const supabase = createClientComponentClient()
+
+  // Prevent hydration mismatch by only rendering theme-dependent content after mount
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -209,7 +215,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-                {theme === "dark" ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
+                {mounted && theme === "dark" ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
                 Toggle theme
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -242,7 +248,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
           <div className="flex items-center space-x-4">
             <Button variant="ghost" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {mounted && theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
 
             <DropdownMenu>

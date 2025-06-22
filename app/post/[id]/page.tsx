@@ -2,7 +2,7 @@
 
 import React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import MainLayout from "@/components/main-layout"
 import { Button } from "@/components/ui/button"
@@ -116,85 +116,212 @@ export default function PostDetailPage() {
   const [likesCount, setLikesCount] = useState(post.likes_count)
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [replyContent, setReplyContent] = useState("")
+  const [loading, setLoading] = useState(true)
 
-  const handleLike = () => {
+  // Fetch post data and comments
+  useEffect(() => {
+    const fetchPostData = async () => {
+      if (!params.id) return
+
+      try {
+        // Fetch post details
+        const postResponse = await fetch(`/api/posts/${params.id}`)
+        if (postResponse.ok) {
+          const postData = await postResponse.json()
+          setPost(postData.post)
+          setIsLiked(postData.post.liked_by_user)
+          setLikesCount(postData.post.likes_count)
+        }
+
+        // Fetch comments
+        const commentsResponse = await fetch(`/api/posts/${params.id}/comments`)
+        if (commentsResponse.ok) {
+          const commentsData = await commentsResponse.json()
+          setComments(commentsData.comments)
+        }
+      } catch (error) {
+        console.error('Error fetching post data:', error)
+        toast({
+          title: "Error",
+          description: "Failed to load post data",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchPostData()
+  }, [params.id, toast])
+
+  const handleLike = async () => {
     const newIsLiked = !isLiked
     setIsLiked(newIsLiked)
     setLikesCount(newIsLiked ? likesCount + 1 : likesCount - 1)
-    toast({
-      title: newIsLiked ? "Post liked!" : "Like removed",
-      description: newIsLiked ? "Added to your liked posts" : "Removed from liked posts",
-    })
+
+    try {
+      const method = newIsLiked ? 'POST' : 'DELETE'
+      const response = await fetch(`/api/posts/${post.id}/like`, { method })
+      
+      if (!response.ok) {
+        // Revert the optimistic update if API call fails
+        setIsLiked(!newIsLiked)
+        setLikesCount(!newIsLiked ? likesCount + 1 : likesCount - 1)
+        throw new Error('Failed to update like')
+      }
+
+      const data = await response.json()
+      setLikesCount(data.likes_count)
+
+      toast({
+        title: newIsLiked ? "Post liked!" : "Like removed",
+        description: newIsLiked ? "Added to your liked posts" : "Removed from liked posts",
+      })
+    } catch (error) {
+      console.error('Error updating like:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update like",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleCommentLike = (commentId: string) => {
+  const handleCommentLike = async (commentId: string) => {
+    // Find the comment to get current state
+    const comment = comments.find(c => c.id === commentId)
+    if (!comment) return
+
+    const newIsLiked = !comment.liked_by_user
+    const newLikesCount = newIsLiked ? comment.likes_count + 1 : comment.likes_count - 1
+
+    // Optimistic update
     setComments(
-      comments.map((comment) =>
-        comment.id === commentId
+      comments.map((c) =>
+        c.id === commentId
           ? {
-              ...comment,
-              liked_by_user: !comment.liked_by_user,
-              likes_count: comment.liked_by_user ? comment.likes_count - 1 : comment.likes_count + 1,
+              ...c,
+              liked_by_user: newIsLiked,
+              likes_count: newLikesCount,
             }
-          : comment,
+          : c,
       ),
     )
+
+    try {
+      const method = newIsLiked ? 'POST' : 'DELETE'
+      const response = await fetch(`/api/comments/${commentId}/like`, { method })
+      
+      if (!response.ok) {
+        // Revert the optimistic update if API call fails
+        setComments(
+          comments.map((c) =>
+            c.id === commentId
+              ? {
+                  ...c,
+                  liked_by_user: !newIsLiked,
+                  likes_count: !newIsLiked ? comment.likes_count + 1 : comment.likes_count - 1,
+                }
+              : c,
+          ),
+        )
+        throw new Error('Failed to update comment like')
+      }
+
+      const data = await response.json()
+      // Update with actual count from server
+      setComments(
+        comments.map((c) =>
+          c.id === commentId
+            ? {
+                ...c,
+                likes_count: data.likes_count,
+              }
+            : c,
+        ),
+      )
+    } catch (error) {
+      console.error('Error updating comment like:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update comment like",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleSubmitComment = () => {
+  const handleSubmitComment = async () => {
     if (!newComment.trim()) return
 
-    const comment = {
-      id: `comment${Date.now()}`,
-      user: {
-        id: "current_user",
-        username: "current_user",
-        full_name: "Current User",
-        avatar_url: "/images/profiles/sarah-green-avatar.png",
-        verified: false,
-      },
-      content: newComment,
-      likes_count: 0,
-      replies_count: 0,
-      created_at: new Date().toISOString(),
-      liked_by_user: false,
-    }
+    try {
+      const response = await fetch(`/api/posts/${post.id}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: newComment
+        })
+      })
 
-    setComments([comment, ...comments])
-    setNewComment("")
-    toast({
-      title: "Comment posted!",
-      description: "Your comment has been added to the discussion.",
-    })
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to post comment')
+      }
+
+      setComments([data.comment, ...comments])
+      setNewComment("")
+      toast({
+        title: "Comment posted!",
+        description: "Your comment has been added to the discussion.",
+      })
+    } catch (error) {
+      console.error('Error posting comment:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to post comment",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleReplyToComment = (commentId: string) => {
+  const handleReplyToComment = async (commentId: string) => {
     if (!replyContent.trim()) return
 
-    const reply = {
-      id: `reply${Date.now()}`,
-      user: {
-        id: "current_user",
-        username: "current_user",
-        full_name: "Current User",
-        avatar_url: "/images/profiles/sarah-green-avatar.png",
-        verified: false,
-      },
-      content: replyContent,
-      likes_count: 0,
-      replies_count: 0,
-      created_at: new Date().toISOString(),
-      liked_by_user: false,
-      parent_id: commentId,
-    }
+    try {
+      const response = await fetch(`/api/posts/${post.id}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: replyContent,
+          parent_id: commentId
+        })
+      })
 
-    setComments([reply, ...comments])
-    setReplyContent("")
-    setReplyingTo(null)
-    toast({
-      title: "Reply posted!",
-      description: "Your reply has been added to the discussion.",
-    })
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to post reply')
+      }
+
+      setComments([data.comment, ...comments])
+      setReplyContent("")
+      setReplyingTo(null)
+      toast({
+        title: "Reply posted!",
+        description: "Your reply has been added to the discussion.",
+      })
+    } catch (error) {
+      console.error('Error posting reply:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to post reply",
+        variant: "destructive",
+      })
+    }
   }
 
   const formatTimeAgo = (dateString: string) => {

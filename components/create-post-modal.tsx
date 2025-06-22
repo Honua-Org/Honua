@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useSession } from "@supabase/auth-helpers-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast"
 import { ImageIcon, MapPin, Smile, Calendar, Globe, Users, Lock, X } from "lucide-react"
 import Image from "next/image"
 import EmojiPicker from "@/components/emoji-picker"
+import { uploadPostMedia, type UploadResult } from "@/lib/storage"
 
 const sustainabilityCategories = [
   "Solar Energy",
@@ -29,15 +30,18 @@ const sustainabilityCategories = [
 interface CreatePostModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onPostCreated?: () => void
 }
 
-export default function CreatePostModal({ open, onOpenChange }: CreatePostModalProps) {
+export default function CreatePostModal({ open, onOpenChange, onPostCreated }: CreatePostModalProps) {
   const [content, setContent] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("")
   const [location, setLocation] = useState("")
   const [privacy, setPrivacy] = useState("public")
   const [loading, setLoading] = useState(false)
   const [selectedImages, setSelectedImages] = useState<string[]>([])
+  const [uploadingImages, setUploadingImages] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const session = useSession()
   const { toast } = useToast()
 
@@ -53,19 +57,54 @@ export default function CreatePostModal({ open, onOpenChange }: CreatePostModalP
 
     setLoading(true)
 
-    // Simulate API call
-    setTimeout(() => {
-      toast({
-        title: "Post created!",
-        description: "Your sustainability post has been shared with the community",
+    try {
+      const response = await fetch('/api/posts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: content.trim(),
+          media_urls: selectedImages,
+          location: location || null,
+          sustainability_category: selectedCategory || null,
+          impact_score: null // You can calculate this based on category or content
+        }),
       })
-      setContent("")
-      setSelectedCategory("")
-      setLocation("")
-      setSelectedImages([])
+
+      const data = await response.json()
+
+      if (response.ok) {
+         toast({
+           title: "Post created!",
+           description: "Your sustainability post has been shared with the community",
+         })
+         setContent("")
+         setSelectedCategory("")
+         setLocation("")
+         setSelectedImages([])
+         onOpenChange(false)
+         // Refresh the posts list
+         if (onPostCreated) {
+           onPostCreated()
+         }
+       } else {
+        toast({
+          title: "Error creating post",
+          description: data.error || "Something went wrong. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Error creating post:', error)
+      toast({
+        title: "Error creating post",
+        description: "Network error. Please check your connection and try again.",
+        variant: "destructive",
+      })
+    } finally {
       setLoading(false)
-      onOpenChange(false)
-    }, 1000)
+    }
   }
 
   const handleCancel = () => {
@@ -77,17 +116,81 @@ export default function CreatePostModal({ open, onOpenChange }: CreatePostModalP
   }
 
   const handleImageUpload = () => {
-    // Simulate image selection with real sustainability images
-    const mockImages = [
-      "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=600&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=600&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=600&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=600&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=600&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&h=400&fit=crop",
-    ]
-    const randomImage = mockImages[Math.floor(Math.random() * mockImages.length)]
-    setSelectedImages((prev) => [...prev, randomImage])
+    fileInputRef.current?.click()
+  }
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files || files.length === 0) return
+
+    if (!session?.user?.id) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to upload images",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Check if adding these files would exceed the limit (e.g., 4 images max)
+    if (selectedImages.length + files.length > 4) {
+      toast({
+        title: "Too many images",
+        description: "You can upload a maximum of 4 images per post",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setUploadingImages(true)
+
+    try {
+      const uploadPromises = Array.from(files).map(file => 
+        uploadPostMedia(file, session.user.id)
+      )
+      
+      const results = await Promise.all(uploadPromises)
+      
+      const successfulUploads: string[] = []
+      const errors: string[] = []
+      
+      results.forEach((result: UploadResult) => {
+        if (result.error) {
+          errors.push(result.error)
+        } else {
+          successfulUploads.push(result.url)
+        }
+      })
+      
+      if (successfulUploads.length > 0) {
+        setSelectedImages(prev => [...prev, ...successfulUploads])
+        toast({
+          title: "Images uploaded",
+          description: `Successfully uploaded ${successfulUploads.length} image(s)`,
+        })
+      }
+      
+      if (errors.length > 0) {
+        toast({
+          title: "Upload errors",
+          description: `Failed to upload ${errors.length} image(s): ${errors[0]}`,
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Upload error:', error)
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload images. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setUploadingImages(false)
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
   }
 
   const handleEmojiSelect = (emoji: string) => {
@@ -175,14 +278,23 @@ export default function CreatePostModal({ open, onOpenChange }: CreatePostModalP
 
               <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex items-center space-x-4">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
                   <Button
                     variant="ghost"
                     size="sm"
                     className="text-green-600 hover:text-green-700"
                     onClick={handleImageUpload}
+                    disabled={uploadingImages}
                   >
                     <ImageIcon className="w-4 h-4 mr-2" />
-                    Media
+                    {uploadingImages ? "Uploading..." : "Media"}
                   </Button>
                   <EmojiPicker onEmojiSelect={handleEmojiSelect}>
                     <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700">
