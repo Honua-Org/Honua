@@ -63,7 +63,7 @@ export default function SignupPage() {
     setLoading(true)
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data: signUpData, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
@@ -81,6 +81,29 @@ export default function SignupPage() {
           variant: "destructive",
         })
       } else {
+        // Insert a new profile row for the user
+        const user = signUpData?.user
+        if (user) {
+          const { error: profileError } = await supabase.from('profiles').insert([
+            {
+              id: user.id,
+              full_name: formData.fullName,
+              username: formData.username
+            }
+          ])
+          if (profileError) {
+            toast({
+              title: "Profile creation failed",
+              description: profileError.message,
+              variant: "destructive",
+            })
+          }
+        } else {
+          toast({
+            title: "Profile creation pending",
+            description: "Please check your email to verify your account. Your profile will be created after verification.",
+          })
+        }
         toast({
           title: "Welcome to Honua!",
           description: "Please check your email to verify your account",

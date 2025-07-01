@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
 // POST /api/posts - Create a new post
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = cookies()
+    const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
     
     // Get current user

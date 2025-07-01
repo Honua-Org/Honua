@@ -46,6 +46,14 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
   const { toast } = useToast()
 
   const handleSubmit = async () => {
+    if (!session?.user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to create a post",
+        variant: "destructive",
+      })
+      return
+    }
     if (!content.trim()) {
       toast({
         title: "Content required",
