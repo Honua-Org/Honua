@@ -109,11 +109,8 @@ export default function BookmarksPage() {
             location,
             sustainability_category,
             impact_score,
-            likes_count,
-            comments_count,
-            reposts_count,
             created_at,
-            user:profiles (
+            profiles:user_id (
               id,
               username,
               full_name,
@@ -125,6 +122,7 @@ export default function BookmarksPage() {
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
       if (error) {
+        console.error('Error fetching bookmarks:', error)
         setPosts([])
         return
       }
@@ -133,15 +131,15 @@ export default function BookmarksPage() {
         const p = b.posts
         return {
           id: p.id,
-          user: p.user,
+          user: p.profiles,
           content: p.content,
           media_urls: p.media_urls,
           location: p.location,
           sustainability_category: p.sustainability_category,
           impact_score: p.impact_score,
-          likes_count: p.likes_count,
-          comments_count: p.comments_count,
-          reposts_count: p.reposts_count,
+          likes_count: 0,
+          comments_count: 0,
+          reposts_count: 0,
           created_at: p.created_at,
           liked_by_user: false, // Optionally fetch likes
           bookmarked_by_user: true,
@@ -168,11 +166,8 @@ export default function BookmarksPage() {
           location,
           sustainability_category,
           impact_score,
-          likes_count,
-          comments_count,
-          reposts_count,
           created_at,
-          user:profiles (
+          profiles:user_id (
             id,
             username,
             full_name,
@@ -184,6 +179,7 @@ export default function BookmarksPage() {
       .eq('user_id', session.user.id)
       .order('created_at', { ascending: false })
     if (error) {
+      console.error('Error refreshing bookmarks:', error)
       setPosts([])
       return
     }
@@ -191,15 +187,15 @@ export default function BookmarksPage() {
       const p = b.posts
       return {
         id: p.id,
-        user: p.user,
+        user: p.profiles,
         content: p.content,
         media_urls: p.media_urls,
         location: p.location,
         sustainability_category: p.sustainability_category,
         impact_score: p.impact_score,
-        likes_count: p.likes_count,
-        comments_count: p.comments_count,
-        reposts_count: p.reposts_count,
+        likes_count: 0,
+        comments_count: 0,
+        reposts_count: 0,
         created_at: p.created_at,
         liked_by_user: false,
         bookmarked_by_user: true,
