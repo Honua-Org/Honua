@@ -4,6 +4,8 @@ import React from "react"
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { useSession } from "@supabase/auth-helpers-react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import MainLayout from "@/components/main-layout"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -26,6 +28,42 @@ import {
 import Link from "next/link"
 import Image from "next/image"
 import ImageModal from "@/components/image-modal"
+
+// TypeScript interfaces
+interface User {
+  id: string
+  username: string
+  full_name: string
+  avatar_url: string
+  verified?: boolean
+}
+
+interface Post {
+  id: string
+  user: User
+  content: string
+  media_urls?: string[]
+  location?: string
+  sustainability_category?: string
+  impact_score?: number
+  likes_count: number
+  comments_count: number
+  reposts_count: number
+  created_at: string
+  liked_by_user: boolean
+  bookmarked_by_user: boolean
+}
+
+interface Comment {
+  id: string
+  user: User
+  content: string
+  likes_count: number
+  replies_count: number
+  created_at: string
+  liked_by_user: boolean
+  parent_id?: string | null
+}
 
 // Mock data - in real app, this would come from API
 const mockPost = {
@@ -108,15 +146,34 @@ export default function PostDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
-  const [post, setPost] = useState(mockPost)
+  const session = useSession()
+  const supabase = createClientComponentClient()
+  const [post, setPost] = useState<Post | null>(null)
   const [comments, setComments] = useState(mockComments)
   const [newComment, setNewComment] = useState("")
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
-  const [isLiked, setIsLiked] = useState(post.liked_by_user)
-  const [likesCount, setLikesCount] = useState(post.likes_count)
+  const [isLiked, setIsLiked] = useState(post?.liked_by_user ?? false)
+  const [likesCount, setLikesCount] = useState(post?.likes_count ?? 0)
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [replyContent, setReplyContent] = useState("")
   const [loading, setLoading] = useState(true)
+  const [collapsedReplies, setCollapsedReplies] = useState<Set<string>>(new Set())
+  const [profile, setProfile] = useState<any>(null)
+
+  // Fetch current user profile
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (session?.user?.id) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('avatar_url, full_name, username')
+          .eq('id', session.user.id)
+          .single()
+        if (!error) setProfile(data)
+      }
+    }
+    fetchProfile()
+  }, [session?.user?.id])
 
   // Fetch post data and comments
   useEffect(() => {
@@ -124,35 +181,58 @@ export default function PostDetailPage() {
       if (!params.id) return
 
       try {
-        // Fetch post details
-        const postResponse = await fetch(`/api/posts/${params.id}`)
-        if (postResponse.ok) {
-          const postData = await postResponse.json()
-          setPost(postData.post)
-          setIsLiked(postData.post.liked_by_user)
-          setLikesCount(postData.post.likes_count)
+        // Try to fetch post details from API
+        try {
+          const postResponse = await fetch(`/api/posts/${params.id}`)
+          if (postResponse.ok) {
+            const postData = await postResponse.json()
+            setPost(postData.post)
+            setIsLiked(postData.post.liked_by_user)
+            setLikesCount(postData.post.likes_count)
+          } else {
+            // Fall back to mock data if API fails
+            console.log('API failed, using mock data')
+            setPost(mockPost)
+            setIsLiked(mockPost.liked_by_user)
+            setLikesCount(mockPost.likes_count)
+          }
+        } catch (apiError) {
+          // Fall back to mock data if API call fails
+          console.log('API error, using mock data:', apiError)
+          setPost(mockPost)
+          setIsLiked(mockPost.liked_by_user)
+          setLikesCount(mockPost.likes_count)
         }
 
-        // Fetch comments
-        const commentsResponse = await fetch(`/api/posts/${params.id}/comments`)
-        if (commentsResponse.ok) {
-          const commentsData = await commentsResponse.json()
-          setComments(commentsData.comments)
+        // Try to fetch comments from API
+        try {
+          const commentsResponse = await fetch(`/api/posts/${params.id}/comments`)
+          if (commentsResponse.ok) {
+            const commentsData = await commentsResponse.json()
+            setComments(commentsData.comments)
+          } else {
+            // Fall back to mock comments if API fails
+            setComments(mockComments)
+          }
+        } catch (apiError) {
+          // Fall back to mock comments if API call fails
+          console.log('Comments API error, using mock data:', apiError)
+          setComments(mockComments)
         }
       } catch (error) {
+        // Final fallback to mock data if everything fails
         console.error('Error fetching post data:', error)
-        toast({
-          title: "Error",
-          description: "Failed to load post data",
-          variant: "destructive",
-        })
+        setPost(mockPost)
+        setComments(mockComments)
+        setIsLiked(mockPost.liked_by_user)
+        setLikesCount(mockPost.likes_count)
       } finally {
         setLoading(false)
       }
     }
 
     fetchPostData()
-  }, [params.id, toast])
+  }, [params.id, toast, router])
 
   const handleLike = async () => {
     const newIsLiked = !isLiked
@@ -161,6 +241,7 @@ export default function PostDetailPage() {
 
     try {
       const method = newIsLiked ? 'POST' : 'DELETE'
+      if (!post) return;
       const response = await fetch(`/api/posts/${post.id}/like`, { method })
       
       if (!response.ok) {
@@ -254,6 +335,7 @@ export default function PostDetailPage() {
     if (!newComment.trim()) return
 
     try {
+      if (!post) return;
       const response = await fetch(`/api/posts/${post.id}/comments`, {
         method: 'POST',
         headers: {
@@ -264,10 +346,19 @@ export default function PostDetailPage() {
         })
       })
 
-      const data = await response.json()
+      let data
+      try {
+        data = await response.json()
+      } catch (parseError) {
+        console.error('Failed to parse response as JSON:', parseError)
+        throw new Error(`Server returned invalid response (${response.status})`)
+      }
+
+      console.log('API Response:', { status: response.status, data })
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to post comment')
+        console.error('API Error:', data)
+        throw new Error(data.error || `Failed to post comment (${response.status})`)
       }
 
       setComments([data.comment, ...comments])
@@ -288,7 +379,7 @@ export default function PostDetailPage() {
 
   const handleReplyToComment = async (commentId: string) => {
     if (!replyContent.trim()) return
-
+    if (!post) return;
     try {
       const response = await fetch(`/api/posts/${post.id}/comments`, {
         method: 'POST',
@@ -339,6 +430,40 @@ export default function PostDetailPage() {
     if (score >= 80) return "bg-green-500"
     if (score >= 60) return "bg-yellow-500"
     return "bg-orange-500"
+  }
+
+  const getReplyCount = (commentId: string) => {
+    return comments.filter(comment => comment.parent_id === commentId).length
+  }
+
+  const toggleRepliesCollapse = (commentId: string) => {
+    const newCollapsed = new Set(collapsedReplies)
+    if (newCollapsed.has(commentId)) {
+      newCollapsed.delete(commentId)
+    } else {
+      newCollapsed.add(commentId)
+    }
+    setCollapsedReplies(newCollapsed)
+  }
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="max-w-2xl mx-auto p-4 pb-20 lg:pb-4">
+          <div className="text-center text-gray-500 font-semibold mt-10">Loading...</div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!post) {
+    return (
+      <MainLayout>
+        <div className="max-w-2xl mx-auto p-4 pb-20 lg:pb-4">
+          <div className="text-center text-red-500 font-semibold mt-10">Post not found or could not be loaded.</div>
+        </div>
+      </MainLayout>
+    );
   }
 
   return (
@@ -470,8 +595,10 @@ export default function PostDetailPage() {
           <CardContent className="p-4">
             <div className="flex space-x-3">
               <Avatar className="w-10 h-10">
-                <AvatarImage src="/images/profiles/sarah-green-avatar.png" />
-                <AvatarFallback className="bg-green-500 text-white">S</AvatarFallback>
+                <AvatarImage src={profile?.avatar_url || "/placeholder-user.jpg"} />
+                <AvatarFallback className="bg-green-500 text-white">
+                  {profile?.full_name?.charAt(0) || session?.user?.user_metadata?.full_name?.charAt(0) || "U"}
+                </AvatarFallback>
               </Avatar>
               <div className="flex-1 space-y-3">
                 <Textarea
@@ -497,163 +624,231 @@ export default function PostDetailPage() {
 
         {/* Comments */}
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Comments ({comments.length})</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Comments ({comments.filter(comment => !comment.parent_id).length})</h2>
 
-          {comments.map((comment) => (
-            <Card key={comment.id}>
-              <CardContent className="p-4">
-                <div className="flex space-x-3">
-                  <Link href={`/profile/${comment.user.username}`}>
-                    <Avatar className="w-10 h-10 cursor-pointer">
-                      <AvatarImage src={comment.user.avatar_url || "/placeholder.svg"} />
+          {comments
+            .filter(comment => !comment.parent_id) // Only show top-level comments
+            .map((comment) => (
+            <div key={comment.id} className="space-y-3">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex space-x-3">
+                    <Link href={`/profile/${comment.user.username}`}>
+                      <Avatar className="w-10 h-10 cursor-pointer">
+                        <AvatarImage src={comment.user.avatar_url || "/placeholder.svg"} />
+                        <AvatarFallback className="bg-green-500 text-white">
+                          {comment.user.full_name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Link>
+
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Link
+                          href={`/profile/${comment.user.username}`}
+                          className="flex items-center space-x-2 hover:underline"
+                        >
+                          <span className="font-semibold text-gray-900 dark:text-gray-100">{comment.user.full_name}</span>
+                          {comment.user.verified && <CheckCircle className="w-4 h-4 text-blue-500" />}
+                        </Link>
+                        <span className="text-gray-500 dark:text-gray-400">@{comment.user.username}</span>
+                        <span className="text-gray-500 dark:text-gray-400">·</span>
+                        <span className="text-gray-500 dark:text-gray-400">{formatTimeAgo(comment.created_at)}</span>
+                      </div>
+
+                      <p className="text-gray-900 dark:text-gray-100">{comment.content}</p>
+
+                      <div className="flex items-center space-x-4">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCommentLike(comment.id)}
+                          className={`flex items-center space-x-1 ${
+                            comment.liked_by_user ? "text-red-500 hover:text-red-600" : "text-gray-500 hover:text-red-500"
+                          }`}
+                        >
+                          <Heart className={`w-4 h-4 ${comment.liked_by_user ? "fill-current" : ""}`} />
+                          <span>{comment.likes_count}</span>
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex items-center space-x-1 text-gray-500 hover:text-blue-500"
+                          onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                          <span>Reply</span>
+                        </Button>
+
+                        {getReplyCount(comment.id) > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="flex items-center space-x-1 text-gray-500 hover:text-gray-700"
+                            onClick={() => toggleRepliesCollapse(comment.id)}
+                          >
+                            <span className="text-sm">
+                              {collapsedReplies.has(comment.id) ? 'Show' : 'Hide'} {getReplyCount(comment.id)} {getReplyCount(comment.id) === 1 ? 'reply' : 'replies'}
+                            </span>
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Reply Input */}
+              {replyingTo === comment.id && (
+                <div className="ml-12 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
+                  <div className="flex space-x-2">
+                    <Avatar className="w-8 h-8">
+                      <AvatarImage src={profile?.avatar_url || "/placeholder-user.jpg"} />
                       <AvatarFallback className="bg-green-500 text-white">
-                        {comment.user.full_name.charAt(0)}
+                        {profile?.full_name?.charAt(0) || session?.user?.user_metadata?.full_name?.charAt(0) || "U"}
                       </AvatarFallback>
                     </Avatar>
-                  </Link>
-
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Link
-                        href={`/profile/${comment.user.username}`}
-                        className="flex items-center space-x-2 hover:underline"
-                      >
-                        <span className="font-semibold text-gray-900 dark:text-gray-100">{comment.user.full_name}</span>
-                        {comment.user.verified && <CheckCircle className="w-4 h-4 text-blue-500" />}
-                      </Link>
-                      <span className="text-gray-500 dark:text-gray-400">@{comment.user.username}</span>
-                      <span className="text-gray-500 dark:text-gray-400">·</span>
-                      <span className="text-gray-500 dark:text-gray-400">{formatTimeAgo(comment.created_at)}</span>
-                    </div>
-
-                    <p className="text-gray-900 dark:text-gray-100">{comment.content}</p>
-
-                    <div className="flex items-center space-x-4">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleCommentLike(comment.id)}
-                        className={`flex items-center space-x-1 ${
-                          comment.liked_by_user ? "text-red-500 hover:text-red-600" : "text-gray-500 hover:text-red-500"
-                        }`}
-                      >
-                        <Heart className={`w-4 h-4 ${comment.liked_by_user ? "fill-current" : ""}`} />
-                        <span>{comment.likes_count}</span>
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="flex items-center space-x-1 text-gray-500 hover:text-blue-500"
-                        onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                        <span>Reply</span>
-                      </Button>
+                    <div className="flex-1 space-y-2">
+                      <Textarea
+                        placeholder={`Reply to ${comment.user.full_name}...`}
+                        value={replyContent}
+                        onChange={(e) => setReplyContent(e.target.value)}
+                        className="min-h-[60px] resize-none text-sm"
+                      />
+                      <div className="flex justify-end space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setReplyingTo(null)
+                            setReplyContent("")
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleReplyToComment(comment.id)}
+                          disabled={!replyContent.trim()}
+                          className="sustainability-gradient"
+                        >
+                          Reply
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              )}
+
+              {/* Replies */}
+              {!collapsedReplies.has(comment.id) && comments
+                .filter(reply => reply.parent_id === comment.id)
+                .map((reply) => (
+                <div key={reply.id} className="ml-12 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
+                  <Card>
+                    <CardContent className="p-3">
+                      <div className="flex space-x-3">
+                        <Link href={`/profile/${reply.user.username}`}>
+                          <Avatar className="w-8 h-8 cursor-pointer">
+                            <AvatarImage src={reply.user.avatar_url || "/placeholder.svg"} />
+                            <AvatarFallback className="bg-green-500 text-white">
+                              {reply.user.full_name.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                        </Link>
+
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Link
+                              href={`/profile/${reply.user.username}`}
+                              className="flex items-center space-x-2 hover:underline"
+                            >
+                              <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{reply.user.full_name}</span>
+                              {reply.user.verified && <CheckCircle className="w-3 h-3 text-blue-500" />}
+                            </Link>
+                            <span className="text-gray-500 dark:text-gray-400 text-sm">@{reply.user.username}</span>
+                            <span className="text-gray-500 dark:text-gray-400 text-sm">·</span>
+                            <span className="text-gray-500 dark:text-gray-400 text-sm">{formatTimeAgo(reply.created_at)}</span>
+                          </div>
+
+                          <p className="text-gray-900 dark:text-gray-100 text-sm">{reply.content}</p>
+
+                          <div className="flex items-center space-x-4">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleCommentLike(reply.id)}
+                              className={`flex items-center space-x-1 text-xs ${
+                                reply.liked_by_user ? "text-red-500 hover:text-red-600" : "text-gray-500 hover:text-red-500"
+                              }`}
+                            >
+                              <Heart className={`w-3 h-3 ${reply.liked_by_user ? "fill-current" : ""}`} />
+                              <span>{reply.likes_count}</span>
+                            </Button>
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="flex items-center space-x-1 text-gray-500 hover:text-blue-500 text-xs"
+                              onClick={() => setReplyingTo(replyingTo === reply.id ? null : reply.id)}
+                            >
+                              <MessageCircle className="w-3 h-3" />
+                              <span>Reply</span>
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Nested Reply Input */}
+                  {replyingTo === reply.id && (
+                    <div className="ml-8 mt-2 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
+                      <div className="flex space-x-2">
+                        <Avatar className="w-6 h-6">
+                          <AvatarImage src={profile?.avatar_url || "/placeholder-user.jpg"} />
+                          <AvatarFallback className="bg-green-500 text-white text-xs">
+                            {profile?.full_name?.charAt(0) || session?.user?.user_metadata?.full_name?.charAt(0) || "U"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 space-y-2">
+                          <Textarea
+                            placeholder={`Reply to ${reply.user.full_name}...`}
+                            value={replyContent}
+                            onChange={(e) => setReplyContent(e.target.value)}
+                            className="min-h-[50px] resize-none text-xs"
+                          />
+                          <div className="flex justify-end space-x-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setReplyingTo(null)
+                                setReplyContent("")
+                              }}
+                              className="text-xs"
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleReplyToComment(reply.id)}
+                              disabled={!replyContent.trim()}
+                              className="sustainability-gradient text-xs"
+                            >
+                              Reply
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           ))}
         </div>
-        {comments.map((comment) => (
-          <React.Fragment key={comment.id}>
-            <Card key={comment.id}>
-              <CardContent className="p-4">
-                <div className="flex space-x-3">
-                  <Link href={`/profile/${comment.user.username}`}>
-                    <Avatar className="w-10 h-10 cursor-pointer">
-                      <AvatarImage src={comment.user.avatar_url || "/placeholder.svg"} />
-                      <AvatarFallback className="bg-green-500 text-white">
-                        {comment.user.full_name.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Link>
-
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Link
-                        href={`/profile/${comment.user.username}`}
-                        className="flex items-center space-x-2 hover:underline"
-                      >
-                        <span className="font-semibold text-gray-900 dark:text-gray-100">{comment.user.full_name}</span>
-                        {comment.user.verified && <CheckCircle className="w-4 h-4 text-blue-500" />}
-                      </Link>
-                      <span className="text-gray-500 dark:text-gray-400">@{comment.user.username}</span>
-                      <span className="text-gray-500 dark:text-gray-400">·</span>
-                      <span className="text-gray-500 dark:text-gray-400">{formatTimeAgo(comment.created_at)}</span>
-                    </div>
-
-                    <p className="text-gray-900 dark:text-gray-100">{comment.content}</p>
-
-                    <div className="flex items-center space-x-4">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleCommentLike(comment.id)}
-                        className={`flex items-center space-x-1 ${
-                          comment.liked_by_user ? "text-red-500 hover:text-red-600" : "text-gray-500 hover:text-red-500"
-                        }`}
-                      >
-                        <Heart className={`w-4 h-4 ${comment.liked_by_user ? "fill-current" : ""}`} />
-                        <span>{comment.likes_count}</span>
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="flex items-center space-x-1 text-gray-500 hover:text-blue-500"
-                        onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                        <span>Reply</span>
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            {replyingTo === comment.id && (
-              <div className="mt-3 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
-                <div className="flex space-x-2">
-                  <Avatar className="w-8 h-8">
-                    <AvatarImage src="/images/profiles/sarah-green-avatar.png" />
-                    <AvatarFallback className="bg-green-500 text-white">S</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 space-y-2">
-                    <Textarea
-                      placeholder={`Reply to ${comment.user.full_name}...`}
-                      value={replyContent}
-                      onChange={(e) => setReplyContent(e.target.value)}
-                      className="min-h-[60px] resize-none text-sm"
-                    />
-                    <div className="flex justify-end space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setReplyingTo(null)
-                          setReplyContent("")
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => handleReplyToComment(comment.id)}
-                        disabled={!replyContent.trim()}
-                        className="sustainability-gradient"
-                      >
-                        Reply
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </React.Fragment>
-        ))}
       </div>
 
       {/* Image Modal */}
@@ -662,4 +857,28 @@ export default function PostDetailPage() {
       )}
     </MainLayout>
   )
+}
+
+
+// Type definition for Post
+interface Post {
+  id: string
+  user: {
+    id: string
+    username: string
+    full_name: string
+    avatar_url: string
+    verified: boolean
+  }
+  content: string
+  media_urls: string[]
+  location: string
+  sustainability_category: string
+  impact_score: number
+  likes_count: number
+  comments_count: number
+  reposts_count: number
+  created_at: string
+  liked_by_user: boolean
+  bookmarked_by_user: boolean
 }

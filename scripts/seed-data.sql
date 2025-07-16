@@ -20,14 +20,37 @@ ON CONFLICT (id) DO NOTHING;
 -- If no authenticated user, create some sample data that can be used for display
 -- These won't have foreign key constraints since they're just for demo purposes
 
--- Create some demo posts without user associations for display purposes
-INSERT INTO posts (id, content, media_urls, location, sustainability_category, impact_score, created_at) VALUES
-('650e8400-e29b-41d4-a716-446655440001', 'Just installed 20 solar panels on our community center! 🌞 This will reduce our carbon footprint by 80% and save $3,000 annually. Small steps lead to big changes! #SolarEnergy #CommunityAction', '{"/placeholder.svg?height=400&width=600"}', 'Portland, Oregon', 'Solar Energy', 85, '2024-01-15 10:30:00+00'),
-('650e8400-e29b-41d4-a716-446655440002', 'Week 3 of our zero-waste challenge! Our family has reduced waste by 90% through composting, reusable containers, and mindful shopping. Who else is joining the movement? 🌱', '{"/placeholder.svg?height=300&width=400","/placeholder.svg?height=300&width=400"}', 'Austin, Texas', 'Waste Reduction', 72, '2024-01-15 08:15:00+00'),
-('650e8400-e29b-41d4-a716-446655440003', 'Exciting news! Our new wind turbine design is 40% more efficient than traditional models. This breakthrough could revolutionize renewable energy production. Read our full research paper in the comments 👇', '{"/placeholder.svg?height=500&width=700"}', 'Copenhagen, Denmark', 'Wind Power', 95, '2024-01-14 16:45:00+00'),
-('650e8400-e29b-41d4-a716-446655440004', 'Transformed our apartment balcony into a thriving urban garden! 🌿 Growing our own herbs, vegetables, and flowers. Even small spaces can make a big difference for biodiversity and food security.', '{"/placeholder.svg?height=400&width=600","/placeholder.svg?height=400&width=600"}', 'New York, NY', 'Sustainable Agriculture', 68, '2024-01-14 12:20:00+00'),
-('650e8400-e29b-41d4-a716-446655440005', 'Join us for the Global Climate Strike this Friday! 🌍 Together, we can demand urgent action on climate change. Every voice matters, every action counts. #ClimateStrike #ActNow', '{"/placeholder.svg?height=400&width=800"}', 'Global Event', 'Climate Action', 88, '2024-01-14 09:00:00+00')
+-- Remove posts without user associations - they will be created with proper user_id below
+
+
+
+-- Insert sample users into auth.users (for local development)
+INSERT INTO auth.users (id, email, encrypted_password) VALUES
+('00000000-0000-0000-0000-000000000001', 'demo1@example.com', '$2a$10$K.0HwpzQh8T4/sUGJCP7W.2wgc8S8MLlrQQ7z6ceTrqO5zBK98/4C'), -- password: demo123
+('00000000-0000-0000-0000-000000000002', 'demo2@example.com', '$2a$10$K.0HwpzQh8T4/sUGJCP7W.2wgc8S8MLlrQQ7z6ceTrqO5zBK98/4C') -- password: demo123
 ON CONFLICT (id) DO NOTHING;
+
+-- Insert corresponding profiles
+INSERT INTO profiles (id, username, full_name, avatar_url, bio, location, website, role, reputation) VALUES
+('00000000-0000-0000-0000-000000000001', 'demo_user1', 'Demo User 1', '/placeholder.svg?height=256&width=256', 'Demo sustainability advocate', 'Demo Location', 'https://demo.com', 'user', 100),
+('00000000-0000-0000-0000-000000000002', 'demo_user2', 'Demo User 2', '/placeholder.svg?height=256&width=256', 'Demo sustainability advocate', 'Demo Location', 'https://demo.com', 'user', 100)
+ON CONFLICT (id) DO NOTHING;
+
+-- Create demo posts with proper user associations
+INSERT INTO posts (id, user_id, content, media_urls, location, sustainability_category, impact_score, created_at) VALUES
+('650e8400-e29b-41d4-a716-446655440001', '00000000-0000-0000-0000-000000000001', 'Just installed 20 solar panels on our community center! 🌞 This will reduce our carbon footprint by 80% and save $3,000 annually. Small steps lead to big changes! #SolarEnergy #CommunityAction', '{"/placeholder.svg?height=400&width=600"}', 'Portland, Oregon', 'Solar Energy', 85, '2024-01-15 10:30:00+00'),
+('650e8400-e29b-41d4-a716-446655440002', '00000000-0000-0000-0000-000000000002', 'Week 3 of our zero-waste challenge! Our family has reduced waste by 90% through composting, reusable containers, and mindful shopping. Who else is joining the movement? 🌱', '{"/placeholder.svg?height=300&width=400","/placeholder.svg?height=300&width=400"}', 'Austin, Texas', 'Waste Reduction', 72, '2024-01-15 08:15:00+00'),
+('650e8400-e29b-41d4-a716-446655440003', '00000000-0000-0000-0000-000000000001', 'Exciting news! Our new wind turbine design is 40% more efficient than traditional models. This breakthrough could revolutionize renewable energy production. Read our full research paper in the comments 👇', '{"/placeholder.svg?height=500&width=700"}', 'Copenhagen, Denmark', 'Wind Power', 95, '2024-01-14 16:45:00+00'),
+('650e8400-e29b-41d4-a716-446655440004', '00000000-0000-0000-0000-000000000002', 'Transformed our apartment balcony into a thriving urban garden! 🌿 Growing our own herbs, vegetables, and flowers. Even small spaces can make a big difference for biodiversity and food security.', '{"/placeholder.svg?height=400&width=600","/placeholder.svg?height=400&width=600"}', 'New York, NY', 'Sustainable Agriculture', 68, '2024-01-14 12:20:00+00'),
+('650e8400-e29b-41d4-a716-446655440005', '00000000-0000-0000-0000-000000000001', 'Join us for the Global Climate Strike this Friday! 🌍 Together, we can demand urgent action on climate change. Every voice matters, every action counts. #ClimateStrike #ActNow', '{"/placeholder.svg?height=400&width=800"}', 'Global Event', 'Climate Action', 88, '2024-01-14 09:00:00+00')
+ON CONFLICT (id) DO UPDATE SET
+  user_id = EXCLUDED.user_id,
+  content = EXCLUDED.content,
+  media_urls = EXCLUDED.media_urls,
+  location = EXCLUDED.location,
+  sustainability_category = EXCLUDED.sustainability_category,
+  impact_score = EXCLUDED.impact_score,
+  created_at = EXCLUDED.created_at;
 
 -- Insert sample tasks that don't require user associations
 INSERT INTO tasks (title, description, category, points, deadline) VALUES

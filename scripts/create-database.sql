@@ -208,6 +208,23 @@ DROP POLICY IF EXISTS "Users can delete own bookmarks" ON bookmarks;
 CREATE POLICY "Users can delete own bookmarks" ON bookmarks
   FOR DELETE USING (auth.uid() = user_id);
 
+-- Create policies for comments
+DROP POLICY IF EXISTS "Comments are viewable by everyone" ON comments;
+CREATE POLICY "Comments are viewable by everyone" ON comments
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Users can insert their own comments" ON comments;
+CREATE POLICY "Users can insert their own comments" ON comments
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update own comments" ON comments;
+CREATE POLICY "Users can update own comments" ON comments
+  FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete own comments" ON comments;
+CREATE POLICY "Users can delete own comments" ON comments
+  FOR DELETE USING (auth.uid() = user_id);
+
 -- Create policies for comment_likes
 DROP POLICY IF EXISTS "Comment likes are viewable by everyone" ON comment_likes;
 CREATE POLICY "Comment likes are viewable by everyone" ON comment_likes

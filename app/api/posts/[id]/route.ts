@@ -5,20 +5,18 @@ import { NextRequest, NextResponse } from 'next/server'
 // GET /api/posts/[id] - Get a specific post
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
-    const { id } = params
+    const supabase = createRouteHandlerClient({ cookies });
+    const params = await context.params;
+    const { id } = params;
 
-    // Get current user session
+    // Get current user session (optional for viewing posts)
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
 
     // Fetch specific post with user data and interaction counts
-    const { data: post, error } = await supabase
+    let query = supabase
       .from('posts')
       .select(`
         *,
@@ -30,17 +28,37 @@ export async function GET(
         ),
         likes:likes(count),
         comments:comments(count),
-        reposts:reposts(count),
-        user_likes:likes!inner(user_id),
-        user_bookmarks:bookmarks!inner(user_id),
-        user_reposts:reposts!inner(user_id)
+        reposts:reposts(count)
       `)
       .eq('id', id)
       .single()
 
-    if (error) {
-      console.error('Error fetching post:', error)
+    const { data: post, error } = await query
+
+    if (error || !post || !post.profiles) {
+      console.error('Error fetching post or missing user profile:', error)
       return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+    }
+
+    // Fetch user-specific interactions if user is logged in
+    let userInteractions = {
+      liked_by_user: false,
+      bookmarked_by_user: false,
+      reposted_by_user: false
+    }
+
+    if (session?.user?.id) {
+      const [likesResult, bookmarksResult, repostsResult] = await Promise.all([
+        supabase.from('likes').select('id').eq('post_id', id).eq('user_id', session.user.id).single(),
+        supabase.from('bookmarks').select('id').eq('post_id', id).eq('user_id', session.user.id).single(),
+        supabase.from('reposts').select('id').eq('post_id', id).eq('user_id', session.user.id).single()
+      ])
+
+      userInteractions = {
+        liked_by_user: !likesResult.error && !!likesResult.data,
+        bookmarked_by_user: !bookmarksResult.error && !!bookmarksResult.data,
+        reposted_by_user: !repostsResult.error && !!repostsResult.data
+      }
     }
 
     // Transform the data
@@ -50,9 +68,7 @@ export async function GET(
       likes_count: post.likes?.[0]?.count || 0,
       comments_count: post.comments?.[0]?.count || 0,
       reposts_count: post.reposts?.[0]?.count || 0,
-      liked_by_user: post.user_likes?.some((like: any) => like.user_id === session.user.id) || false,
-      bookmarked_by_user: post.user_bookmarks?.some((bookmark: any) => bookmark.user_id === session.user.id) || false,
-      reposted_by_user: post.user_reposts?.some((repost: any) => repost.user_id === session.user.id) || false
+      ...userInteractions
     }
 
     return NextResponse.json({ post: transformedPost })
@@ -65,11 +81,12 @@ export async function GET(
 // DELETE /api/posts/[id] - Delete a post
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
-    const { id } = params
+    const supabase = createRouteHandlerClient({ cookies });
+    const params = await context.params;
+    const { id } = params;
 
     // Get current user session
     const { data: { session } } = await supabase.auth.getSession()

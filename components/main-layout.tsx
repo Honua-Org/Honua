@@ -60,16 +60,30 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [profile, setProfile] = useState<any>(null)
   const session = useSession()
   const router = useRouter()
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
   const supabase = createClientComponentClient()
 
-  // Prevent hydration mismatch by only rendering theme-dependent content after mount
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (session?.user?.id) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('avatar_url, full_name, username')
+          .eq('id', session.user.id)
+          .single()
+        if (!error) setProfile(data)
+      }
+    }
+    fetchProfile()
+  }, [session?.user?.id])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -140,17 +154,17 @@ export default function MainLayout({ children }: MainLayoutProps) {
       <div className="p-4 border-t">
         <div className="flex items-center space-x-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
           <Avatar className="w-10 h-10">
-            <AvatarImage src="/images/profiles/sarah-green-avatar.png" />
+            <AvatarImage src={profile?.avatar_url || "/placeholder-user.jpg"} />
             <AvatarFallback className="bg-green-500 text-white">
-              {session?.user?.user_metadata?.full_name?.charAt(0) || "S"}
+              {profile?.full_name?.charAt(0) || session?.user?.user_metadata?.full_name?.charAt(0) || "S"}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-              {session?.user?.user_metadata?.full_name || "User"}
+              {profile?.full_name || session?.user?.user_metadata?.full_name || "User"}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-              @{session?.user?.user_metadata?.username || "username"}
+              @{profile?.username || session?.user?.user_metadata?.username || "username"}
             </p>
           </div>
         </div>
@@ -192,9 +206,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm">
                 <Avatar className="w-8 h-8">
-                  <AvatarImage src="/images/profiles/sarah-green-avatar.png" />
+                  <AvatarImage src={profile?.avatar_url || "/placeholder-user.jpg"} />
                   <AvatarFallback className="bg-green-500 text-white text-xs">
-                    {session?.user?.user_metadata?.full_name?.charAt(0) || "S"}
+                    {profile?.full_name?.charAt(0) || session?.user?.user_metadata?.full_name?.charAt(0) || "S"}
                   </AvatarFallback>
                 </Avatar>
               </Button>
@@ -255,9 +269,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm">
                   <Avatar className="w-8 h-8">
-                    <AvatarImage src="/images/profiles/sarah-green-avatar.png" />
+                    <AvatarImage src={profile?.avatar_url || "/placeholder-user.jpg"} />
                     <AvatarFallback className="bg-green-500 text-white text-xs">
-                      {session?.user?.user_metadata?.full_name?.charAt(0) || "S"}
+                      {profile?.full_name?.charAt(0) || session?.user?.user_metadata?.full_name?.charAt(0) || "S"}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
@@ -265,8 +279,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium">{session?.user?.user_metadata?.full_name || "User"}</p>
-                    <p className="text-xs text-muted-foreground">{session?.user?.email}</p>
+                    <p className="text-sm font-medium">{profile?.full_name || session?.user?.user_metadata?.full_name || "User"}</p>
+                    <p className="text-xs text-muted-foreground">@{profile?.username || session?.user?.user_metadata?.username || "username"}</p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
