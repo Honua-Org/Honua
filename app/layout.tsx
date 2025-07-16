@@ -11,7 +11,12 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Honua - Sustainability Social Platform",
   description: "Connect, share, and take action for a sustainable future",
-    generator: 'v0.dev'
+  generator: 'v0.dev',
+  icons: {
+    icon: ['/favicon.ico', '/favicon.svg'],
+    shortcut: '/favicon.ico',
+    apple: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({
