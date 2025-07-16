@@ -63,6 +63,23 @@ export default function SignupPage() {
     setLoading(true)
 
     try {
+      // Check if username is already taken
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('username', formData.username)
+        .single()
+      
+      if (existingUser) {
+        toast({
+          title: "Username taken",
+          description: "This username is already in use. Please choose another.",
+          variant: "destructive",
+        })
+        setLoading(false)
+        return
+      }
+
       const { data: signUpData, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -81,32 +98,42 @@ export default function SignupPage() {
           variant: "destructive",
         })
       } else {
-        // Insert a new profile row for the user
+        // For confirmed users (no email verification required), create profile immediately
         const user = signUpData?.user
-        if (user) {
-          const { error: profileError } = await supabase.from('profiles').insert([
-            {
+        if (user && user.email_confirmed_at) {
+          try {
+            const { error: profileError } = await supabase.from('profiles').insert({
               id: user.id,
               full_name: formData.fullName,
-              username: formData.username
-            }
-          ])
-          if (profileError) {
-            toast({
-              title: "Profile creation failed",
-              description: profileError.message,
-              variant: "destructive",
+              username: formData.username,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
             })
+            
+            if (profileError) {
+              console.error('Profile creation error:', profileError)
+              toast({
+                title: "Profile creation failed",
+                description: "Account created but profile setup failed. Please contact support.",
+                variant: "destructive",
+              })
+            } else {
+              toast({
+                title: "Welcome to Honua!",
+                description: "Your account has been created successfully.",
+              })
+              router.push("/")
+              return
+            }
+          } catch (profileError) {
+            console.error('Profile creation error:', profileError)
           }
-        } else {
-          toast({
-            title: "Profile creation pending",
-            description: "Please check your email to verify your account. Your profile will be created after verification.",
-          })
         }
+        
+        // For users requiring email verification
         toast({
           title: "Welcome to Honua!",
-          description: "Please check your email to verify your account",
+          description: "Please check your email to verify your account. Your profile will be created after verification.",
         })
         router.push("/auth/verify-email")
       }

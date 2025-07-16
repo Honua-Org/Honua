@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
 import { useSession } from "@supabase/auth-helpers-react"
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { createClient } from "@/lib/supabase/client"
 import { uploadAvatar } from "@/lib/storage"
 import MainLayout from "@/components/main-layout"
@@ -33,24 +34,10 @@ import {
   Lock,
   Eye,
   EyeOff,
-  Leaf,
   Save,
   AlertTriangle,
 } from "lucide-react"
 import { DeleteAccountModal, ConfirmDeleteModal } from "@/components/delete-account-modals"
-
-const sustainabilityCategories = [
-  "Solar Energy",
-  "Wind Power",
-  "Recycling & Waste Reduction",
-  "Sustainable Transportation",
-  "Green Building",
-  "Climate Action",
-  "Conservation",
-  "Renewable Energy",
-  "Sustainable Agriculture",
-  "Environmental Education",
-]
 
 export default function SettingsPage() {
   const session = useSession()
@@ -72,7 +59,6 @@ export default function SettingsPage() {
     website: "https://sarahgreen.eco",
     avatar_url: "/images/profiles/sarah-green-avatar.png",
     cover_url: "/images/covers/sarah-green-cover.png",
-    interests: ["Solar Energy", "Climate Action", "Renewable Energy"],
   })
   
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -90,7 +76,17 @@ export default function SettingsPage() {
             .eq('id', session.user.id)
             .single()
           
-          if (!error && profile) {
+          if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
+            console.error('Error loading profile:', error)
+            toast({
+              title: "Error",
+              description: "Failed to load profile data",
+              variant: "destructive",
+            })
+            return
+          }
+
+          if (profile) {
             setProfileData({
               full_name: profile.full_name || '',
               username: profile.username || '',
@@ -99,17 +95,33 @@ export default function SettingsPage() {
               website: profile.website || '',
               avatar_url: profile.avatar_url || '',
               cover_url: profile.cover_url || '',
-              interests: profile.interests || [],
+            })
+          } else {
+            // No profile exists, set defaults from user metadata
+            const userMetadata = session.user.user_metadata || {}
+            setProfileData({
+              full_name: userMetadata.full_name || userMetadata.name || '',
+              username: userMetadata.username || '',
+              bio: '',
+              location: '',
+              website: '',
+              avatar_url: userMetadata.avatar_url || userMetadata.picture || '',
+              cover_url: '',
             })
           }
         } catch (error) {
           console.error('Error loading profile data:', error)
+          toast({
+            title: "Error",
+            description: "Failed to load profile data",
+            variant: "destructive",
+          })
         }
       }
     }
     
     loadProfileData()
-  }, [session])
+  }, [session, toast])
 
   // Account settings state
   const [accountData, setAccountData] = useState({
@@ -202,44 +214,74 @@ export default function SettingsPage() {
 
   const handleSaveProfile = async () => {
     // Validate required fields
-    if (!profileData.full_name || !profileData.username) {
+    if (!profileData.full_name.trim() || !profileData.username.trim()) {
       toast({
         title: "Error",
-        description: "Full name and username are required.",
+        description: "Full name and username are required",
         variant: "destructive",
       })
       return
     }
 
     try {
-      // Only send fields that have changed or are not empty
-      const updatePayload: any = {}
-      if (profileData.full_name) updatePayload.full_name = profileData.full_name
-      if (profileData.username) updatePayload.username = profileData.username
-      if (profileData.bio !== undefined) updatePayload.bio = profileData.bio
-      if (profileData.location !== undefined) updatePayload.location = profileData.location
-      if (profileData.website !== undefined) updatePayload.website = profileData.website
-      if (profileData.avatar_url !== undefined) updatePayload.avatar_url = profileData.avatar_url
-      if (profileData.cover_url !== undefined) updatePayload.cover_url = profileData.cover_url
+      const supabase = createClient()
+      
+      // Check if profile exists first
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', session?.user?.id)
+        .single()
 
-      const response = await fetch('/api/profiles', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatePayload),
-      })
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to update profile')
+      const profilePayload = {
+        id: session?.user?.id,
+        full_name: profileData.full_name,
+        username: profileData.username,
+        bio: profileData.bio || null,
+        location: profileData.location || null,
+        website: profileData.website || null,
+        avatar_url: profileData.avatar_url || null,
+        cover_url: profileData.cover_url || null,
+        updated_at: new Date().toISOString()
       }
+
+      let result
+      if (existingProfile) {
+        // Update existing profile
+        result = await supabase
+          .from('profiles')
+          .update(profilePayload)
+          .eq('id', session?.user?.id)
+      } else {
+        // Create new profile
+        profilePayload.created_at = new Date().toISOString()
+        result = await supabase
+          .from('profiles')
+          .insert([profilePayload])
+      }
+
+      if (result.error) {
+        throw new Error(result.error.message)
+      }
+
+      // Update user metadata
+      await supabase.auth.updateUser({
+        data: {
+          full_name: profileData.full_name,
+          username: profileData.username,
+          avatar_url: profileData.avatar_url
+        }
+      })
+
       toast({
-        title: "Profile updated!",
-        description: "Your profile has been updated successfully.",
+        title: "Success",
+        description: existingProfile ? "Profile updated successfully" : "Profile created successfully",
       })
     } catch (error) {
-      console.error('Error updating profile:', error)
+      console.error('Error saving profile:', error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update profile. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to save profile",
         variant: "destructive",
       })
     }
@@ -489,35 +531,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                {/* Sustainability Interests */}
-                <div className="space-y-3">
-                  <Label>Sustainability Interests</Label>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Select topics you're interested in to personalize your feed
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {sustainabilityCategories.map((category) => (
-                      <Badge
-                        key={category}
-                        variant={profileData.interests.includes(category) ? "default" : "outline"}
-                        className={`cursor-pointer transition-colors ${
-                          profileData.interests.includes(category)
-                            ? "bg-green-500 text-white hover:bg-green-600"
-                            : "hover:bg-green-50 hover:text-green-700 hover:border-green-300"
-                        }`}
-                        onClick={() => {
-                          const newInterests = profileData.interests.includes(category)
-                            ? profileData.interests.filter((i) => i !== category)
-                            : [...profileData.interests, category]
-                          setProfileData({ ...profileData, interests: newInterests })
-                        }}
-                      >
-                        <Leaf className="w-3 h-3 mr-1" />
-                        {category}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
+
 
                 <div className="flex justify-end">
                   <Button onClick={handleSaveProfile} className="sustainability-gradient">
