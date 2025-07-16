@@ -81,21 +81,16 @@ export default function SettingsPage() {
   // Load current user profile data
   useEffect(() => {
     const loadProfileData = async () => {
-      if (session?.user?.user_metadata?.username) {
-        // Prevent empty required fields
-    if (!profileData.full_name || !profileData.username) {
-      toast({
-        title: "Error",
-        description: "Full name and username are required.",
-        variant: "destructive",
-      })
-      return
-    }
-    try {
-          const response = await fetch(`/api/profiles?username=${session.user.user_metadata.username}`)
-          if (response.ok) {
-            const data = await response.json()
-            const profile = data.profile
+      if (session?.user?.id) {
+        try {
+          const supabase = createClient()
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single()
+          
+          if (!error && profile) {
             setProfileData({
               full_name: profile.full_name || '',
               username: profile.username || '',
@@ -206,6 +201,16 @@ export default function SettingsPage() {
   }
 
   const handleSaveProfile = async () => {
+    // Validate required fields
+    if (!profileData.full_name || !profileData.username) {
+      toast({
+        title: "Error",
+        description: "Full name and username are required.",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       // Only send fields that have changed or are not empty
       const updatePayload: any = {}
