@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
       }, { status: 500 })
     }
 
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
 // POST /api/posts - Create a new post
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
     
     // Get current user
@@ -127,6 +127,61 @@ export async function POST(request: NextRequest) {
     
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Ensure user has a profile before creating post
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', user.id)
+      .single()
+
+    if (!existingProfile) {
+      // Create profile if it doesn't exist
+      const userMetadata = user.user_metadata || {}
+      const username = userMetadata.username || 
+                      userMetadata.full_name?.toLowerCase().replace(/\s+/g, '') || 
+                      user.email?.split('@')[0] || 
+                      `user_${user.id.slice(0, 8)}`
+      
+      // Ensure username is unique
+      let uniqueUsername = username
+      let counter = 1
+      while (true) {
+        const { data: existingUser } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('username', uniqueUsername)
+          .single()
+        
+        if (!existingUser) break
+        uniqueUsername = `${username}${counter}`
+        counter++
+      }
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: user.id,
+          full_name: userMetadata.full_name || userMetadata.name || user.email?.split('@')[0] || 'User',
+          username: uniqueUsername,
+          avatar_url: userMetadata.avatar_url || userMetadata.picture || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+
+      if (profileError) {
+        console.error('Error creating profile:', profileError)
+        return NextResponse.json({ error: 'Failed to create user profile' }, { status: 500 })
+      }
+
+      // Update user metadata with the final username
+      await supabase.auth.updateUser({
+        data: {
+          username: uniqueUsername,
+          full_name: userMetadata.full_name || userMetadata.name || user.email?.split('@')[0] || 'User'
+        }
+      })
     }
 
     const body = await request.json()
