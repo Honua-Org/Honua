@@ -65,82 +65,7 @@ interface Comment {
   parent_id?: string | null
 }
 
-// Mock data - in real app, this would come from API
-const mockPost = {
-  id: "1",
-  user: {
-    id: "user1",
-    username: "sarah_green",
-    full_name: "Sarah Green",
-    avatar_url: "/images/profiles/sarah-green-avatar.png",
-    verified: true,
-  },
-  content:
-    "Just installed our community solar panel system! 🌞 This 50kW installation will power 15 homes and reduce CO2 emissions by 35 tons annually. The future of renewable energy is community-driven! #SolarEnergy #CommunityPower #ClimateAction",
-  media_urls: [
-    "https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?w=800&h=600&fit=crop",
-    "https://images.unsplash.com/photo-1497440001374-f26997328c1b?w=800&h=600&fit=crop",
-  ],
-  location: "Portland, Oregon",
-  sustainability_category: "Solar Energy",
-  impact_score: 92,
-  likes_count: 234,
-  comments_count: 45,
-  reposts_count: 67,
-  created_at: "2024-01-15T10:30:00Z",
-  liked_by_user: false,
-  bookmarked_by_user: false,
-}
-
-const mockComments = [
-  {
-    id: "comment1",
-    user: {
-      id: "user2",
-      username: "eco_marcus",
-      full_name: "Marcus Johnson",
-      avatar_url: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
-      verified: false,
-    },
-    content:
-      "This is amazing! How long did the installation process take? We're considering a similar project in our neighborhood.",
-    likes_count: 12,
-    replies_count: 3,
-    created_at: "2024-01-15T11:45:00Z",
-    liked_by_user: false,
-  },
-  {
-    id: "comment2",
-    user: {
-      id: "user3",
-      username: "green_tech_co",
-      full_name: "GreenTech Solutions",
-      avatar_url: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&h=150&fit=crop&crop=face",
-      verified: true,
-    },
-    content: "Fantastic work! Community solar is the way forward. The impact calculations look spot on. 👏",
-    likes_count: 8,
-    replies_count: 1,
-    created_at: "2024-01-15T12:20:00Z",
-    liked_by_user: true,
-  },
-  {
-    id: "comment3",
-    user: {
-      id: "user4",
-      username: "climate_action_now",
-      full_name: "Climate Action Now",
-      avatar_url: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face",
-      verified: true,
-    },
-    content:
-      "Love seeing real climate action in communities! This is exactly the kind of grassroots initiative we need more of. Keep up the great work! 🌱",
-    likes_count: 25,
-    replies_count: 0,
-    created_at: "2024-01-15T13:10:00Z",
-    liked_by_user: false,
-  },
-]
+// Real data will be fetched from the API
 
 export default function PostDetailPage() {
   const params = useParams()
@@ -149,7 +74,7 @@ export default function PostDetailPage() {
   const session = useSession()
   const supabase = createClientComponentClient()
   const [post, setPost] = useState<Post | null>(null)
-  const [comments, setComments] = useState(mockComments)
+  const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState("")
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [isLiked, setIsLiked] = useState(post?.liked_by_user ?? false)
@@ -181,7 +106,7 @@ export default function PostDetailPage() {
       if (!params.id) return
 
       try {
-        // Try to fetch post details from API
+        // Fetch post details from API
         try {
           const postResponse = await fetch(`/api/posts/${params.id}`)
           if (postResponse.ok) {
@@ -190,42 +115,33 @@ export default function PostDetailPage() {
             setIsLiked(postData.post.liked_by_user)
             setLikesCount(postData.post.likes_count)
           } else {
-            // Fall back to mock data if API fails
-            console.log('API failed, using mock data')
-            setPost(mockPost)
-            setIsLiked(mockPost.liked_by_user)
-            setLikesCount(mockPost.likes_count)
+            console.error('Failed to fetch post:', postResponse.status)
+            setPost(null)
           }
         } catch (apiError) {
-          // Fall back to mock data if API call fails
-          console.log('API error, using mock data:', apiError)
-          setPost(mockPost)
-          setIsLiked(mockPost.liked_by_user)
-          setLikesCount(mockPost.likes_count)
+          console.error('Post API error:', apiError)
+          setPost(null)
         }
 
-        // Try to fetch comments from API
+        // Fetch comments from API
         try {
           const commentsResponse = await fetch(`/api/posts/${params.id}/comments`)
           if (commentsResponse.ok) {
             const commentsData = await commentsResponse.json()
-            setComments(commentsData.comments)
+            setComments(commentsData.comments || [])
           } else {
-            // Fall back to mock comments if API fails
-            setComments(mockComments)
+            console.error('Failed to fetch comments:', commentsResponse.status)
+            setComments([])
           }
         } catch (apiError) {
-          // Fall back to mock comments if API call fails
-          console.log('Comments API error, using mock data:', apiError)
-          setComments(mockComments)
+          console.error('Comments API error:', apiError)
+          setComments([])
         }
       } catch (error) {
-        // Final fallback to mock data if everything fails
+        // Handle errors gracefully
         console.error('Error fetching post data:', error)
-        setPost(mockPost)
-        setComments(mockComments)
-        setIsLiked(mockPost.liked_by_user)
-        setLikesCount(mockPost.likes_count)
+        setPost(null)
+        setComments([])
       } finally {
         setLoading(false)
       }
@@ -857,28 +773,4 @@ export default function PostDetailPage() {
       )}
     </MainLayout>
   )
-}
-
-
-// Type definition for Post
-interface Post {
-  id: string
-  user: {
-    id: string
-    username: string
-    full_name: string
-    avatar_url: string
-    verified: boolean
-  }
-  content: string
-  media_urls: string[]
-  location: string
-  sustainability_category: string
-  impact_score: number
-  likes_count: number
-  comments_count: number
-  reposts_count: number
-  created_at: string
-  liked_by_user: boolean
-  bookmarked_by_user: boolean
 }
