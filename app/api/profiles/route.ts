@@ -46,38 +46,33 @@ export async function PUT(request: NextRequest) {
     }
     
     const body = await request.json()
-    const { full_name, username, bio, location, website, avatar_url, cover_url } = body
-    
-    // Validate required fields
-    if (!full_name || !username) {
-      return NextResponse.json({ error: 'Full name and username are required' }, { status: 400 })
+    // Only update fields provided in the request body
+    const updateFields: any = { updated_at: new Date().toISOString() }
+    if (body.full_name !== undefined) updateFields.full_name = body.full_name
+    if (body.username !== undefined) updateFields.username = body.username
+    if (body.bio !== undefined) updateFields.bio = body.bio
+    if (body.location !== undefined) updateFields.location = body.location
+    if (body.website !== undefined) updateFields.website = body.website
+    if (body.avatar_url !== undefined) updateFields.avatar_url = body.avatar_url
+    if (body.cover_url !== undefined) updateFields.cover_url = body.cover_url
+
+    // If username is being changed, check if it's already taken (excluding current user)
+    if (body.username) {
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', body.username)
+        .neq('id', user.id)
+        .single()
+      if (existingUser) {
+        return NextResponse.json({ error: 'Username is already taken' }, { status: 409 })
+      }
     }
-    
-    // Check if username is already taken (excluding current user)
-    const { data: existingUser, error: checkError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('username', username)
-      .neq('id', user.id)
-      .single()
-    
-    if (existingUser) {
-      return NextResponse.json({ error: 'Username is already taken' }, { status: 409 })
-    }
-    
-    // Update the profile
+
+    // Update the profile with only provided fields
     const { data: updatedProfile, error: updateError } = await supabase
       .from('profiles')
-      .update({
-        full_name,
-        username,
-        bio,
-        location,
-        website,
-        avatar_url,
-        cover_url,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateFields)
       .eq('id', user.id)
       .select()
       .single()

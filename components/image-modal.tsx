@@ -70,6 +70,8 @@ export default function ImageModal({ src, alt, onClose }: ImageModalProps) {
     }
   }
 
+  const isVideo = src.endsWith('.mp4') || src.endsWith('.webm') || src.endsWith('.ogg');
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90"
@@ -108,9 +110,13 @@ export default function ImageModal({ src, alt, onClose }: ImageModalProps) {
           </Button>
         </div>
 
-        {/* Image */}
+        {/* Media */}
         <div className="relative w-full h-full">
-          <Image src={src || "/placeholder.svg"} alt={alt} fill className="object-contain" priority />
+          {isVideo ? (
+            <video src={src} controls className="object-contain w-full h-full" />
+          ) : (
+            <Image src={src || "/placeholder.svg"} alt={alt} fill className="object-contain" priority />
+          )}
         </div>
       </div>
     </div>

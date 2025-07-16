@@ -226,17 +226,22 @@ export default function ProfilePage() {
   const handleSaveCoverImage = async () => {
     if (selectedCoverImage) {
       try {
-        // Simulate API call to save cover image
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
+        // Persist cover image URL to backend
+        const response = await fetch('/api/profiles', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cover_url: selectedCoverImage })
+        })
+        if (!response.ok) {
+          throw new Error('Failed to update cover photo')
+        }
+        const data = await response.json()
         setUser((prev: any) => ({
           ...prev,
-          cover_url: selectedCoverImage,
+          cover_url: data.profile.cover_url,
         }))
-
         setShowCoverEditModal(false)
         setSelectedCoverImage(null)
-
         toast({
           title: "Cover photo updated!",
           description: "Your new cover photo has been saved successfully.",
@@ -532,6 +537,7 @@ export default function ProfilePage() {
                     <span className="text-white font-medium">No cover photo</span>
                   </div>
                 )}
+                {/* TODO: Add cropping/moving UI here for cover photo editing */}
               </div>
 
               {/* Upload Button */}

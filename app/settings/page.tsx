@@ -82,7 +82,16 @@ export default function SettingsPage() {
   useEffect(() => {
     const loadProfileData = async () => {
       if (session?.user?.user_metadata?.username) {
-        try {
+        // Prevent empty required fields
+    if (!profileData.full_name || !profileData.username) {
+      toast({
+        title: "Error",
+        description: "Full name and username are required.",
+        variant: "destructive",
+      })
+      return
+    }
+    try {
           const response = await fetch(`/api/profiles?username=${session.user.user_metadata.username}`)
           if (response.ok) {
             const data = await response.json()
@@ -198,24 +207,28 @@ export default function SettingsPage() {
 
   const handleSaveProfile = async () => {
     try {
+      // Only send fields that have changed or are not empty
+      const updatePayload: any = {}
+      if (profileData.full_name) updatePayload.full_name = profileData.full_name
+      if (profileData.username) updatePayload.username = profileData.username
+      if (profileData.bio !== undefined) updatePayload.bio = profileData.bio
+      if (profileData.location !== undefined) updatePayload.location = profileData.location
+      if (profileData.website !== undefined) updatePayload.website = profileData.website
+      if (profileData.avatar_url !== undefined) updatePayload.avatar_url = profileData.avatar_url
+      if (profileData.cover_url !== undefined) updatePayload.cover_url = profileData.cover_url
+
       const response = await fetch('/api/profiles', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(profileData),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatePayload),
       })
-      
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || 'Failed to update profile')
       }
-      
-      const data = await response.json()
-      
       toast({
         title: "Profile updated!",
-        description: "Your profile information has been saved successfully.",
+        description: "Your profile has been updated successfully.",
       })
     } catch (error) {
       console.error('Error updating profile:', error)

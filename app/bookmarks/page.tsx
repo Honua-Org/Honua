@@ -9,6 +9,9 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Bookmark, Filter, Download, Trash2, FolderPlus } from "lucide-react"
 import Image from "next/image"
+import { useEffect } from "react"
+import { useSession } from "@supabase/auth-helpers-react"
+import { createClient } from "@/lib/supabase/client"
 
 const mockBookmarkedPosts = [
   {
@@ -61,13 +64,157 @@ const mockBookmarkedPosts = [
 
 const bookmarkCategories = ["All", "Research", "Events", "Tips", "News", "Inspiration"]
 
+type BookmarkedPost = {
+  id: string;
+  user: {
+    id: string;
+    username: string;
+    full_name: string;
+    avatar_url: string;
+    verified: boolean;
+  };
+  content: string;
+  media_urls: string[];
+  location: string;
+  sustainability_category: string;
+  impact_score: number;
+  likes_count: number;
+  comments_count: number;
+  reposts_count: number;
+  created_at: string;
+  liked_by_user: boolean;
+  bookmarked_by_user: boolean;
+  bookmark_category: string;
+};
+
 export default function BookmarksPage() {
-  const [posts, setPosts] = useState(mockBookmarkedPosts)
+  const [posts, setPosts] = useState<BookmarkedPost[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [sortBy, setSortBy] = useState("newest")
+  const session = useSession()
+  const supabase = createClient()
+
+  useEffect(() => {
+    const fetchBookmarks = async () => {
+      if (!session?.user?.id) return
+      const { data, error } = await supabase
+        .from('bookmarks')
+        .select(`
+          post_id,
+          created_at,
+          posts (
+            id,
+            content,
+            media_urls,
+            location,
+            sustainability_category,
+            impact_score,
+            likes_count,
+            comments_count,
+            reposts_count,
+            created_at,
+            user:profiles (
+              id,
+              username,
+              full_name,
+              avatar_url,
+              verified
+            )
+          )
+        `)
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+      if (error) {
+        setPosts([])
+        return
+      }
+      // Map to PostCard expected structure
+      const mapped = (data || []).map((b: any) => {
+        const p = b.posts
+        return {
+          id: p.id,
+          user: p.user,
+          content: p.content,
+          media_urls: p.media_urls,
+          location: p.location,
+          sustainability_category: p.sustainability_category,
+          impact_score: p.impact_score,
+          likes_count: p.likes_count,
+          comments_count: p.comments_count,
+          reposts_count: p.reposts_count,
+          created_at: p.created_at,
+          liked_by_user: false, // Optionally fetch likes
+          bookmarked_by_user: true,
+          bookmark_category: "General"
+        }
+      })
+      setPosts(mapped)
+    }
+    fetchBookmarks()
+  }, [session?.user?.id])
+
+  // Add this function to allow manual refresh
+  const refreshBookmarks = async () => {
+    if (!session?.user?.id) return
+    const { data, error } = await supabase
+      .from('bookmarks')
+      .select(`
+        post_id,
+        created_at,
+        posts (
+          id,
+          content,
+          media_urls,
+          location,
+          sustainability_category,
+          impact_score,
+          likes_count,
+          comments_count,
+          reposts_count,
+          created_at,
+          user:profiles (
+            id,
+            username,
+            full_name,
+            avatar_url,
+            verified
+          )
+        )
+      `)
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false })
+    if (error) {
+      setPosts([])
+      return
+    }
+    const mapped = (data || []).map((b: any) => {
+      const p = b.posts
+      return {
+        id: p.id,
+        user: p.user,
+        content: p.content,
+        media_urls: p.media_urls,
+        location: p.location,
+        sustainability_category: p.sustainability_category,
+        impact_score: p.impact_score,
+        likes_count: p.likes_count,
+        comments_count: p.comments_count,
+        reposts_count: p.reposts_count,
+        created_at: p.created_at,
+        liked_by_user: false,
+        bookmarked_by_user: true,
+        bookmark_category: "General"
+      }
+    })
+    setPosts(mapped)
+  }
 
   const handlePostUpdate = (postId: string, updates: any) => {
     setPosts((prevPosts) => prevPosts.map((post) => (post.id === postId ? { ...post, ...updates } : post)))
+    // If bookmark status changed, refresh bookmarks
+    if (updates.bookmarked_by_user === false || updates.bookmarked_by_user === true) {
+      refreshBookmarks()
+    }
   }
 
   const filteredPosts = posts.filter(
