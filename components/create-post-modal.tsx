@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useSession } from "@supabase/auth-helpers-react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -33,17 +34,101 @@ interface CreatePostModalProps {
   onPostCreated?: () => void
 }
 
+interface LocationSuggestion {
+  display_name: string
+  lat: string
+  lon: string
+}
+
 export default function CreatePostModal({ open, onOpenChange, onPostCreated }: CreatePostModalProps) {
   const [content, setContent] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("")
   const [location, setLocation] = useState("")
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const [privacy, setPrivacy] = useState("public")
   const [loading, setLoading] = useState(false)
   const [selectedImages, setSelectedImages] = useState<string[]>([])
   const [uploadingImages, setUploadingImages] = useState(false)
+  const [profile, setProfile] = useState<any>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const locationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const session = useSession()
+  const supabase = createClientComponentClient()
   const { toast } = useToast()
+
+  // Fetch current user profile
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (session?.user?.id) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('avatar_url, full_name, username')
+          .eq('id', session.user.id)
+          .single()
+        if (!error) setProfile(data)
+      }
+    }
+
+    fetchProfile()
+  }, [session?.user?.id, supabase])
+
+  // Fetch location suggestions
+  const fetchLocationSuggestions = async (query: string) => {
+    if (query.length < 3) {
+      setLocationSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+
+    setLoadingSuggestions(true)
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(query)}&addressdetails=1`
+      )
+      const data = await response.json()
+      setLocationSuggestions(data)
+      setShowSuggestions(true)
+    } catch (error) {
+      console.error('Error fetching location suggestions:', error)
+      setLocationSuggestions([])
+      setShowSuggestions(false)
+    } finally {
+      setLoadingSuggestions(false)
+    }
+  }
+
+  // Handle location input change with debouncing
+  const handleLocationChange = (value: string) => {
+    setLocation(value)
+    
+    // Clear existing timeout
+    if (locationTimeoutRef.current) {
+      clearTimeout(locationTimeoutRef.current)
+    }
+    
+    // Set new timeout for debounced search
+    locationTimeoutRef.current = setTimeout(() => {
+      fetchLocationSuggestions(value)
+    }, 300)
+  }
+
+  // Handle location suggestion selection
+  const handleLocationSelect = (suggestion: LocationSuggestion) => {
+    setLocation(suggestion.display_name)
+    setShowSuggestions(false)
+    setLocationSuggestions([])
+  }
+
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (locationTimeoutRef.current) {
+        clearTimeout(locationTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const handleSubmit = async () => {
     if (!session?.user) {
@@ -90,6 +175,8 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
          setContent("")
          setSelectedCategory("")
          setLocation("")
+         setLocationSuggestions([])
+         setShowSuggestions(false)
          setSelectedImages([])
          onOpenChange(false)
          // Refresh the posts list
@@ -119,6 +206,8 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
     setContent("")
     setSelectedCategory("")
     setLocation("")
+    setLocationSuggestions([])
+    setShowSuggestions(false)
     setSelectedImages([])
     onOpenChange(false)
   }
@@ -219,9 +308,9 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
         <div className="space-y-4">
           <div className="flex space-x-4">
             <Avatar className="w-12 h-12">
-              <AvatarImage src="/images/profiles/sarah-green-avatar.png" />
+              <AvatarImage src={profile?.avatar_url || "/placeholder.svg"} />
               <AvatarFallback className="bg-green-500 text-white">
-                {session?.user?.user_metadata?.full_name?.charAt(0) || "S"}
+                {(profile?.full_name || session?.user?.user_metadata?.full_name || session?.user?.email)?.charAt(0)?.toUpperCase() || "U"}
               </AvatarFallback>
             </Avatar>
 
@@ -278,9 +367,36 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
                     type="text"
                     placeholder="Add location"
                     value={location}
-                    onChange={(e) => setLocation(e.target.value)}
+                    onChange={(e) => handleLocationChange(e.target.value)}
+                    onFocus={() => location.length >= 3 && setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                     className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
+                  
+                  {/* Location Suggestions Dropdown */}
+                  {showSuggestions && (locationSuggestions.length > 0 || loadingSuggestions) && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 max-h-48 overflow-y-auto">
+                      {loadingSuggestions ? (
+                        <div className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+                          Searching locations...
+                        </div>
+                      ) : (
+                        locationSuggestions.map((suggestion, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => handleLocationSelect(suggestion)}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700 focus:outline-none"
+                          >
+                            <div className="flex items-center">
+                              <MapPin className="w-3 h-3 mr-2 text-gray-400 flex-shrink-0" />
+                              <span className="truncate">{suggestion.display_name}</span>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
