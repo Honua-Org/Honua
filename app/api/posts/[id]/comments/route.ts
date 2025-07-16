@@ -28,8 +28,7 @@ export async function GET(
           id,
           username,
           full_name,
-          avatar_url,
-          verified
+          avatar_url
         ),
         comment_likes:comment_likes(count)
       `)
@@ -60,7 +59,10 @@ export async function GET(
         
         return {
           ...comment,
-          user: comment.profiles,
+          user: {
+            ...comment.profiles,
+            verified: false // Default value until verified column is added to database
+          },
           likes_count: comment.comment_likes?.[0]?.count || 0,
           liked_by_user
         }
@@ -150,8 +152,7 @@ export async function POST(
           id,
           username,
           full_name,
-          avatar_url,
-          verified
+          avatar_url
         )
       `)
       .single()
@@ -179,7 +180,10 @@ export async function POST(
     // Transform the response
     const transformedComment = {
       ...comment,
-      user: comment.profiles,
+      user: {
+        ...comment.profiles,
+        verified: false // Default value until verified column is added to database
+      },
       likes_count: 0,
       liked_by_user: false
     }

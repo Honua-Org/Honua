@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   website TEXT,
   role TEXT DEFAULT 'user',
   reputation INTEGER DEFAULT 0,
+  verified BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   PRIMARY KEY (id)
