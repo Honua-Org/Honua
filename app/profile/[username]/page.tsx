@@ -239,6 +239,17 @@ export default function ProfilePage() {
   }
 
   const handlePostUpdate = (postId: string, updates: any) => {
+    // Handle post deletion
+    if (updates.deleted) {
+      setPosts((prevPosts) => prevPosts.filter((post) => post.id !== postId))
+      // Update user's post count
+      setUser((prev: any) => ({
+        ...prev,
+        posts_count: Math.max(0, (prev.posts_count || 0) - 1)
+      }))
+      return
+    }
+    
     setPosts((prevPosts) => prevPosts.map((post) => (post.id === postId ? { ...post, ...updates } : post)))
   }
 

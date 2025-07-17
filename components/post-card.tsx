@@ -21,6 +21,7 @@ import {
   Flag,
   UserPlus,
   UserMinus,
+  Trash2,
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -181,6 +182,37 @@ export default function PostCard({ post, onUpdate }: PostCardProps) {
     }
   }
 
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/posts/${post.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete post')
+      }
+
+      toast({
+        title: "Post deleted",
+        description: "Your post has been successfully deleted.",
+      })
+
+      // Notify parent component to remove the post
+      onUpdate?.(post.id, { deleted: true })
+    } catch (error) {
+      console.error('Error deleting post:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete post. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleFollow = async () => {
     if (!post.user?.id) return
 
@@ -263,7 +295,18 @@ export default function PostCard({ post, onUpdate }: PostCardProps) {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    {post.user?.id !== session?.user?.id && (
+                    {post.user?.id === session?.user?.id ? (
+                      <>
+                        <DropdownMenuItem onClick={handleDelete} className="text-red-600 focus:text-red-600">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete post
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleBookmark}>
+                          <Bookmark className="mr-2 h-4 w-4" />
+                          {isBookmarked ? "Remove bookmark" : "Bookmark post"}
+                        </DropdownMenuItem>
+                      </>
+                    ) : (
                       <>
                         <DropdownMenuItem onClick={handleFollow}>
                           {isFollowing ? (
@@ -284,12 +327,12 @@ export default function PostCard({ post, onUpdate }: PostCardProps) {
                             Report post
                           </Link>
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleBookmark}>
+                          <Bookmark className="mr-2 h-4 w-4" />
+                          {isBookmarked ? "Remove bookmark" : "Bookmark post"}
+                        </DropdownMenuItem>
                       </>
                     )}
-                    <DropdownMenuItem onClick={handleBookmark}>
-                      <Bookmark className="mr-2 h-4 w-4" />
-                      {isBookmarked ? "Remove bookmark" : "Bookmark post"}
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>

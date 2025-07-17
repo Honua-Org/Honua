@@ -84,6 +84,7 @@ type BookmarkedPost = {
   created_at: string;
   liked_by_user: boolean;
   bookmarked_by_user: boolean;
+  reposted_by_user: boolean;
   bookmark_category: string;
 };
 
@@ -143,6 +144,7 @@ export default function BookmarksPage() {
           created_at: p.created_at,
           liked_by_user: false, // Optionally fetch likes
           bookmarked_by_user: true,
+          reposted_by_user: false,
           bookmark_category: "General"
         }
       })
@@ -199,6 +201,7 @@ export default function BookmarksPage() {
         created_at: p.created_at,
         liked_by_user: false,
         bookmarked_by_user: true,
+        reposted_by_user: false,
         bookmark_category: "General"
       }
     })
@@ -206,6 +209,12 @@ export default function BookmarksPage() {
   }
 
   const handlePostUpdate = (postId: string, updates: any) => {
+    // Handle post deletion
+    if (updates.deleted) {
+      setPosts((prevPosts) => prevPosts.filter((post) => post.id !== postId))
+      return
+    }
+    
     setPosts((prevPosts) => prevPosts.map((post) => (post.id === postId ? { ...post, ...updates } : post)))
     // If bookmark status changed, refresh bookmarks
     if (updates.bookmarked_by_user === false || updates.bookmarked_by_user === true) {
