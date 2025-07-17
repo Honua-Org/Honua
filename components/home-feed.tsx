@@ -167,6 +167,12 @@ export default function HomeFeed() {
   }, [])
 
   const handlePostUpdate = async (postId: string, updates: any) => {
+    // Handle post deletion
+    if (updates.deleted) {
+      setPosts((prevPosts) => prevPosts.filter((post) => post.id !== postId))
+      return
+    }
+    
     // Optimistically update the UI
     setPosts((prevPosts) => prevPosts.map((post) => (post.id === postId ? { ...post, ...updates } : post)))
     
