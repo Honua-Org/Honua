@@ -8,7 +8,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Users, MessageSquare, Plus, Search, TrendingUp, Clock, Pin, Lock } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useToast } from "@/hooks/use-toast"
+import { Users, MessageSquare, Plus, Search, TrendingUp, Clock, Pin, Lock, Settings } from "lucide-react"
 import Link from "next/link"
 
 const mockForums = [
@@ -22,6 +26,7 @@ const mockForums = [
     latest_activity: "2024-01-15T10:30:00Z",
     moderators: ["sarah_green", "solar_expert"],
     is_private: false,
+    creator: "sarah_green", // Added creator field
   },
   {
     id: "2",
@@ -33,6 +38,7 @@ const mockForums = [
     latest_activity: "2024-01-15T09:15:00Z",
     moderators: ["eco_marcus"],
     is_private: false,
+    creator: "eco_marcus",
   },
   {
     id: "3",
@@ -44,6 +50,7 @@ const mockForums = [
     latest_activity: "2024-01-15T08:45:00Z",
     moderators: ["climate_action_now"],
     is_private: false,
+    creator: "climate_action_now",
   },
   {
     id: "4",
@@ -55,6 +62,7 @@ const mockForums = [
     latest_activity: "2024-01-14T16:20:00Z",
     moderators: ["green_tech_co"],
     is_private: true,
+    creator: "green_tech_co",
   },
 ]
 
@@ -65,7 +73,7 @@ const mockThreads = [
     author: {
       username: "sarah_green",
       full_name: "Sarah Green",
-      avatar_url: "/placeholder.svg?height=32&width=32",
+      avatar_url: "/images/profiles/sarah-green-avatar.png",
     },
     forum_name: "Solar Energy Discussion",
     replies_count: 23,
@@ -128,6 +136,17 @@ export default function ForumPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [activeTab, setActiveTab] = useState("forums")
+  const [isCreateForumOpen, setIsCreateForumOpen] = useState(false)
+  const [newForumData, setNewForumData] = useState({
+    name: "",
+    description: "",
+    category: "",
+    is_private: false,
+  })
+  const { toast } = useToast()
+
+  // Mock current user (in real app, this would come from auth)
+  const currentUser = "sarah_green"
 
   const filteredForums = forums.filter((forum) => {
     const matchesSearch =
@@ -143,6 +162,34 @@ export default function ForumPage() {
       thread.author.full_name.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
+  const handleCreateForum = () => {
+    if (newForumData.name.trim() && newForumData.description.trim() && newForumData.category) {
+      const newForum = {
+        id: Date.now().toString(),
+        name: newForumData.name,
+        description: newForumData.description,
+        category: newForumData.category,
+        member_count: 1,
+        thread_count: 0,
+        latest_activity: new Date().toISOString(),
+        moderators: [currentUser],
+        is_private: newForumData.is_private,
+        creator: currentUser,
+      }
+
+      setForums((prev) => [newForum, ...prev])
+      setNewForumData({ name: "", description: "", category: "", is_private: false })
+      setIsCreateForumOpen(false)
+
+      toast({
+        title: "Forum created!",
+        description: `${newForumData.name} has been created successfully`,
+      })
+    }
+  }
+
+  const isForumCreator = (forum: any) => forum.creator === currentUser
+
   return (
     <MainLayout>
       <div className="max-w-6xl mx-auto p-4 pb-20 lg:pb-4">
@@ -156,10 +203,80 @@ export default function ForumPage() {
               <p className="text-gray-600 dark:text-gray-400">Connect and discuss sustainability topics</p>
             </div>
           </div>
-          <Button className="sustainability-gradient">
-            <Plus className="w-4 h-4 mr-2" />
-            New Thread
-          </Button>
+          <div className="flex space-x-2">
+            <Dialog open={isCreateForumOpen} onOpenChange={setIsCreateForumOpen}>
+              <DialogTrigger asChild>
+                <Button className="sustainability-gradient">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Forum
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Create New Forum</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Forum Name</label>
+                    <Input
+                      placeholder="Enter forum name..."
+                      value={newForumData.name}
+                      onChange={(e) => setNewForumData((prev) => ({ ...prev, name: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Description</label>
+                    <Textarea
+                      placeholder="Describe what this forum is about..."
+                      value={newForumData.description}
+                      onChange={(e) => setNewForumData((prev) => ({ ...prev, description: e.target.value }))}
+                      rows={3}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Category</label>
+                    <Select
+                      value={newForumData.category}
+                      onValueChange={(value) => setNewForumData((prev) => ({ ...prev, category: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {forumCategories
+                          .filter((cat) => cat !== "All")
+                          .map((category) => (
+                            <SelectItem key={category} value={category}>
+                              {category}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="private"
+                      checked={newForumData.is_private}
+                      onChange={(e) => setNewForumData((prev) => ({ ...prev, is_private: e.target.checked }))}
+                      className="rounded"
+                    />
+                    <label htmlFor="private" className="text-sm">
+                      Make this forum private
+                    </label>
+                  </div>
+                  <div className="flex space-x-2 pt-4">
+                    <Button onClick={handleCreateForum} className="flex-1">
+                      Create Forum
+                    </Button>
+                    <Button variant="outline" onClick={() => setIsCreateForumOpen(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -198,6 +315,11 @@ export default function ForumPage() {
                               {forum.name}
                             </Link>
                             {forum.is_private && <Lock className="w-4 h-4 text-gray-500" />}
+                            {isForumCreator(forum) && (
+                              <Badge variant="secondary" className="text-xs">
+                                Creator
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-gray-600 dark:text-gray-400 mb-3">{forum.description}</p>
                           <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
@@ -215,9 +337,16 @@ export default function ForumPage() {
                             </div>
                           </div>
                         </div>
-                        <Badge variant="secondary" className="ml-4">
-                          {forum.category}
-                        </Badge>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="secondary">{forum.category}</Badge>
+                          {isForumCreator(forum) && (
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/forum/${forum.id}/manage`}>
+                                <Settings className="w-4 h-4" />
+                              </Link>
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
