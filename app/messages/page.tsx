@@ -1,6 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
+import { useSearchParams } from "next/navigation"
+import { useSession } from '@supabase/auth-helpers-react'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import MainLayout from "@/components/main-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,104 +30,16 @@ import {
   Flag,
   UserX,
   AlertTriangle,
+  Loader2,
 } from "lucide-react"
 
-const mockConversations = [
-  {
-    id: "1",
-    user: {
-      id: "user1",
-      username: "sarah_green",
-      full_name: "Sarah Green",
-      avatar_url: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
-      online: true,
-    },
-    last_message: "Thanks for sharing that solar panel guide! Really helpful 🌞",
-    last_message_time: "2024-01-15T10:30:00Z",
-    unread_count: 2,
-  },
-  {
-    id: "2",
-    user: {
-      id: "user2",
-      username: "eco_marcus",
-      full_name: "Marcus Johnson",
-      avatar_url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
-      online: false,
-    },
-    last_message: "Let's collaborate on the zero-waste workshop next month",
-    last_message_time: "2024-01-14T16:45:00Z",
-    unread_count: 0,
-  },
-  {
-    id: "3",
-    user: {
-      id: "user3",
-      username: "green_tech_co",
-      full_name: "GreenTech Solutions",
-      avatar_url: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
-      online: true,
-    },
-    last_message: "We'd love to feature your community project in our newsletter",
-    last_message_time: "2024-01-14T14:20:00Z",
-    unread_count: 1,
-  },
-]
-
-const mockMessages = [
-  {
-    id: "1",
-    sender_id: "user1",
-    content: "Hey! I saw your post about the community solar project. That's amazing work!",
-    created_at: "2024-01-15T09:00:00Z",
-    is_own: false,
-    reactions: [{ emoji: "👍", count: 1, reacted_by_user: false }],
-    reply_to: null,
-  },
-  {
-    id: "2",
-    sender_id: "current_user",
-    content: "Thank you! It's been a long journey but seeing the impact makes it all worth it 🌞",
-    created_at: "2024-01-15T09:05:00Z",
-    is_own: true,
-    reactions: [{ emoji: "❤️", count: 1, reacted_by_user: false }],
-    reply_to: null,
-  },
-  {
-    id: "3",
-    sender_id: "user1",
-    content:
-      "I'm working on a similar project in my neighborhood. Would you mind sharing some tips on getting community buy-in?",
-    created_at: "2024-01-15T09:10:00Z",
-    is_own: false,
-    reactions: [],
-    reply_to: null,
-  },
-  {
-    id: "4",
-    sender_id: "current_user",
-    content:
-      "The key is starting with education. I can send you the presentation we used for our first community meeting.",
-    created_at: "2024-01-15T09:15:00Z",
-    is_own: true,
-    reactions: [{ emoji: "🙏", count: 1, reacted_by_user: false }],
-    reply_to: "3",
-  },
-  {
-    id: "5",
-    sender_id: "user1",
-    content: "Thanks for sharing that solar panel guide! Really helpful 🌞",
-    created_at: "2024-01-15T10:30:00Z",
-    is_own: false,
-    reactions: [],
-    reply_to: null,
-  },
-]
-
 export default function MessagesPage() {
-  const [conversations, setConversations] = useState(mockConversations)
-  const [selectedConversation, setSelectedConversation] = useState(conversations[0])
-  const [messages, setMessages] = useState(mockMessages)
+  const searchParams = useSearchParams()
+  const session = useSession()
+  const supabase = createClientComponentClient()
+  const [conversations, setConversations] = useState<any[]>([])
+  const [selectedConversation, setSelectedConversation] = useState<any>(null)
+  const [messages, setMessages] = useState<any[]>([])
   const [newMessage, setNewMessage] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
@@ -132,24 +47,302 @@ export default function MessagesPage() {
   const [showBlockDialog, setShowBlockDialog] = useState(false)
   const [showReportDialog, setShowReportDialog] = useState(false)
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [sendingMessage, setSendingMessage] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim()) return
+  // Auto-scroll to bottom when new messages arrive
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
 
-    const message = {
-      id: Date.now().toString(),
-      sender_id: "current_user",
-      content: newMessage,
-      created_at: new Date().toISOString(),
-      is_own: true,
-      reactions: [],
-      reply_to: replyingTo,
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
+
+  // Fetch conversations
+  const fetchConversations = async () => {
+    try {
+      const response = await fetch('/api/conversations')
+      if (response.ok) {
+        const data = await response.json()
+        setConversations(data)
+        if (data.length > 0 && !selectedConversation) {
+          setSelectedConversation(data[0])
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching conversations:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load conversations",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
     }
+  }
 
-    setMessages((prev) => [...prev, message])
-    setNewMessage("")
-    setReplyingTo(null)
+  // Fetch messages for selected conversation
+  const fetchMessages = async (conversationId: string) => {
+    try {
+      const response = await fetch(`/api/messages?conversation_id=${conversationId}`)
+      if (response.ok) {
+        const data = await response.json()
+        // Add is_own property to determine message alignment
+        const messagesWithOwnership = data.map((message: any) => ({
+          ...message,
+          is_own: message.sender_id === session?.user?.id
+        }))
+        setMessages(messagesWithOwnership)
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load messages",
+        variant: "destructive"
+      })
+    }
+  }
+
+  // Create or get conversation with a user
+  const createConversation = async (username: string) => {
+    try {
+      // First, get the user's profile by username
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('id, username, full_name, avatar_url')
+        .eq('username', username)
+        .single()
+
+      if (error || !profile) {
+        toast({
+          title: "Error",
+          description: "User not found",
+          variant: "destructive"
+        })
+        return
+      }
+
+      // Create or get conversation
+      const response = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          participant_id: profile.id
+        })
+      })
+
+      if (response.ok) {
+        const { conversation } = await response.json()
+        
+        // Create conversation object for UI
+        const newConversation = {
+          id: conversation.id,
+          otherParticipant: profile,
+          latestMessage: null,
+          updated_at: conversation.updated_at,
+          created_at: conversation.created_at
+        }
+
+        // Check if conversation already exists in state
+        const existingIndex = conversations.findIndex(conv => conv.id === conversation.id)
+        if (existingIndex === -1) {
+          setConversations(prev => [newConversation, ...prev])
+        }
+        
+        setSelectedConversation(newConversation)
+        setMessages([])
+        
+        toast({
+          title: "Conversation started",
+          description: `You can now message ${profile.full_name}`,
+        })
+      }
+    } catch (error) {
+      console.error('Error creating conversation:', error)
+      toast({
+        title: "Error",
+        description: "Failed to start conversation",
+        variant: "destructive"
+      })
+    }
+  }
+
+  // Load conversations on mount and set up real-time subscription
+  useEffect(() => {
+    if (session) {
+      fetchConversations()
+      
+      // Set up real-time subscription for conversation updates
+      const conversationsChannel = supabase
+        .channel('conversations')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'conversations',
+            filter: `or(participant_one_id.eq.${session.user.id},participant_two_id.eq.${session.user.id})`
+          },
+          () => {
+            // Refetch conversations when any conversation is updated
+            fetchConversations()
+          }
+        )
+        .subscribe()
+      
+      return () => {
+        supabase.removeChannel(conversationsChannel)
+      }
+    }
+  }, [session])
+
+  // Load messages when conversation changes and set up real-time subscription
+  useEffect(() => {
+    if (selectedConversation?.id) {
+      fetchMessages(selectedConversation.id)
+      
+      // Set up real-time subscription for new messages
+      const channel = supabase
+        .channel(`messages:${selectedConversation.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `conversation_id=eq.${selectedConversation.id}`
+          },
+          async (payload) => {
+            // Fetch the complete message with sender profile
+            const { data: newMessage, error } = await supabase
+              .from('messages')
+              .select(`
+                *,
+                sender:profiles!messages_sender_id_fkey (
+                  id,
+                  username,
+                  full_name,
+                  avatar_url
+                )
+              `)
+              .eq('id', payload.new.id)
+              .single()
+            
+            if (!error && newMessage) {
+              // Add is_own property to determine message alignment
+              const messageWithOwnership = {
+                ...newMessage,
+                is_own: newMessage.sender_id === session?.user?.id
+              }
+              
+              setMessages(prev => {
+                // Avoid duplicates
+                if (prev.some(msg => msg.id === messageWithOwnership.id)) {
+                  return prev
+                }
+                return [...prev, messageWithOwnership]
+              })
+              
+              // Update conversation's latest message
+              setConversations(prev => prev.map(conv => 
+                conv.id === selectedConversation.id 
+                  ? { ...conv, latestMessage: messageWithOwnership, updated_at: messageWithOwnership.created_at }
+                  : conv
+              ))
+            }
+          }
+        )
+        .subscribe()
+      
+      // Cleanup subscription on unmount or conversation change
+      return () => {
+        supabase.removeChannel(channel)
+      }
+    }
+  }, [selectedConversation, session])
+
+  // Handle user parameter from URL to start a conversation
+  useEffect(() => {
+    const userParam = searchParams.get('user')
+    if (userParam && session && conversations.length >= 0) {
+      // Check if conversation with this user already exists
+      const existingConversation = conversations.find(
+        conv => conv.otherParticipant && conv.otherParticipant.username === userParam
+      )
+      
+      if (existingConversation) {
+        // Select existing conversation
+        setSelectedConversation(existingConversation)
+      } else {
+        // Create new conversation with the user
+        createConversation(userParam)
+      }
+    }
+  }, [searchParams, session, conversations])
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedConversation || sendingMessage) return
+
+    setSendingMessage(true)
+    try {
+      const response = await fetch('/api/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversation_id: selectedConversation.id,
+          content: newMessage.trim(),
+        })
+      })
+
+      if (response.ok) {
+        const message = await response.json()
+        // Add is_own property for proper alignment
+        const messageWithOwnership = {
+          ...message,
+          is_own: true // This is always true for messages we send
+        }
+        
+        setMessages(prev => {
+          // Avoid duplicates in case real-time subscription fires
+          if (prev.some(msg => msg.id === messageWithOwnership.id)) {
+            return prev
+          }
+          return [...prev, messageWithOwnership]
+        })
+        setNewMessage("")
+        setReplyingTo(null)
+        
+        // Update conversation's latest message
+        setConversations(prev => prev.map(conv => 
+          conv.id === selectedConversation.id 
+            ? { ...conv, latestMessage: messageWithOwnership, updated_at: messageWithOwnership.created_at }
+            : conv
+        ))
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to send message",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error('Error sending message:', error)
+      toast({
+        title: "Error",
+        description: "Failed to send message",
+        variant: "destructive"
+      })
+    } finally {
+      setSendingMessage(false)
+    }
   }
 
   const handleEmojiSelect = (emoji: string) => {
@@ -160,11 +353,11 @@ export default function MessagesPage() {
     setMessages((prev) =>
       prev.map((msg) => {
         if (msg.id === messageId) {
-          const existingReaction = msg.reactions?.find((r) => r.emoji === emoji)
+          const existingReaction = msg.reactions?.find((r: { emoji: string; count: number; reacted_by_user: boolean }) => r.emoji === emoji)
           if (existingReaction) {
             return {
               ...msg,
-              reactions: msg.reactions?.map((r) =>
+              reactions: msg.reactions?.map((r: { emoji: string; count: number; reacted_by_user: boolean }) =>
                 r.emoji === emoji
                   ? {
                       ...r,
@@ -216,7 +409,7 @@ export default function MessagesPage() {
   const handleBlockUser = () => {
     toast({
       title: "User blocked",
-      description: `${selectedConversation?.user.full_name} has been blocked`,
+      description: `${selectedConversation?.otherParticipant?.full_name || selectedConversation?.otherParticipant?.username || 'User'} has been blocked`,
     })
     setShowBlockDialog(false)
   }
@@ -246,9 +439,13 @@ export default function MessagesPage() {
   }
 
   const filteredConversations = conversations.filter(
-    (conv) =>
-      conv.user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      conv.user.username.toLowerCase().includes(searchQuery.toLowerCase()),
+    (conv) => {
+      if (!conv.otherParticipant) return false
+      const fullName = conv.otherParticipant.full_name || ''
+      const username = conv.otherParticipant.username || ''
+      return fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+             username.toLowerCase().includes(searchQuery.toLowerCase())
+    }
   )
 
   return (
@@ -278,48 +475,55 @@ export default function MessagesPage() {
                 </div>
 
                 <div className="overflow-y-auto max-h-[calc(100vh-16rem)]">
-                  {filteredConversations.map((conversation) => (
-                    <div
-                      key={conversation.id}
-                      className={`p-4 border-b cursor-pointer transition-colors ${
-                        selectedConversation?.id === conversation.id
-                          ? "bg-green-50 dark:bg-green-900/20"
-                          : "hover:bg-gray-50 dark:hover:bg-gray-800"
-                      }`}
-                      onClick={() => setSelectedConversation(conversation)}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="relative">
-                          <Avatar className="w-12 h-12">
-                            <AvatarImage src={conversation.user.avatar_url || "/placeholder.svg"} />
-                            <AvatarFallback>{conversation.user.full_name.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          {conversation.user.online && (
-                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
-                          )}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-                              {conversation.user.full_name}
-                            </p>
-                            <div className="flex items-center space-x-2">
-                              <span className="text-xs text-gray-500">
-                                {formatLastMessageTime(conversation.last_message_time)}
-                              </span>
-                              {conversation.unread_count > 0 && (
-                                <Badge className="bg-green-500 text-white">{conversation.unread_count}</Badge>
-                              )}
-                            </div>
+                  {loading ? (
+                    <div className="flex items-center justify-center p-8">
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                      <span className="ml-2">Loading conversations...</span>
+                    </div>
+                  ) : filteredConversations.length === 0 ? (
+                    <div className="text-center p-8 text-gray-500">
+                      <MessageCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No conversations yet</p>
+                      <p className="text-sm">Start a conversation by visiting a user's profile</p>
+                    </div>
+                  ) : (
+                    filteredConversations.map((conversation) => (
+                      <div
+                        key={conversation.id}
+                        className={`p-4 border-b cursor-pointer transition-colors ${
+                          selectedConversation?.id === conversation.id
+                            ? "bg-green-50 dark:bg-green-900/20"
+                            : "hover:bg-gray-50 dark:hover:bg-gray-800"
+                        }`}
+                        onClick={() => setSelectedConversation(conversation)}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="relative">
+                            <Avatar className="w-12 h-12">
+                              <AvatarImage src={conversation.otherParticipant?.avatar_url || "/placeholder.svg"} />
+                              <AvatarFallback>{(conversation.otherParticipant?.full_name || conversation.otherParticipant?.username || 'U').charAt(0).toUpperCase()}</AvatarFallback>
+                            </Avatar>
                           </div>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                            {conversation.last_message}
-                          </p>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                                {conversation.otherParticipant?.full_name || conversation.otherParticipant?.username || 'Unknown User'}
+                              </p>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-xs text-gray-500">
+                                  {conversation.latestMessage ? formatLastMessageTime(conversation.latestMessage.created_at) : formatLastMessageTime(conversation.updated_at)}
+                                </span>
+                              </div>
+                            </div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                              {conversation.latestMessage?.content || 'Start a conversation...'}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -334,19 +538,19 @@ export default function MessagesPage() {
                   <div className="flex items-center space-x-3">
                     <div className="relative">
                       <Avatar className="w-10 h-10">
-                        <AvatarImage src={selectedConversation.user.avatar_url || "/placeholder.svg"} />
-                        <AvatarFallback>{selectedConversation.user.full_name.charAt(0)}</AvatarFallback>
+                        <AvatarImage src={selectedConversation.otherParticipant?.avatar_url || "/placeholder.svg"} />
+                        <AvatarFallback>{(selectedConversation.otherParticipant?.full_name || selectedConversation.otherParticipant?.username || 'U').charAt(0).toUpperCase()}</AvatarFallback>
                       </Avatar>
-                      {selectedConversation.user.online && (
+                      {selectedConversation.otherParticipant?.online && (
                         <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
                       )}
                     </div>
                     <div>
                       <p className="font-semibold text-gray-900 dark:text-gray-100">
-                        {selectedConversation.user.full_name}
+                        {selectedConversation.otherParticipant?.full_name || selectedConversation.otherParticipant?.username || 'Unknown User'}
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {selectedConversation.user.online ? "Online" : "Offline"}
+                        @{selectedConversation.otherParticipant?.username || 'unknown'}
                       </p>
                     </div>
                   </div>
@@ -386,14 +590,23 @@ export default function MessagesPage() {
 
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {messages.map((message) => (
-                    <div key={message.id} className={`flex ${message.is_own ? "justify-end" : "justify-start"}`}>
+                  {messages.length === 0 ? (
+                    <div className="flex items-center justify-center h-full text-gray-500">
+                      <div className="text-center">
+                        <MessageCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No messages yet</p>
+                        <p className="text-sm">Start the conversation!</p>
+                      </div>
+                    </div>
+                  ) : (
+                    messages.map((message) => (
+                      <div key={message.id} className={`flex ${message.is_own ? "justify-end" : "justify-start"}`}>
                       <div className="group relative max-w-xs lg:max-w-md">
                         <div
                           className={`px-4 py-2 rounded-lg ${
                             message.is_own
-                              ? "bg-green-500 text-white"
-                              : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                              ? "bg-green-500 text-white ml-auto"
+                              : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 mr-auto"
                           }`}
                         >
                           {/* Reply Reference */}
@@ -410,7 +623,7 @@ export default function MessagesPage() {
                                 <span className="font-medium">
                                   {messages.find((m) => m.id === message.reply_to)?.is_own
                                     ? "You"
-                                    : selectedConversation?.user.full_name}
+                                    : selectedConversation?.otherParticipant?.full_name || selectedConversation?.otherParticipant?.username || 'Unknown User'}
                                 </span>
                               </div>
                               <p className="truncate">
@@ -431,7 +644,7 @@ export default function MessagesPage() {
                           {/* Message Reactions */}
                           {message.reactions && message.reactions.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-2">
-                              {message.reactions.map((reaction, index) => (
+                              {message.reactions.map((reaction: { emoji: string; count: number; reacted_by_user: boolean }, index: number) => (
                                 <button
                                   key={index}
                                   onClick={() => handleMessageReaction(message.id, reaction.emoji)}
@@ -493,9 +706,11 @@ export default function MessagesPage() {
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
+                  <div ref={messagesEndRef} />
                 </div>
 
                 {/* Reply Preview */}
@@ -603,7 +818,7 @@ export default function MessagesPage() {
           <DialogHeader>
             <DialogTitle>Block User</DialogTitle>
             <DialogDescription>
-              Are you sure you want to block {selectedConversation?.user.full_name}? They won't be able to message you
+              Are you sure you want to block {selectedConversation?.otherParticipant?.full_name || selectedConversation?.otherParticipant?.username || 'this user'}? They won't be able to message you
               or see your posts.
             </DialogDescription>
           </DialogHeader>
@@ -624,7 +839,7 @@ export default function MessagesPage() {
           <DialogHeader>
             <DialogTitle>Report User</DialogTitle>
             <DialogDescription>
-              Help us keep Honua safe. What's happening with {selectedConversation?.user.full_name}?
+              Help us keep Honua safe. What's happening with {selectedConversation?.otherParticipant?.full_name || selectedConversation?.otherParticipant?.username || 'this user'}?
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">

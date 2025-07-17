@@ -13,8 +13,7 @@ export async function GET(request: NextRequest) {
       }, { status: 500 })
     }
 
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const supabase = createRouteHandlerClient({ cookies })
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
@@ -119,8 +118,7 @@ export async function GET(request: NextRequest) {
 // POST /api/posts - Create a new post
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const supabase = createRouteHandlerClient({ cookies })
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -224,6 +222,48 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Error creating post:', error)
       return NextResponse.json({ error: 'Failed to create post' }, { status: 500 })
+    }
+
+    // Handle mentions in the post content
+    try {
+      const mentionPattern = /@([a-zA-Z0-9_]+)/g
+      const mentions = []
+      let match
+      
+      while ((match = mentionPattern.exec(content)) !== null) {
+        mentions.push(match[1])
+      }
+      
+      if (mentions.length > 0) {
+        // Get user IDs for mentioned usernames
+        const { data: mentionedUsers } = await supabase
+          .from('profiles')
+          .select('id, username')
+          .in('username', mentions)
+        
+        if (mentionedUsers && mentionedUsers.length > 0) {
+          // Create mention notifications for each mentioned user
+          for (const mentionedUser of mentionedUsers) {
+            if (mentionedUser.id !== user.id) { // Don't notify self
+              try {
+                await supabase.rpc('create_notification', {
+                  p_recipient_id: mentionedUser.id,
+                  p_actor_id: user.id,
+                  p_type: 'mention',
+                  p_post_id: post.id,
+                  p_content: `mentioned you in a post`
+                })
+              } catch (notificationError) {
+                console.error('Error creating mention notification:', notificationError)
+                // Don't fail the post creation if notification fails
+              }
+            }
+          }
+        }
+      }
+    } catch (mentionError) {
+      console.error('Error processing mentions:', mentionError)
+      // Don't fail the post creation if mention processing fails
     }
 
     // Return the created post with default interaction counts

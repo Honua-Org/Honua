@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { useSession } from "@supabase/auth-helpers-react"
 import { createClient } from "@/lib/supabase/client"
 import { uploadCoverImage } from "@/lib/storage"
@@ -38,6 +38,8 @@ import {
 } from "lucide-react"
 import Image from "next/image"
 import PostCard from "@/components/post-card"
+import ReputationBadge from "@/components/reputation/ReputationBadge"
+import ReputationDashboard from "@/components/reputation/ReputationDashboard"
 
 // Mock user data
 const mockUser = {
@@ -110,15 +112,18 @@ export default function ProfilePage() {
   const params = useParams()
   const username = params.username as string
   const session = useSession()
+  const router = useRouter()
   const { toast } = useToast()
   const [user, setUser] = useState<any>(null)
   const [posts, setPosts] = useState<any[]>([])
   const [isFollowing, setIsFollowing] = useState(false)
+  const [followsYou, setFollowsYou] = useState(false)
   const [activeTab, setActiveTab] = useState("posts")
   const [showCoverEditModal, setShowCoverEditModal] = useState(false)
   const [selectedCoverImage, setSelectedCoverImage] = useState<string | null>(null)
   const [uploadingCoverImage, setUploadingCoverImage] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [activeReputationTab, setActiveReputationTab] = useState('overview')
 
   // Check if this is the current user's profile
   const isOwnProfile = session?.user?.user_metadata?.username === username
@@ -136,7 +141,21 @@ export default function ProfilePage() {
         const profileData = await profileResponse.json()
         setUser(profileData.profile)
         
-        // Fetch user posts
+        // Check follow status if not own profile and user is logged in
+        if (!isOwnProfile && session?.user && profileData.profile?.id) {
+          try {
+            const followResponse = await fetch(`/api/profiles/${profileData.profile.id}/follow`)
+            if (followResponse.ok) {
+              const followData = await followResponse.json()
+              setIsFollowing(followData.is_following)
+              setFollowsYou(followData.follows_you)
+            }
+          } catch (error) {
+            console.error('Error checking follow status:', error)
+          }
+        }
+        
+        // Fetch user posts and calculate post count
         const postsResponse = await fetch("/api/posts?limit=100&page=1");
         let postsData = [];
         if (postsResponse.ok) {
@@ -145,7 +164,14 @@ export default function ProfilePage() {
           const errorObj = await postsResponse.json();
           throw new Error("Error fetching posts: " + (errorObj.error || postsResponse.statusText));
         }
-        setPosts((postsData || []).map((post: any) => ({ ...post, user: post.profiles })));
+        const userPosts = (postsData || []).filter((post: any) => post.profiles?.username === username);
+        setPosts(userPosts.map((post: any) => ({ ...post, user: post.profiles })));
+        
+        // Update user with actual post count
+        setUser((prev: any) => ({
+          ...prev,
+          posts_count: userPosts.length
+        }));
       } catch (error) {
         console.error('Error fetching profile data:', error)
         toast({
@@ -161,21 +187,55 @@ export default function ProfilePage() {
     if (username) {
       fetchUserProfile()
     }
-  }, [username, toast])
+  }, [username, toast, isOwnProfile, session])
 
-  const handleFollow = () => {
-    setIsFollowing(!isFollowing)
-    setUser((prev: any) => ({
-      ...prev,
-      followers_count: isFollowing ? prev.followers_count - 1 : prev.followers_count + 1,
-    }))
+  const handleFollow = async () => {
+    if (!user?.id) return
 
-    toast({
-      title: isFollowing ? "Unfollowed" : "Followed",
-      description: isFollowing
-        ? `You have unfollowed ${user?.full_name}`
-        : `You are now following ${user?.full_name}`,
-    })
+    try {
+      const method = isFollowing ? 'DELETE' : 'POST'
+      const response = await fetch(`/api/profiles/${user.id}/follow`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to update follow status')
+      }
+
+      const data = await response.json()
+      
+      // Update local state
+      setIsFollowing(!isFollowing)
+      setUser((prev: any) => ({
+        ...prev,
+        followers_count: data.follower_count,
+      }))
+
+      toast({
+        title: isFollowing ? "Unfollowed" : "Followed",
+        description: isFollowing
+          ? `You have unfollowed ${user?.full_name}`
+          : `You are now following ${user?.full_name}`,
+      })
+    } catch (error) {
+      console.error('Error updating follow status:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update follow status",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleMessage = () => {
+    if (!user?.username) return
+    
+    // Navigate to messages page with the user parameter
+    router.push(`/messages?user=${user.username}`)
   }
 
   const handlePostUpdate = (postId: string, updates: any) => {
@@ -332,10 +392,11 @@ export default function ProfilePage() {
                 </div>
                 <p className="text-gray-600 dark:text-gray-400">@{user.username}</p>
                 <div className="flex items-center space-x-2">
-                  <div className="flex items-center space-x-1">
-                    <Award className="w-4 h-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-600">{user.reputation} reputation</span>
-                  </div>
+                  <ReputationBadge 
+                    reputation={user.reputation || 0} 
+                    size="md"
+                    showTooltip={true}
+                  />
                   <Badge
                     variant="secondary"
                     className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
@@ -346,30 +407,37 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="flex items-center space-x-2 mt-4 md:mt-0">
-              {!isOwnProfile ? (
-                <>
-                  <Button variant="outline" size="sm">
-                    <MessageCircle className="w-4 h-4 mr-2" />
-                    Message
-                  </Button>
-                  <Button
-                    onClick={handleFollow}
-                    className={isFollowing ? "bg-gray-200 text-gray-800 hover:bg-gray-300" : "sustainability-gradient"}
-                  >
-                    {isFollowing ? (
-                      <>
-                        <UserMinus className="w-4 h-4 mr-2" />
-                        Unfollow
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="w-4 h-4 mr-2" />
-                        Follow
-                      </>
-                    )}
-                  </Button>
-                </>
+            <div className="flex flex-col items-end space-y-2 mt-4 md:mt-0">
+               {!isOwnProfile ? (
+                 <>
+                   <div className="flex items-center space-x-2">
+                     {followsYou && (
+                       <div className="flex items-center space-x-1 text-sm text-gray-600 dark:text-gray-400">
+                         <span>Follows you</span>
+                       </div>
+                     )}
+                     <Button variant="outline" size="sm" onClick={handleMessage}>
+                       <MessageCircle className="w-4 h-4 mr-2" />
+                       Message
+                     </Button>
+                     <Button
+                       onClick={handleFollow}
+                       className={isFollowing ? "bg-gray-200 text-gray-800 hover:bg-gray-300" : "sustainability-gradient"}
+                     >
+                       {isFollowing ? (
+                         <>
+                           <UserMinus className="w-4 h-4 mr-2" />
+                           Unfollow
+                         </>
+                       ) : (
+                         <>
+                           <UserPlus className="w-4 h-4 mr-2" />
+                           {followsYou ? "Follow back" : "Follow"}
+                         </>
+                       )}
+                     </Button>
+                   </div>
+                 </>
               ) : (
                 <Button variant="outline" size="sm" asChild>
                   <a href="/settings">
@@ -451,65 +519,131 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Achievements */}
+        {/* Content Tabs */}
         <div className="px-4 mb-6">
-          <Card>
-            <CardContent className="p-4">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">Achievements</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {user.achievements?.map((achievement: any, index: number) => (
-                  <div
-                    key={index}
-                    className="flex items-center space-x-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20"
-                  >
-                    <span className="text-2xl">{achievement.icon}</span>
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-gray-100">{achievement.name}</p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">{achievement.description}</p>
+          <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+            <button
+              onClick={() => setActiveTab("posts")}
+              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === "posts"
+                  ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+              }`}
+            >
+              Posts ({user.posts_count || 0})
+            </button>
+            <button
+              onClick={() => setActiveTab("reputation")}
+              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === "reputation"
+                  ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+              }`}
+            >
+              Reputation & Achievements
+            </button>
+            <button
+              onClick={() => setActiveTab("gallery")}
+              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === "gallery"
+                  ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+              }`}
+            >
+              Gallery
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        <div className="px-4">
+          {activeTab === "posts" && (
+            <div className="space-y-6">
+              {posts.length > 0 ? (
+                posts.map((post) => (
+                  <PostCard key={post.id} post={post} onUpdate={handlePostUpdate} />
+                ))
+              ) : (
+                <div className="text-center py-12">
+                  <div className="text-gray-400 mb-4">
+                    <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No posts yet</h3>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    {isOwnProfile ? "Share your first sustainability post!" : `${user.full_name} hasn't posted anything yet.`}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "reputation" && (
+            <div className="space-y-6">
+              <ReputationDashboard userId={user.id} username={user.username} />
+              
+              {/* Legacy Achievements Section */}
+              {user.achievements && user.achievements.length > 0 && (
+                <Card>
+                  <CardContent className="p-6">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Profile Achievements</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {user.achievements.map((achievement: any, index: number) => (
+                        <div
+                          key={index}
+                          className="flex items-center space-x-3 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
+                        >
+                          <span className="text-2xl">{achievement.icon}</span>
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-gray-100">{achievement.name}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">{achievement.description}</p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
 
-        {/* Photo Gallery */}
-        <div className="px-4 mb-6">
-          <Card>
-            <CardContent className="p-4">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">Recent Photos</h3>
-              <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
-                {[
-                  "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=300&h=300&fit=crop",
-                  "https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?w=300&h=300&fit=crop",
-                  "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=300&h=300&fit=crop",
-                  "https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=300&h=300&fit=crop",
-                  "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=300&h=300&fit=crop",
-                  "https://images.unsplash.com/photo-1497435334941-8c899ee9e8e9?w=300&h=300&fit=crop",
-                ].map((src, index) => (
-                  <div
-                    key={index}
-                    className="relative aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden"
-                  >
-                    <Image
-                      src={src || "/placeholder.svg"}
-                      alt={`Gallery image ${index + 1}`}
-                      fill
-                      className="object-cover hover:scale-105 transition-transform cursor-pointer"
-                    />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Posts Section */}
-        <div className="px-4 space-y-6">
-          {posts.map((post) => (
-            <PostCard key={post.id} post={post} onUpdate={handlePostUpdate} />
-          ))}
+          {activeTab === "gallery" && (
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Recent Photos</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {[
+                    "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=400&h=400&fit=crop",
+                    "https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?w=400&h=400&fit=crop",
+                    "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400&h=400&fit=crop",
+                    "https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=400&h=400&fit=crop",
+                    "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=400&h=400&fit=crop",
+                    "https://images.unsplash.com/photo-1497435334941-8c899ee9e8e9?w=400&h=400&fit=crop",
+                    "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=400&h=400&fit=crop",
+                    "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=400&fit=crop",
+                  ].map((src, index) => (
+                    <div
+                      key={index}
+                      className="relative aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden group cursor-pointer"
+                    >
+                      <Image
+                        src={src || "/placeholder.svg"}
+                        alt={`Gallery image ${index + 1}`}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-200"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200" />
+                    </div>
+                  ))}
+                </div>
+                {/* Show message if no photos */}
+                <div className="text-center py-8 text-gray-500">
+                  <p className="text-sm">More photos coming soon...</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Cover Photo Edit Modal */}

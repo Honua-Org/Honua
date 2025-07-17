@@ -17,10 +17,10 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if post exists
+    // Check if post exists and get author info
     const { data: post, error: postError } = await supabase
       .from('posts')
-      .select('id')
+      .select('id, user_id')
       .eq('id', postId)
       .single()
 
@@ -51,6 +51,22 @@ export async function POST(
     if (error) {
       console.error('Error liking post:', error)
       return NextResponse.json({ error: 'Failed to like post' }, { status: 500 })
+    }
+
+    // Create notification for post author (if not liking own post)
+    if (post.user_id !== session.user.id) {
+      try {
+        await supabase.rpc('create_notification', {
+          p_recipient_id: post.user_id,
+          p_actor_id: session.user.id,
+          p_type: 'like',
+          p_post_id: postId,
+          p_content: 'liked your post'
+        })
+      } catch (notificationError) {
+        console.error('Error creating like notification:', notificationError)
+        // Don't fail the like operation if notification fails
+      }
     }
 
     // Get updated like count

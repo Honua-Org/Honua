@@ -112,10 +112,10 @@ export async function POST(
       return NextResponse.json({ error: 'Content is required' }, { status: 400 })
     }
 
-    // Check if post exists
+    // Check if post exists and get author info
     const { data: post, error: postError } = await supabase
       .from('posts')
-      .select('id')
+      .select('id, user_id')
       .eq('id', postId)
       .single()
 
@@ -175,6 +175,61 @@ export async function POST(
       }
       
       return NextResponse.json({ error: 'Failed to create comment' }, { status: 500 })
+    }
+
+    // Create notification for post author (if not commenting on own post)
+    if (post.user_id !== session.user.id) {
+      try {
+        await supabase.rpc('create_notification', {
+          p_recipient_id: post.user_id,
+          p_actor_id: session.user.id,
+          p_type: 'comment',
+          p_post_id: postId,
+          p_comment_id: comment.id,
+          p_content: 'commented on your post'
+        })
+      } catch (notificationError) {
+        console.error('Error creating comment notification:', notificationError)
+        // Don't fail the comment operation if notification fails
+      }
+    }
+
+    // Handle mentions in comment content
+    try {
+      const mentionRegex = /@([a-zA-Z0-9_]+)/g
+      const mentions: string[] = []
+      let match
+      
+      while ((match = mentionRegex.exec(content)) !== null) {
+        mentions.push(match[1]) // Extract username without @
+      }
+      
+      if (mentions.length > 0) {
+        // Get user IDs for mentioned usernames
+        const { data: mentionedUsers } = await supabase
+          .from('profiles')
+          .select('id, username')
+          .in('username', [...new Set(mentions)]) // Remove duplicates
+        
+        // Create mention notifications
+        if (mentionedUsers) {
+          for (const mentionedUser of mentionedUsers) {
+            if (mentionedUser.id !== session.user.id) { // Don't notify self
+              await supabase.rpc('create_notification', {
+                p_recipient_id: mentionedUser.id,
+                p_actor_id: session.user.id,
+                p_type: 'mention',
+                p_post_id: postId,
+                p_comment_id: comment.id,
+                p_content: 'mentioned you in a comment'
+              })
+            }
+          }
+        }
+      }
+    } catch (mentionError) {
+      console.error('Error handling mentions:', mentionError)
+      // Don't fail the comment operation if mention handling fails
     }
 
     // Transform the response

@@ -1,87 +1,37 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import { useSession } from "@supabase/auth-helpers-react"
+import { useRouter } from "next/navigation"
 import MainLayout from "@/components/main-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Bell, Heart, MessageCircle, UserPlus, Repeat2, CheckCircle, Settings } from "lucide-react"
-import Link from "next/link"
+import { toast } from "sonner"
 
-const mockNotifications = [
-  {
-    id: "1",
-    type: "like",
-    user: {
-      id: "user1",
-      username: "sarah_green",
-      full_name: "Sarah Green",
-      avatar_url: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
-    },
-    content: "liked your post about solar panel installation",
-    post_preview: "Just installed 20 solar panels on our community center! 🌞",
-    created_at: "2024-01-15T10:30:00Z",
-    read: false,
-  },
-  {
-    id: "2",
-    type: "comment",
-    user: {
-      id: "user2",
-      username: "eco_marcus",
-      full_name: "Marcus Johnson",
-      avatar_url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
-    },
-    content: "commented on your post",
-    comment_preview: "This is amazing! How long did the installation take?",
-    post_preview: "Just installed 20 solar panels...",
-    created_at: "2024-01-15T09:15:00Z",
-    read: false,
-  },
-  {
-    id: "3",
-    type: "follow",
-    user: {
-      id: "user3",
-      username: "green_tech_co",
-      full_name: "GreenTech Solutions",
-      avatar_url: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
-    },
-    content: "started following you",
-    created_at: "2024-01-14T16:45:00Z",
-    read: true,
-  },
-  {
-    id: "4",
-    type: "repost",
-    user: {
-      id: "user4",
-      username: "climate_action_now",
-      full_name: "Climate Action Network",
-      avatar_url: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face",
-    },
-    content: "reposted your post",
-    post_preview: "Week 3 of our zero-waste challenge! Our family has reduced waste by 90%...",
-    created_at: "2024-01-14T14:20:00Z",
-    read: true,
-  },
-  {
-    id: "5",
-    type: "mention",
-    user: {
-      id: "user5",
-      username: "urban_gardener",
-      full_name: "Maya Patel",
-      avatar_url: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
-    },
-    content: "mentioned you in a post",
-    post_preview: "Thanks to @you for the amazing gardening tips! My balcony garden is thriving...",
-    created_at: "2024-01-14T12:00:00Z",
-    read: true,
-  },
-]
+interface NotificationUser {
+  id: string
+  username: string
+  full_name: string
+  avatar_url?: string
+}
+
+interface Notification {
+  id: string
+  type: "like" | "comment" | "follow" | "repost" | "mention"
+  user: NotificationUser
+  content: string
+  post_preview?: string
+  comment_preview?: string
+  created_at: string
+  read: boolean
+}
+
+
 
 const getNotificationIcon = (type: string) => {
   switch (type) {
@@ -112,24 +62,193 @@ const formatTimeAgo = (dateString: string) => {
 }
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState(mockNotifications)
+  const [notifications, setNotifications] = useState<Notification[]>([])
   const [activeTab, setActiveTab] = useState("all")
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const session = useSession()
+  const router = useRouter()
 
   const unreadCount = notifications.filter((n) => !n.read).length
 
-  const markAsRead = (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (session === null) {
+      router.push('/auth/login')
+      return
+    }
+  }, [session, router])
+
+  // Show loading while checking authentication
+  if (session === undefined) {
+    return (
+      <MainLayout>
+        <div className="max-w-2xl mx-auto p-4 pb-20 lg:pb-4">
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        </div>
+      </MainLayout>
+    )
   }
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+  // Don't render if not authenticated
+  if (!session) {
+    return null
   }
+
+  const setupNotifications = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/setup-notifications', {
+        method: 'POST'
+      })
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        toast.success('Notifications table created successfully!')
+        // Try to fetch notifications again
+        await fetchNotifications(activeTab)
+      } else {
+        throw new Error(data.error || 'Failed to setup notifications')
+      }
+    } catch (error) {
+      console.error('Error setting up notifications:', error)
+      toast.error('Failed to setup notifications table')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchNotifications = async (type?: string) => {
+    try {
+      setLoading(true)
+      const params = new URLSearchParams()
+      if (type && type !== 'all') {
+        params.append('type', type)
+      }
+      
+      const response = await fetch(`/api/notifications?${params.toString()}`)
+      if (!response.ok) {
+        const errorData = await response.json()
+        if (errorData.code === 'TABLE_NOT_FOUND') {
+          setError('Notifications table not found. Click "Setup Notifications" to create it.')
+          return
+        }
+        throw new Error(errorData.details || 'Failed to fetch notifications')
+      }
+      
+      const data = await response.json()
+      setNotifications(data.notifications || [])
+      setError(null)
+    } catch (error) {
+      console.error('Error fetching notifications:', error)
+      setError('Failed to load notifications')
+      toast.error('Failed to load notifications')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const markAsRead = async (id: string) => {
+    try {
+      const response = await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          notification_ids: [id]
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to mark notification as read')
+      }
+
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
+    } catch (error) {
+      console.error('Error marking notification as read:', error)
+      toast.error('Failed to mark notification as read')
+    }
+  }
+
+  const markAllAsRead = async () => {
+    try {
+      const response = await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          mark_all: true
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to mark all notifications as read')
+      }
+
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+      toast.success('All notifications marked as read')
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error)
+      toast.error('Failed to mark all notifications as read')
+    }
+  }
+
+  useEffect(() => {
+    if (session) {
+      fetchNotifications(activeTab)
+    }
+  }, [activeTab, session])
 
   const filteredNotifications = notifications.filter((notification) => {
     if (activeTab === "all") return true
     if (activeTab === "unread") return !notification.read
     return notification.type === activeTab
   })
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="max-w-2xl mx-auto p-4 pb-20 lg:pb-4">
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        </div>
+      </MainLayout>
+    )
+  }
+
+  if (error) {
+    const isTableNotFound = error.includes('table not found') || error.includes('Setup Notifications')
+    
+    return (
+      <MainLayout>
+        <div className="max-w-2xl mx-auto p-4 pb-20 lg:pb-4">
+          <Card className="text-center py-12">
+            <CardContent>
+              <Bell className="w-12 h-12 text-red-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                {isTableNotFound ? 'Notifications Setup Required' : 'Error loading notifications'}
+              </h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-4">{error}</p>
+              <div className="flex gap-2 justify-center">
+                {isTableNotFound && (
+                  <Button onClick={setupNotifications} className="bg-blue-600 hover:bg-blue-700">
+                    Setup Notifications
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => fetchNotifications(activeTab)}>Try again</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </MainLayout>
+    )
+  }
 
   return (
     <MainLayout>
@@ -181,7 +300,7 @@ export default function NotificationsPage() {
                     <div className="flex space-x-3">
                       <Avatar className="w-10 h-10">
                         <AvatarImage src={notification.user.avatar_url || "/placeholder.svg"} />
-                        <AvatarFallback>{notification.user.full_name.charAt(0)}</AvatarFallback>
+                        <AvatarFallback>{notification.user.full_name?.charAt(0) || 'U'}</AvatarFallback>
                       </Avatar>
 
                       <div className="flex-1 min-w-0">

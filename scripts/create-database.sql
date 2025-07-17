@@ -89,17 +89,31 @@ CREATE TABLE IF NOT EXISTS follows (
 -- Create notifications table
 CREATE TABLE IF NOT EXISTS notifications (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  type TEXT NOT NULL,
-  content TEXT NOT NULL,
-  read_status BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+  recipient_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  actor_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  type VARCHAR(50) NOT NULL CHECK (type IN ('like', 'comment', 'follow', 'repost', 'mention')),
+  post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+  comment_id UUID REFERENCES comments(id) ON DELETE CASCADE,
+  content TEXT,
+  read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Create conversations table
+CREATE TABLE IF NOT EXISTS conversations (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  participant_one_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  participant_two_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  UNIQUE(participant_one_id, participant_two_id)
 );
 
 -- Create messages table
 CREATE TABLE IF NOT EXISTS messages (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  conversation_id UUID NOT NULL,
+  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
   sender_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   media_url TEXT,
@@ -148,6 +162,7 @@ ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reposts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE forums ENABLE ROW LEVEL SECURITY;
 ALTER TABLE threads ENABLE ROW LEVEL SECURITY;
@@ -239,6 +254,111 @@ DROP POLICY IF EXISTS "Users can delete own comment likes" ON comment_likes;
 CREATE POLICY "Users can delete own comment likes" ON comment_likes
   FOR DELETE USING (auth.uid() = user_id);
 
+-- Create policies for conversations
+DROP POLICY IF EXISTS "Users can view their own conversations" ON conversations;
+CREATE POLICY "Users can view their own conversations" ON conversations
+  FOR SELECT USING (auth.uid() = participant_one_id OR auth.uid() = participant_two_id);
+
+DROP POLICY IF EXISTS "Users can create conversations" ON conversations;
+CREATE POLICY "Users can create conversations" ON conversations
+  FOR INSERT WITH CHECK (auth.uid() = participant_one_id OR auth.uid() = participant_two_id);
+
+DROP POLICY IF EXISTS "Users can update their own conversations" ON conversations;
+CREATE POLICY "Users can update their own conversations" ON conversations
+  FOR UPDATE USING (auth.uid() = participant_one_id OR auth.uid() = participant_two_id);
+
+-- Create policies for messages
+DROP POLICY IF EXISTS "Users can view messages in their conversations" ON messages;
+CREATE POLICY "Users can view messages in their conversations" ON messages
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM conversations 
+      WHERE conversations.id = messages.conversation_id 
+      AND (conversations.participant_one_id = auth.uid() OR conversations.participant_two_id = auth.uid())
+    )
+  );
+
+DROP POLICY IF EXISTS "Users can send messages in their conversations" ON messages;
+CREATE POLICY "Users can send messages in their conversations" ON messages
+  FOR INSERT WITH CHECK (
+    auth.uid() = sender_id AND
+    EXISTS (
+      SELECT 1 FROM conversations 
+      WHERE conversations.id = messages.conversation_id 
+      AND (conversations.participant_one_id = auth.uid() OR conversations.participant_two_id = auth.uid())
+    )
+  );
+
+-- Create policies for notifications
+DROP POLICY IF EXISTS "Users can view their own notifications" ON notifications;
+CREATE POLICY "Users can view their own notifications" ON notifications
+  FOR SELECT USING (auth.uid() = recipient_id);
+
+DROP POLICY IF EXISTS "Users can update their own notifications" ON notifications;
+CREATE POLICY "Users can update their own notifications" ON notifications
+  FOR UPDATE USING (auth.uid() = recipient_id);
+
+DROP POLICY IF EXISTS "System can insert notifications" ON notifications;
+CREATE POLICY "System can insert notifications" ON notifications
+  FOR INSERT WITH CHECK (true);
+
+-- Create policies for reposts
+DROP POLICY IF EXISTS "Reposts are viewable by everyone" ON reposts;
+CREATE POLICY "Reposts are viewable by everyone" ON reposts
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Users can insert their own reposts" ON reposts;
+CREATE POLICY "Users can insert their own reposts" ON reposts
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete own reposts" ON reposts;
+CREATE POLICY "Users can delete own reposts" ON reposts
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Create policies for follows
+DROP POLICY IF EXISTS "Follows are viewable by everyone" ON follows;
+CREATE POLICY "Follows are viewable by everyone" ON follows
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Users can insert their own follows" ON follows;
+CREATE POLICY "Users can insert their own follows" ON follows
+  FOR INSERT WITH CHECK (auth.uid() = follower_id);
+
+DROP POLICY IF EXISTS "Users can delete their own follows" ON follows;
+CREATE POLICY "Users can delete their own follows" ON follows
+  FOR DELETE USING (auth.uid() = follower_id);
+
+-- Create policies for forums
+DROP POLICY IF EXISTS "Forums are viewable by everyone" ON forums;
+CREATE POLICY "Forums are viewable by everyone" ON forums
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Admins can manage their forums" ON forums;
+CREATE POLICY "Admins can manage their forums" ON forums
+  FOR ALL USING (auth.uid() = admin_id);
+
+-- Create policies for threads
+DROP POLICY IF EXISTS "Threads are viewable by everyone" ON threads;
+CREATE POLICY "Threads are viewable by everyone" ON threads
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Users can insert their own threads" ON threads;
+CREATE POLICY "Users can insert their own threads" ON threads
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update own threads" ON threads;
+CREATE POLICY "Users can update own threads" ON threads
+  FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete own threads" ON threads;
+CREATE POLICY "Users can delete own threads" ON threads
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Create policies for tasks
+DROP POLICY IF EXISTS "Tasks are viewable by everyone" ON tasks;
+CREATE POLICY "Tasks are viewable by everyone" ON tasks
+  FOR SELECT USING (true);
+
 -- Add self-referencing foreign key constraints after tables are created
 -- Drop existing constraints if they exist, then add them
 ALTER TABLE posts DROP CONSTRAINT IF EXISTS posts_parent_id_fkey;
@@ -261,5 +381,25 @@ CREATE INDEX IF NOT EXISTS comment_likes_comment_id_idx ON comment_likes(comment
 CREATE INDEX IF NOT EXISTS comment_likes_user_id_idx ON comment_likes(user_id);
 CREATE INDEX IF NOT EXISTS follows_follower_id_idx ON follows(follower_id);
 CREATE INDEX IF NOT EXISTS follows_following_id_idx ON follows(following_id);
-CREATE INDEX IF NOT EXISTS notifications_user_id_idx ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS notifications_recipient_id_idx ON notifications(recipient_id);
+CREATE INDEX IF NOT EXISTS notifications_actor_id_idx ON notifications(actor_id);
+CREATE INDEX IF NOT EXISTS notifications_created_at_idx ON notifications(created_at DESC);
+CREATE INDEX IF NOT EXISTS notifications_read_idx ON notifications(read);
+CREATE INDEX IF NOT EXISTS notifications_type_idx ON notifications(type);
+CREATE INDEX IF NOT EXISTS conversations_participant_one_id_idx ON conversations(participant_one_id);
+CREATE INDEX IF NOT EXISTS conversations_participant_two_id_idx ON conversations(participant_two_id);
+CREATE INDEX IF NOT EXISTS conversations_updated_at_idx ON conversations(updated_at DESC);
 CREATE INDEX IF NOT EXISTS messages_conversation_id_idx ON messages(conversation_id);
+CREATE INDEX IF NOT EXISTS messages_sender_id_idx ON messages(sender_id);
+CREATE INDEX IF NOT EXISTS messages_created_at_idx ON messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS reposts_post_id_idx ON reposts(post_id);
+CREATE INDEX IF NOT EXISTS reposts_user_id_idx ON reposts(user_id);
+CREATE INDEX IF NOT EXISTS reposts_created_at_idx ON reposts(created_at DESC);
+CREATE INDEX IF NOT EXISTS forums_admin_id_idx ON forums(admin_id);
+CREATE INDEX IF NOT EXISTS forums_category_idx ON forums(category);
+CREATE INDEX IF NOT EXISTS threads_forum_id_idx ON threads(forum_id);
+CREATE INDEX IF NOT EXISTS threads_user_id_idx ON threads(user_id);
+CREATE INDEX IF NOT EXISTS threads_created_at_idx ON threads(created_at DESC);
+CREATE INDEX IF NOT EXISTS tasks_category_idx ON tasks(category);
+CREATE INDEX IF NOT EXISTS tasks_deadline_idx ON tasks(deadline);
+CREATE INDEX IF NOT EXISTS tasks_created_at_idx ON tasks(created_at DESC);

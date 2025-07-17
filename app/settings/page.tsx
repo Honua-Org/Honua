@@ -233,7 +233,7 @@ export default function SettingsPage() {
         .eq('id', session?.user?.id)
         .single()
 
-      const profilePayload = {
+      const baseProfilePayload = {
         id: session?.user?.id,
         full_name: profileData.full_name,
         username: profileData.username,
@@ -250,14 +250,17 @@ export default function SettingsPage() {
         // Update existing profile
         result = await supabase
           .from('profiles')
-          .update(profilePayload)
+          .update(baseProfilePayload)
           .eq('id', session?.user?.id)
       } else {
         // Create new profile
-        profilePayload.created_at = new Date().toISOString()
+        const createProfilePayload = {
+          ...baseProfilePayload,
+          created_at: new Date().toISOString()
+        }
         result = await supabase
           .from('profiles')
-          .insert([profilePayload])
+          .insert([createProfilePayload])
       }
 
       if (result.error) {

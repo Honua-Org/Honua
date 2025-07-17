@@ -47,6 +47,7 @@ interface PostCardProps {
     created_at: string
     liked_by_user: boolean
     bookmarked_by_user: boolean
+    reposted_by_user: boolean
   }
   onUpdate: (postId: string, updates: any) => void
 }
@@ -114,10 +115,49 @@ export default function PostCard({ post, onUpdate }: PostCardProps) {
   }
 
   const handleRepost = async () => {
-    toast({
-      title: "Post reposted!",
-      description: "Shared with your followers",
-    })
+    if (!session?.user?.id) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to repost",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const method = post.reposted_by_user ? 'DELETE' : 'POST'
+      const response = await fetch(`/api/posts/${post.id}/repost`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to update repost')
+      }
+
+      const data = await response.json()
+      
+      // Update the post data through the parent component
+      onUpdate(post.id, {
+        reposts_count: data.reposts_count,
+        reposted_by_user: !post.reposted_by_user
+      })
+
+      toast({
+        title: post.reposted_by_user ? "Repost removed" : "Post reposted!",
+        description: post.reposted_by_user ? "Removed from your reposts" : "Shared with your followers",
+      })
+    } catch (error) {
+      console.error('Error updating repost:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update repost",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleShare = async () => {
@@ -142,11 +182,37 @@ export default function PostCard({ post, onUpdate }: PostCardProps) {
   }
 
   const handleFollow = async () => {
-    setIsFollowing(!isFollowing)
-    toast({
-      title: isFollowing ? "Unfollowed" : "Following",
-      description: `${isFollowing ? "Unfollowed" : "Now following"} @${post.user?.username || 'Unknown'}`,
-    })
+    if (!post.user?.id) return
+
+    try {
+      const method = isFollowing ? 'DELETE' : 'POST'
+      const response = await fetch(`/api/profiles/${post.user.id}/follow`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to update follow status')
+      }
+
+      // Update local state
+      setIsFollowing(!isFollowing)
+
+      toast({
+        title: isFollowing ? "Unfollowed" : "Following",
+        description: `${isFollowing ? "Unfollowed" : "Now following"} @${post.user?.username || 'Unknown'}`,
+      })
+    } catch (error) {
+      console.error('Error updating follow status:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update follow status",
+        variant: "destructive",
+      })
+    }
   }
 
   const formatTimeAgo = (dateString: string) => {
@@ -327,9 +393,11 @@ export default function PostCard({ post, onUpdate }: PostCardProps) {
                     variant="ghost"
                     size="sm"
                     onClick={handleRepost}
-                    className="flex items-center space-x-2 text-gray-500 hover:text-green-500"
+                    className={`flex items-center space-x-2 ${
+                      post.reposted_by_user ? "text-green-500 hover:text-green-600" : "text-gray-500 hover:text-green-500"
+                    }`}
                   >
-                    <Repeat2 className="w-4 h-4" />
+                    <Repeat2 className={`w-4 h-4 ${post.reposted_by_user ? "fill-current" : ""}`} />
                     <span>{post.reposts_count}</span>
                   </Button>
                 </div>
