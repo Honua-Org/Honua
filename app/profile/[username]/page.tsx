@@ -40,6 +40,7 @@ import Image from "next/image"
 import PostCard from "@/components/post-card"
 import ReputationBadge from "@/components/reputation/ReputationBadge"
 import ReputationDashboard from "@/components/reputation/ReputationDashboard"
+import ImageModal from "@/components/image-modal"
 
 // Mock user data
 const mockUser = {
@@ -57,7 +58,7 @@ const mockUser = {
   followers_count: 2847,
   following_count: 456,
   posts_count: 234,
-  joined_date: "2023-03-15",
+  created_at: "2023-03-15T00:00:00Z",
   sustainability_categories: ["Solar Energy", "Climate Action", "Renewable Energy"],
   achievements: [
     { name: "Solar Pioneer", description: "Installed first community solar project", icon: "☀️" },
@@ -124,6 +125,7 @@ export default function ProfilePage() {
   const [uploadingCoverImage, setUploadingCoverImage] = useState(false)
   const [loading, setLoading] = useState(true)
   const [activeReputationTab, setActiveReputationTab] = useState('overview')
+  const [selectedGalleryImage, setSelectedGalleryImage] = useState<string | null>(null)
 
   // Check if this is the current user's profile
   const isOwnProfile = session?.user?.user_metadata?.username === username
@@ -487,7 +489,7 @@ export default function ProfilePage() {
               <div className="flex items-center space-x-1">
                 <Calendar className="w-4 h-4" />
                 <span>
-                  Joined {new Date(user.joined_date).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                  Joined {user.created_at ? new Date(user.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "Unknown"}
                 </span>
               </div>
             </div>
@@ -623,35 +625,48 @@ export default function ProfilePage() {
             <Card>
               <CardContent className="p-6">
                 <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Recent Photos</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {[
-                    "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=400&h=400&fit=crop",
-                    "https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?w=400&h=400&fit=crop",
-                    "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400&h=400&fit=crop",
-                    "https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=400&h=400&fit=crop",
-                    "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=400&h=400&fit=crop",
-                    "https://images.unsplash.com/photo-1497435334941-8c899ee9e8e9?w=400&h=400&fit=crop",
-                    "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=400&h=400&fit=crop",
-                    "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=400&fit=crop",
-                  ].map((src, index) => (
-                    <div
-                      key={index}
-                      className="relative aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden group cursor-pointer"
-                    >
-                      <Image
-                        src={src || "/placeholder.svg"}
-                        alt={`Gallery image ${index + 1}`}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-200"
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200" />
+                {(() => {
+                  // Extract all images from user's posts
+                  const allImages: string[] = []
+                  posts.forEach(post => {
+                    if (post.media_urls && Array.isArray(post.media_urls)) {
+                      allImages.push(...post.media_urls)
+                    }
+                  })
+                  
+                  return allImages.length > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {allImages.map((src, index) => (
+                        <div
+                           key={index}
+                           className="relative aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden group cursor-pointer"
+                           onClick={() => setSelectedGalleryImage(src)}
+                         >
+                           <Image
+                             src={src || "/placeholder.svg"}
+                             alt={`Gallery image ${index + 1}`}
+                             fill
+                             className="object-cover group-hover:scale-105 transition-transform duration-200"
+                           />
+                           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200" />
+                         </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                {/* Show message if no photos */}
-                <div className="text-center py-8 text-gray-500">
-                  <p className="text-sm">More photos coming soon...</p>
-                </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <div className="text-gray-400 mb-4">
+                        <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No photos yet</h3>
+                      <p className="text-gray-600 dark:text-gray-400">
+                        {isOwnProfile ? "Share posts with photos to see them here!" : `${user.full_name} hasn't shared any photos yet.`}
+                      </p>
+                    </div>
+                  )
+                })()
+                }
               </CardContent>
             </Card>
           )}
@@ -728,6 +743,15 @@ export default function ProfilePage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        
+        {/* Gallery Image Modal */}
+        {selectedGalleryImage && (
+          <ImageModal
+            src={selectedGalleryImage}
+            alt="Gallery image"
+            onClose={() => setSelectedGalleryImage(null)}
+          />
+        )}
           </>
         ) : (
           <div className="flex items-center justify-center h-screen">
