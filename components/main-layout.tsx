@@ -44,33 +44,40 @@ interface MainLayoutProps {
   children: React.ReactNode
 }
 
-const navigationItems = [
-  { icon: Home, label: "Home", href: "/", badge: null },
-  { icon: Compass, label: "Explore", href: "/explore", badge: null },
-  { icon: Bookmark, label: "Bookmarks", href: "/bookmarks", badge: null },
-  { icon: Bell, label: "Notifications", href: "/notifications", badge: 3 },
-  { icon: MessageCircle, label: "Messages", href: "/messages", badge: 2 },
-  { icon: Users, label: "Forum", href: "/forum", badge: null },
-  { icon: CheckSquare, label: "Tasks", href: "/tasks", badge: 5 },
-  { icon: User, label: "Profile", href: "/profile", badge: null },
-  { icon: Settings, label: "Settings", href: "/settings", badge: null },
-]
+// Move navigationItems inside component to access state
+// const navigationItems will be defined inside the component
 
 export default function MainLayout({ children }: MainLayoutProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [profile, setProfile] = useState<any>(null)
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
+  const [unreadMessages, setUnreadMessages] = useState(0)
   const session = useSession()
   const router = useRouter()
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
   const supabase = createClientComponentClient()
 
+  // Define navigation items with dynamic badges
+  const navigationItems = [
+    { icon: Home, label: "Home", href: "/", badge: null },
+    { icon: Compass, label: "Explore", href: "/explore", badge: null },
+    { icon: Bookmark, label: "Bookmarks", href: "/bookmarks", badge: null },
+    { icon: Bell, label: "Notifications", href: "/notifications", badge: unreadNotifications > 0 ? unreadNotifications : null },
+    { icon: MessageCircle, label: "Messages", href: "/messages", badge: unreadMessages > 0 ? unreadMessages : null },
+    { icon: Users, label: "Forum", href: "/forum", badge: null },
+    { icon: CheckSquare, label: "Tasks", href: "/tasks", badge: null },
+    { icon: User, label: "Profile", href: "/profile", badge: null },
+    { icon: Settings, label: "Settings", href: "/settings", badge: null },
+  ]
+
   useEffect(() => {
     setMounted(true)
   }, [])
 
+  // Fetch profile data
   useEffect(() => {
     const fetchProfile = async () => {
       if (session?.user?.id) {
@@ -83,6 +90,90 @@ export default function MainLayout({ children }: MainLayoutProps) {
       }
     }
     fetchProfile()
+  }, [session?.user?.id])
+
+  // Fetch unread notifications count
+  const fetchUnreadNotifications = async () => {
+    if (session?.user?.id) {
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('recipient_id', session.user.id)
+        .eq('read', false)
+      
+      if (!error) {
+        setUnreadNotifications(count || 0)
+      }
+    }
+  }
+
+  // Fetch unread messages count
+  const fetchUnreadMessages = async () => {
+    if (session?.user?.id) {
+      // Get conversations where user is a participant
+      const { data: conversations, error: convError } = await supabase
+        .from('conversations')
+        .select('id, updated_at')
+        .or(`participant_one_id.eq.${session.user.id},participant_two_id.eq.${session.user.id}`)
+      
+      if (!convError && conversations) {
+        // For now, just count conversations that have been updated recently
+        // In a real app, you'd track last_read_at per user per conversation
+        const recentConversations = conversations.filter(conv => {
+          const updatedAt = new Date(conv.updated_at)
+          const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
+          return updatedAt > oneHourAgo
+        })
+        
+        setUnreadMessages(recentConversations.length)
+      }
+    }
+  }
+
+  // Set up real-time subscriptions for notifications and messages
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchUnreadNotifications()
+      fetchUnreadMessages()
+
+      // Subscribe to notifications changes
+      const notificationsChannel = supabase
+        .channel('notifications')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'notifications',
+            filter: `recipient_id=eq.${session.user.id}`
+          },
+          () => {
+            fetchUnreadNotifications()
+          }
+        )
+        .subscribe()
+
+      // Subscribe to messages changes
+      const messagesChannel = supabase
+        .channel('messages')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'messages'
+          },
+          () => {
+            fetchUnreadMessages()
+          }
+        )
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(notificationsChannel)
+        supabase.removeChannel(messagesChannel)
+      }
+    }
   }, [session?.user?.id])
 
   const handleLogout = async () => {

@@ -31,7 +31,7 @@ export async function GET() {
           full_name,
           avatar_url
         ),
-        messages (
+        messages!messages_conversation_id_fkey (
           id,
           content,
           created_at,

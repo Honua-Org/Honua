@@ -46,12 +46,7 @@ export async function GET(request: NextRequest) {
         created_at,
         post_id,
         comment_id,
-        actor_profile:profiles!actor_id(
-          id,
-          username,
-          full_name,
-          avatar_url
-        )
+        actor_id
       `)
       .eq('recipient_id', user.id)
       .order('created_at', { ascending: false })
@@ -90,12 +85,22 @@ export async function GET(request: NextRequest) {
       }, { status: 500 })
     }
 
+    // Fetch actor profiles for all notifications
+    const actorIds = notifications ? [...new Set(notifications.map(n => n.actor_id).filter(Boolean))] : []
+    
+    let actorProfiles: any[] = []
+    if (actorIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, username, full_name, avatar_url')
+        .in('id', actorIds)
+      
+      actorProfiles = profiles || []
+    }
+
     // Transform the data to match the expected format
     const transformedNotifications = notifications?.map((notification: any) => {
-      // Handle actor_profile which might be an array or single object
-      const actorProfile = Array.isArray(notification.actor_profile) 
-        ? notification.actor_profile[0] 
-        : notification.actor_profile;
+      const actorProfile = actorProfiles.find(p => p.id === notification.actor_id)
       
       return {
         id: notification.id,
