@@ -26,7 +26,7 @@ import {
 import Link from "next/link"
 import Image from "next/image"
 import ImageModal from "./image-modal"; // Adjust path if necessary
-import { renderContentWithLinks } from '@/lib/link-utils'
+import { renderContentWithLinksAndMentions } from '@/lib/mention-utils'
 
 interface PostCardProps {
   post: {
@@ -337,7 +337,7 @@ export default function PostCard({ post, onPostDeleted }: PostCardProps) {
               <Link href={`/post/${post.id}`} className="block">
                 <div className="space-y-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 -m-2 p-2 rounded-lg transition-colors">
                   <div className="text-gray-900 dark:text-gray-100 leading-relaxed">
-                    {renderContentWithLinks(post.content)}
+                    {renderContentWithLinksAndMentions(post.content)}
                   </div>
                   
                   {/* Link Preview */}

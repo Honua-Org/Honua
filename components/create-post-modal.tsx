@@ -5,6 +5,7 @@ import { useSession } from "@supabase/auth-helpers-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import MentionTextarea from "@/components/mention-textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -367,11 +368,12 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
             </Avatar>
 
             <div className="flex-1 space-y-4">
-              <Textarea
+              <MentionTextarea
                 placeholder="What's your latest sustainability action? Share your impact..."
                 value={content}
-                onChange={(e) => handleContentChange(e.target.value)}
-                className="min-h-[120px] resize-none border-none shadow-none text-lg placeholder:text-gray-500 focus-visible:ring-0"
+                onChange={handleContentChange}
+                className="border-none shadow-none text-lg placeholder:text-gray-500 focus-visible:ring-0"
+                minHeight="120px"
               />
 
               {/* Link Preview */}
