@@ -26,6 +26,11 @@ CREATE TABLE IF NOT EXISTS posts (
   sustainability_category TEXT,
   impact_score INTEGER,
   parent_id UUID,
+  link_preview_url TEXT,
+  link_preview_title TEXT,
+  link_preview_description TEXT,
+  link_preview_image TEXT,
+  link_preview_domain TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );

@@ -191,7 +191,11 @@ export default function MainLayout({ children }: MainLayoutProps) {
   // Keyboard shortcut for search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
+      // Only trigger if not typing in an input field
+      const target = e.target as HTMLElement
+      const isInputField = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.contentEditable === 'true'
+      
+      if (e.key === "/" && !e.ctrlKey && !e.metaKey && !isInputField) {
         e.preventDefault()
         const searchInput = document.getElementById("search-input")
         searchInput?.focus()

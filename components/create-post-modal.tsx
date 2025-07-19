@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
-import { ImageIcon, MapPin, Smile, Calendar, Globe, Users, Lock, X } from "lucide-react"
+import { ImageIcon, MapPin, Smile, Calendar, Globe, Users, Lock, X, ExternalLink } from "lucide-react"
 import Image from "next/image"
 import EmojiPicker from "@/components/emoji-picker"
 import { uploadPostMedia, type UploadResult } from "@/lib/storage"
@@ -40,6 +40,14 @@ interface LocationSuggestion {
   lon: string
 }
 
+interface LinkPreview {
+  url: string
+  title?: string
+  description?: string
+  image?: string
+  domain?: string
+}
+
 export default function CreatePostModal({ open, onOpenChange, onPostCreated }: CreatePostModalProps) {
   const [content, setContent] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("")
@@ -52,6 +60,8 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
   const [selectedImages, setSelectedImages] = useState<string[]>([])
   const [uploadingImages, setUploadingImages] = useState(false)
   const [profile, setProfile] = useState<any>(null)
+  const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null)
+  const [loadingPreview, setLoadingPreview] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const locationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const session = useSession()
@@ -115,10 +125,50 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
   }
 
   // Handle location suggestion selection
-  const handleLocationSelect = (suggestion: LocationSuggestion) => {
+  const handleLocationSelect = (suggestion: any) => {
     setLocation(suggestion.display_name)
     setShowSuggestions(false)
     setLocationSuggestions([])
+  }
+
+  // Extract URLs from text
+  const extractUrls = (text: string): string[] => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g
+    const matches = text.match(urlRegex)
+    return matches || []
+  }
+
+  // Fetch link preview
+  const fetchLinkPreview = async (url: string) => {
+    try {
+      setLoadingPreview(true)
+      const response = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`)
+      if (response.ok) {
+        const preview = await response.json()
+        setLinkPreview(preview)
+      }
+    } catch (error) {
+      console.error('Failed to fetch link preview:', error)
+    } finally {
+      setLoadingPreview(false)
+    }
+  }
+
+  // Handle content change with URL detection
+  const handleContentChange = (value: string) => {
+    setContent(value)
+    
+    // Extract URLs from content
+    const urls = extractUrls(value)
+    
+    // If there's a new URL and no current preview, fetch preview
+    if (urls.length > 0 && (!linkPreview || !urls.includes(linkPreview.url))) {
+      const newUrl = urls[urls.length - 1] // Get the last URL
+      fetchLinkPreview(newUrl)
+    } else if (urls.length === 0) {
+      // Clear preview if no URLs
+      setLinkPreview(null)
+    }
   }
 
   // Clean up timeout on unmount
@@ -161,7 +211,8 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
           media_urls: selectedImages,
           location: location || null,
           sustainability_category: selectedCategory || null,
-          impact_score: null // You can calculate this based on category or content
+          impact_score: null, // You can calculate this based on category or content
+          link_preview: linkPreview
         }),
       })
 
@@ -209,6 +260,7 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
     setLocationSuggestions([])
     setShowSuggestions(false)
     setSelectedImages([])
+    setLinkPreview(null)
     onOpenChange(false)
   }
 
@@ -318,9 +370,70 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
               <Textarea
                 placeholder="What's your latest sustainability action? Share your impact..."
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={(e) => handleContentChange(e.target.value)}
                 className="min-h-[120px] resize-none border-none shadow-none text-lg placeholder:text-gray-500 focus-visible:ring-0"
               />
+
+              {/* Link Preview */}
+              {(linkPreview || loadingPreview) && (
+                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  {loadingPreview ? (
+                    <div className="p-4 flex items-center space-x-3">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>
+                      <span className="text-sm text-gray-500">Loading link preview...</span>
+                    </div>
+                  ) : linkPreview ? (
+                    <div className="relative">
+                      <button
+                        onClick={() => setLinkPreview(null)}
+                        className="absolute top-2 right-2 z-10 w-6 h-6 bg-gray-800 bg-opacity-50 text-white rounded-full flex items-center justify-center text-sm hover:bg-opacity-70"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                      <a
+                        href={linkPreview.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        <div className="flex">
+                          {linkPreview.image && (
+                            <div className="w-24 h-24 flex-shrink-0">
+                              <Image
+                                src={linkPreview.image}
+                                alt={linkPreview.title || 'Link preview'}
+                                width={96}
+                                height={96}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                          <div className="flex-1 p-3 min-w-0">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1 min-w-0">
+                                {linkPreview.title && (
+                                  <h3 className="font-medium text-sm text-gray-900 dark:text-gray-100 line-clamp-2 mb-1">
+                                    {linkPreview.title}
+                                  </h3>
+                                )}
+                                {linkPreview.description && (
+                                  <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">
+                                    {linkPreview.description}
+                                  </p>
+                                )}
+                                <div className="flex items-center text-xs text-gray-500 dark:text-gray-500">
+                                  <ExternalLink className="w-3 h-3 mr-1" />
+                                  <span className="truncate">{linkPreview.domain || new URL(linkPreview.url).hostname}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </a>
+                    </div>
+                  ) : null}
+                </div>
+              )}
 
               {/* Image Preview */}
               {selectedImages.length > 0 && (

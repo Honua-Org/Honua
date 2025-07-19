@@ -38,13 +38,18 @@ export async function GET(request: NextRequest) {
           id,
           username,
           full_name,
-          avatar_url
+          avatar_url,
+          bio,
+          website,
+          location,
+          verified
         ),
-        likes(count),
-        comments(count),
-        reposts(count)
+        likes:likes(count),
+        comments:comments(count),
+        reposts:reposts(count)
       `)
       .order('created_at', { ascending: false })
+      .limit(limit)
       .range(offset, offset + limit - 1)
 
     if (error) {
@@ -183,7 +188,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { content, media_urls, parent_id, location, sustainability_category, impact_score } = body
+    const { content, media_urls, parent_id, location, sustainability_category, impact_score, link_preview } = body
 
     if (!content?.trim()) {
       return NextResponse.json({ error: 'Content is required' }, { status: 400 })
@@ -196,7 +201,12 @@ export async function POST(request: NextRequest) {
       media_urls: media_urls || [],
       location: location || null,
       sustainability_category: sustainability_category || null,
-      impact_score: impact_score || null
+      impact_score: impact_score || null,
+      link_preview_url: link_preview?.url || null,
+      link_preview_title: link_preview?.title || null,
+      link_preview_description: link_preview?.description || null,
+      link_preview_image: link_preview?.image || null,
+      link_preview_domain: link_preview?.domain || null
     }
 
     // Only add parent_id if it's a valid UUID string

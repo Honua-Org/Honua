@@ -26,6 +26,7 @@ import {
 import Link from "next/link"
 import Image from "next/image"
 import ImageModal from "./image-modal"; // Adjust path if necessary
+import { renderContentWithLinks } from '@/lib/link-utils'
 
 interface PostCardProps {
   post: {
@@ -46,14 +47,21 @@ interface PostCardProps {
     comments_count: number
     reposts_count: number
     created_at: string
+    updated_at: string
+    parent_id?: string
     liked_by_user: boolean
     bookmarked_by_user: boolean
     reposted_by_user: boolean
+    link_preview_url?: string
+    link_preview_title?: string
+    link_preview_description?: string
+    link_preview_image?: string
+    link_preview_domain?: string
   }
-  onUpdate: (postId: string, updates: any) => void
+  onPostDeleted?: () => void
 }
 
-export default function PostCard({ post, onUpdate }: PostCardProps) {
+export default function PostCard({ post, onPostDeleted }: PostCardProps) {
   const [isLiked, setIsLiked] = useState(post.liked_by_user)
   const [isBookmarked, setIsBookmarked] = useState(post.bookmarked_by_user)
   const [likesCount, setLikesCount] = useState(post.likes_count)
@@ -69,10 +77,7 @@ export default function PostCard({ post, onUpdate }: PostCardProps) {
     setIsLiked(newIsLiked)
     setLikesCount(newLikesCount)
 
-    onUpdate(post.id, {
-      liked_by_user: newIsLiked,
-      likes_count: newLikesCount,
-    })
+    // Update handled optimistically in state
 
     toast({
       title: newIsLiked ? "Post liked!" : "Like removed",
@@ -84,9 +89,7 @@ export default function PostCard({ post, onUpdate }: PostCardProps) {
     const newIsBookmarked = !isBookmarked
     setIsBookmarked(newIsBookmarked)
 
-    onUpdate(post.id, {
-      bookmarked_by_user: newIsBookmarked,
-    })
+    // Update handled optimistically in state
 
     try {
       const method = newIsBookmarked ? 'POST' : 'DELETE'
@@ -95,9 +98,7 @@ export default function PostCard({ post, onUpdate }: PostCardProps) {
       if (!response.ok) {
         // Revert the optimistic update if API call fails
         setIsBookmarked(!newIsBookmarked)
-        onUpdate(post.id, {
-          bookmarked_by_user: !newIsBookmarked,
-        })
+        // Revert optimistic update
         throw new Error('Failed to update bookmark')
       }
 
@@ -141,11 +142,7 @@ export default function PostCard({ post, onUpdate }: PostCardProps) {
 
       const data = await response.json()
       
-      // Update the post data through the parent component
-      onUpdate(post.id, {
-        reposts_count: data.reposts_count,
-        reposted_by_user: !post.reposted_by_user
-      })
+      // Update handled through API response
 
       toast({
         title: post.reposted_by_user ? "Repost removed" : "Post reposted!",
@@ -202,7 +199,7 @@ export default function PostCard({ post, onUpdate }: PostCardProps) {
       })
 
       // Notify parent component to remove the post
-      onUpdate?.(post.id, { deleted: true })
+      onPostDeleted?.()
     } catch (error) {
       console.error('Error deleting post:', error)
       toast({
@@ -339,7 +336,48 @@ export default function PostCard({ post, onUpdate }: PostCardProps) {
 
               <Link href={`/post/${post.id}`} className="block">
                 <div className="space-y-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 -m-2 p-2 rounded-lg transition-colors">
-                  <p className="text-gray-900 dark:text-gray-100 leading-relaxed">{post.content}</p>
+                  <div className="text-gray-900 dark:text-gray-100 leading-relaxed">
+                    {renderContentWithLinks(post.content)}
+                  </div>
+                  
+                  {/* Link Preview */}
+                  {post.link_preview_url && (
+                    <div className="mt-3 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                      <a 
+                        href={post.link_preview_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="block hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        {post.link_preview_image && (
+                          <div className="aspect-video w-full bg-gray-100 dark:bg-gray-800">
+                            <img 
+                              src={post.link_preview_image} 
+                              alt={post.link_preview_title || 'Link preview'}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+                        <div className="p-3">
+                          {post.link_preview_title && (
+                            <h3 className="font-medium text-gray-900 dark:text-gray-100 line-clamp-2">
+                              {post.link_preview_title}
+                            </h3>
+                          )}
+                          {post.link_preview_description && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                              {post.link_preview_description}
+                            </p>
+                          )}
+                          {post.link_preview_domain && (
+                            <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+                              {post.link_preview_domain}
+                            </p>
+                          )}
+                        </div>
+                      </a>
+                    </div>
+                  )}
 
                   {post.media_urls && post.media_urls.length > 0 && (
                     <div
