@@ -47,6 +47,51 @@ export function renderContentWithMentions(content: string): React.ReactNode {
 }
 
 /**
+ * Renders content with clickable hashtags
+ * @param content - The text content to process
+ * @returns JSX elements with hashtags as clickable links
+ */
+export function renderContentWithHashtags(content: string): React.ReactNode {
+  if (!content) return null
+
+  // Regular expression to match #hashtags
+  const hashtagRegex = /#([a-zA-Z0-9_]+)/g
+  const parts: React.ReactNode[] = []
+  let lastIndex = 0
+  let match
+
+  while ((match = hashtagRegex.exec(content)) !== null) {
+    const [fullMatch, hashtag] = match
+    const startIndex = match.index
+
+    // Add text before the hashtag
+    if (startIndex > lastIndex) {
+      parts.push(content.slice(lastIndex, startIndex))
+    }
+
+    // Add the hashtag as a clickable link
+    parts.push(
+      <Link
+        key={`hashtag-${startIndex}-${hashtag}`}
+        href={`/search?q=${encodeURIComponent(fullMatch)}&type=hashtags`}
+        className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline font-semibold transition-colors duration-200"
+      >
+        {fullMatch}
+      </Link>
+    )
+
+    lastIndex = startIndex + fullMatch.length
+  }
+
+  // Add remaining text after the last hashtag
+  if (lastIndex < content.length) {
+    parts.push(content.slice(lastIndex))
+  }
+
+  return parts.length > 0 ? parts : content
+}
+
+/**
  * Renders content with both clickable links and mentions
  * @param content - The text content to process
  * @returns JSX elements with links and mentions as clickable elements
@@ -54,8 +99,8 @@ export function renderContentWithMentions(content: string): React.ReactNode {
 export function renderContentWithLinksAndMentions(content: string): React.ReactNode {
   if (!content) return null
 
-  // Combined regex for URLs and mentions
-  const combinedRegex = /(https?:\/\/[^\s]+)|(@[a-zA-Z0-9_]+)/g
+  // Combined regex for URLs, mentions, and hashtags
+  const combinedRegex = /(https?:\/\/[^\s]+)|(@[a-zA-Z0-9_]+)|(#[a-zA-Z0-9_]+)/g
   const parts: React.ReactNode[] = []
   let lastIndex = 0
   let match
@@ -94,6 +139,18 @@ export function renderContentWithLinksAndMentions(content: string): React.ReactN
           {fullMatch}
         </Link>
       )
+    } else if (fullMatch.startsWith('#')) {
+      // Handle hashtag
+      const hashtag = fullMatch.slice(1) // Remove # symbol
+      parts.push(
+        <Link
+          key={`hashtag-${startIndex}-${hashtag}`}
+          href={`/search?q=${encodeURIComponent(fullMatch)}&type=hashtags`}
+          className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline font-semibold transition-colors duration-200"
+        >
+          {fullMatch}
+        </Link>
+      )
     }
 
     lastIndex = startIndex + fullMatch.length
@@ -127,4 +184,26 @@ export function extractMentions(content: string): string[] {
   }
 
   return mentions
+}
+
+/**
+ * Extracts all hashtags from content
+ * @param content - The text content to process
+ * @returns Array of hashtags mentioned (without # symbol)
+ */
+export function extractHashtags(content: string): string[] {
+  if (!content) return []
+
+  const hashtagRegex = /#([a-zA-Z0-9_]+)/g
+  const hashtags: string[] = []
+  let match
+
+  while ((match = hashtagRegex.exec(content)) !== null) {
+    const hashtag = match[1]
+    if (!hashtags.includes(hashtag)) {
+      hashtags.push(hashtag)
+    }
+  }
+
+  return hashtags
 }

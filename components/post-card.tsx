@@ -59,9 +59,10 @@ interface PostCardProps {
     link_preview_domain?: string
   }
   onPostDeleted?: () => void
+  onUpdate?: (postId: string, updates: any) => void
 }
 
-export default function PostCard({ post, onPostDeleted }: PostCardProps) {
+export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProps) {
   const [isLiked, setIsLiked] = useState(post.liked_by_user)
   const [isBookmarked, setIsBookmarked] = useState(post.bookmarked_by_user)
   const [likesCount, setLikesCount] = useState(post.likes_count)
@@ -77,7 +78,11 @@ export default function PostCard({ post, onPostDeleted }: PostCardProps) {
     setIsLiked(newIsLiked)
     setLikesCount(newLikesCount)
 
-    // Update handled optimistically in state
+    // Update parent component
+    onUpdate?.(post.id, {
+      liked_by_user: newIsLiked,
+      likes_count: newLikesCount
+    })
 
     toast({
       title: newIsLiked ? "Post liked!" : "Like removed",
@@ -101,6 +106,11 @@ export default function PostCard({ post, onPostDeleted }: PostCardProps) {
         // Revert optimistic update
         throw new Error('Failed to update bookmark')
       }
+
+      // Update parent component
+      onUpdate?.(post.id, {
+        bookmarked_by_user: newIsBookmarked
+      })
 
       toast({
         title: newIsBookmarked ? "Post bookmarked!" : "Bookmark removed",
@@ -142,7 +152,11 @@ export default function PostCard({ post, onPostDeleted }: PostCardProps) {
 
       const data = await response.json()
       
-      // Update handled through API response
+      // Update parent component
+      onUpdate?.(post.id, {
+        reposted_by_user: !post.reposted_by_user,
+        reposts_count: data.reposts_count || (post.reposted_by_user ? post.reposts_count - 1 : post.reposts_count + 1)
+      })
 
       toast({
         title: post.reposted_by_user ? "Repost removed" : "Post reposted!",
@@ -199,6 +213,7 @@ export default function PostCard({ post, onPostDeleted }: PostCardProps) {
       })
 
       // Notify parent component to remove the post
+      onUpdate?.(post.id, { deleted: true })
       onPostDeleted?.()
     } catch (error) {
       console.error('Error deleting post:', error)
