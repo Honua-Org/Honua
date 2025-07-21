@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { useSession } from "@supabase/auth-helpers-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -68,6 +69,7 @@ export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProp
   const [likesCount, setLikesCount] = useState(post.likes_count)
   const [isFollowing, setIsFollowing] = useState(false)
   const session = useSession()
+  const router = useRouter()
   const { toast } = useToast()
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
 
@@ -349,11 +351,10 @@ export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProp
                 </DropdownMenu>
               </div>
 
-              <Link href={`/post/${post.id}`} className="block">
-                <div className="space-y-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 -m-2 p-2 rounded-lg transition-colors">
-                  <div className="text-gray-900 dark:text-gray-100 leading-relaxed">
-                    {renderContentWithLinksAndMentions(post.content)}
-                  </div>
+              <div className="space-y-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 -m-2 p-2 rounded-lg transition-colors" onClick={() => router.push(`/post/${post.id}`)}>
+                <div className="text-gray-900 dark:text-gray-100 leading-relaxed" onClick={(e) => e.stopPropagation()}>
+                  {renderContentWithLinksAndMentions(post.content)}
+                </div>
                   
                   {/* Link Preview */}
                   {post.link_preview_url && (
@@ -363,6 +364,7 @@ export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProp
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="block hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         {post.link_preview_image && (
                           <div className="aspect-video w-full bg-gray-100 dark:bg-gray-800">
@@ -454,8 +456,7 @@ export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProp
                       </div>
                     )}
                   </div>
-                </div>
-              </Link>
+              </div>
 
               <div
                 className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700"
