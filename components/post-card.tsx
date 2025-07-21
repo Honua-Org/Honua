@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { useSession } from "@supabase/auth-helpers-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -59,14 +60,16 @@ interface PostCardProps {
     link_preview_domain?: string
   }
   onPostDeleted?: () => void
+  onUpdate?: (postId: string, updates: any) => void
 }
 
-export default function PostCard({ post, onPostDeleted }: PostCardProps) {
+export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProps) {
   const [isLiked, setIsLiked] = useState(post.liked_by_user)
   const [isBookmarked, setIsBookmarked] = useState(post.bookmarked_by_user)
   const [likesCount, setLikesCount] = useState(post.likes_count)
   const [isFollowing, setIsFollowing] = useState(false)
   const session = useSession()
+  const router = useRouter()
   const { toast } = useToast()
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
 
@@ -77,7 +80,11 @@ export default function PostCard({ post, onPostDeleted }: PostCardProps) {
     setIsLiked(newIsLiked)
     setLikesCount(newLikesCount)
 
-    // Update handled optimistically in state
+    // Update parent component
+    onUpdate?.(post.id, {
+      liked_by_user: newIsLiked,
+      likes_count: newLikesCount
+    })
 
     toast({
       title: newIsLiked ? "Post liked!" : "Like removed",
@@ -101,6 +108,11 @@ export default function PostCard({ post, onPostDeleted }: PostCardProps) {
         // Revert optimistic update
         throw new Error('Failed to update bookmark')
       }
+
+      // Update parent component
+      onUpdate?.(post.id, {
+        bookmarked_by_user: newIsBookmarked
+      })
 
       toast({
         title: newIsBookmarked ? "Post bookmarked!" : "Bookmark removed",
@@ -142,7 +154,11 @@ export default function PostCard({ post, onPostDeleted }: PostCardProps) {
 
       const data = await response.json()
       
-      // Update handled through API response
+      // Update parent component
+      onUpdate?.(post.id, {
+        reposted_by_user: !post.reposted_by_user,
+        reposts_count: data.reposts_count || (post.reposted_by_user ? post.reposts_count - 1 : post.reposts_count + 1)
+      })
 
       toast({
         title: post.reposted_by_user ? "Repost removed" : "Post reposted!",
@@ -199,6 +215,7 @@ export default function PostCard({ post, onPostDeleted }: PostCardProps) {
       })
 
       // Notify parent component to remove the post
+      onUpdate?.(post.id, { deleted: true })
       onPostDeleted?.()
     } catch (error) {
       console.error('Error deleting post:', error)
@@ -334,11 +351,10 @@ export default function PostCard({ post, onPostDeleted }: PostCardProps) {
                 </DropdownMenu>
               </div>
 
-              <Link href={`/post/${post.id}`} className="block">
-                <div className="space-y-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 -m-2 p-2 rounded-lg transition-colors">
-                  <div className="text-gray-900 dark:text-gray-100 leading-relaxed">
-                    {renderContentWithLinksAndMentions(post.content)}
-                  </div>
+              <div className="space-y-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 -m-2 p-2 rounded-lg transition-colors" onClick={() => router.push(`/post/${post.id}`)}>
+                <div className="text-gray-900 dark:text-gray-100 leading-relaxed" onClick={(e) => e.stopPropagation()}>
+                  {renderContentWithLinksAndMentions(post.content)}
+                </div>
                   
                   {/* Link Preview */}
                   {post.link_preview_url && (
@@ -348,6 +364,7 @@ export default function PostCard({ post, onPostDeleted }: PostCardProps) {
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="block hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         {post.link_preview_image && (
                           <div className="aspect-video w-full bg-gray-100 dark:bg-gray-800">
@@ -439,8 +456,7 @@ export default function PostCard({ post, onPostDeleted }: PostCardProps) {
                       </div>
                     )}
                   </div>
-                </div>
-              </Link>
+              </div>
 
               <div
                 className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700"
