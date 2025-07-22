@@ -17,6 +17,10 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Get collection_id from request body (optional)
+    const body = await request.json().catch(() => ({}))
+    const { collection_id } = body
+
     // Check if post exists
     const { data: post, error: postError } = await supabase
       .from('posts')
@@ -26,6 +30,20 @@ export async function POST(
 
     if (postError || !post) {
       return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+    }
+
+    // If collection_id is provided, verify it belongs to the user
+    if (collection_id) {
+      const { data: collection, error: collectionError } = await supabase
+        .from('collections')
+        .select('id')
+        .eq('id', collection_id)
+        .eq('user_id', session.user.id)
+        .single()
+
+      if (collectionError || !collection) {
+        return NextResponse.json({ error: 'Collection not found' }, { status: 404 })
+      }
     }
 
     // Check if user already bookmarked the post
@@ -45,7 +63,8 @@ export async function POST(
       .from('bookmarks')
       .insert({
         post_id: postId,
-        user_id: session.user.id
+        user_id: session.user.id,
+        collection_id: collection_id || null
       })
 
     if (error) {

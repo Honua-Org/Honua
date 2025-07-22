@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import MainLayout from "@/components/main-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,112 +12,44 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { Users, MessageSquare, Plus, Search, TrendingUp, Clock, Pin, Lock, Settings } from "lucide-react"
+import { Users, MessageSquare, Plus, Search, TrendingUp, Clock, Pin, Lock, Settings, Loader2 } from "lucide-react"
 import Link from "next/link"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
-const mockForums = [
-  {
-    id: "1",
-    name: "Solar Energy Discussion",
-    description: "Share experiences, tips, and questions about solar energy installations",
-    category: "Solar Energy",
-    member_count: 1247,
-    thread_count: 89,
-    latest_activity: "2024-01-15T10:30:00Z",
-    moderators: ["sarah_green", "solar_expert"],
-    is_private: false,
-    creator: "sarah_green", // Added creator field
-  },
-  {
-    id: "2",
-    name: "Zero Waste Living",
-    description: "Community for those pursuing zero waste lifestyles",
-    category: "Waste Reduction",
-    member_count: 892,
-    thread_count: 156,
-    latest_activity: "2024-01-15T09:15:00Z",
-    moderators: ["eco_marcus"],
-    is_private: false,
-    creator: "eco_marcus",
-  },
-  {
-    id: "3",
-    name: "Climate Action Planning",
-    description: "Organize and plan climate action initiatives",
-    category: "Climate Action",
-    member_count: 2134,
-    thread_count: 234,
-    latest_activity: "2024-01-15T08:45:00Z",
-    moderators: ["climate_action_now"],
-    is_private: false,
-    creator: "climate_action_now",
-  },
-  {
-    id: "4",
-    name: "Green Tech Innovations",
-    description: "Discuss latest developments in green technology",
-    category: "Technology",
-    member_count: 567,
-    thread_count: 78,
-    latest_activity: "2024-01-14T16:20:00Z",
-    moderators: ["green_tech_co"],
-    is_private: true,
-    creator: "green_tech_co",
-  },
-]
+// Define types for our data
+type Forum = {
+  id: string
+  name: string
+  description: string
+  category: string
+  member_count: number
+  thread_count: number
+  latest_activity: string
+  moderators: string[]
+  is_private: boolean
+  creator: string
+  admin_id?: string
+}
 
-const mockThreads = [
-  {
-    id: "1",
-    title: "Best practices for community solar installations",
-    author: {
-      username: "sarah_green",
-      full_name: "Sarah Green",
-      avatar_url: "/images/profiles/sarah-green-avatar.png",
-    },
-    forum_name: "Solar Energy Discussion",
-    replies_count: 23,
-    views_count: 456,
-    created_at: "2024-01-15T10:30:00Z",
-    last_activity: "2024-01-15T14:20:00Z",
-    is_pinned: true,
-    is_locked: false,
-  },
-  {
-    id: "2",
-    title: "Zero waste meal prep ideas for busy families",
-    author: {
-      username: "eco_marcus",
-      full_name: "Marcus Johnson",
-      avatar_url: "/placeholder.svg?height=32&width=32",
-    },
-    forum_name: "Zero Waste Living",
-    replies_count: 45,
-    views_count: 789,
-    created_at: "2024-01-15T09:15:00Z",
-    last_activity: "2024-01-15T13:45:00Z",
-    is_pinned: false,
-    is_locked: false,
-  },
-  {
-    id: "3",
-    title: "Organizing a local climate strike - need advice",
-    author: {
-      username: "young_activist",
-      full_name: "Alex Chen",
-      avatar_url: "/placeholder.svg?height=32&width=32",
-    },
-    forum_name: "Climate Action Planning",
-    replies_count: 67,
-    views_count: 1234,
-    created_at: "2024-01-14T16:45:00Z",
-    last_activity: "2024-01-15T12:30:00Z",
-    is_pinned: false,
-    is_locked: false,
-  },
-]
+type Thread = {
+  id: string
+  title: string
+  author: {
+    username: string
+    full_name: string
+    avatar_url: string
+  }
+  forum_name: string
+  replies_count: number
+  views_count: number
+  created_at: string
+  last_activity: string
+  is_pinned: boolean
+  is_locked: boolean
+}
 
-const forumCategories = ["All", "Solar Energy", "Waste Reduction", "Climate Action", "Technology", "Agriculture"]
+// Default forum categories - these will be updated based on actual forums
+const defaultForumCategories = ["All", "Solar Energy", "Waste Reduction", "Climate Action", "Technology", "Agriculture"]
 
 const formatTimeAgo = (dateString: string) => {
   const date = new Date(dateString)
@@ -131,8 +63,8 @@ const formatTimeAgo = (dateString: string) => {
 }
 
 export default function ForumPage() {
-  const [forums, setForums] = useState(mockForums)
-  const [threads, setThreads] = useState(mockThreads)
+  const [forums, setForums] = useState<Forum[]>([])
+  const [threads, setThreads] = useState<Thread[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [activeTab, setActiveTab] = useState("forums")
@@ -143,10 +75,54 @@ export default function ForumPage() {
     category: "",
     is_private: false,
   })
+  const [isLoading, setIsLoading] = useState(true)
+  const [forumCategories, setForumCategories] = useState(defaultForumCategories)
+  
+  // Predefined categories for forum creation
+  const predefinedCategories = [
+    "General Discussion",
+    "Sustainability",
+    "Technology",
+    "Environment",
+    "Climate Change",
+    "Renewable Energy",
+    "Green Living",
+    "Conservation",
+    "Eco-Friendly Products",
+    "Community Projects",
+    "Education",
+    "News & Updates",
+    "Q&A",
+    "Other"
+  ]
+  const [currentUser, setCurrentUser] = useState<string | null>(null)
   const { toast } = useToast()
-
-  // Mock current user (in real app, this would come from auth)
-  const currentUser = "sarah_green"
+  const supabase = createClientComponentClient()
+  
+  // Fetch user session
+  useEffect(() => {
+    const fetchUserSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', session.user.id)
+          .single()
+        
+        if (profile) {
+          setCurrentUser(profile.username)
+        }
+      }
+    }
+    
+    fetchUserSession()
+  }, [])
+  
+  // Fetch forums and threads on component mount
+  useEffect(() => {
+    fetchForumsAndThreads()
+  }, [])
 
   const filteredForums = forums.filter((forum) => {
     const matchesSearch =
@@ -162,33 +138,121 @@ export default function ForumPage() {
       thread.author.full_name.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
-  const handleCreateForum = () => {
-    if (newForumData.name.trim() && newForumData.description.trim() && newForumData.category) {
-      const newForum = {
-        id: Date.now().toString(),
-        name: newForumData.name,
-        description: newForumData.description,
-        category: newForumData.category,
-        member_count: 1,
-        thread_count: 0,
-        latest_activity: new Date().toISOString(),
-        moderators: [currentUser],
-        is_private: newForumData.is_private,
-        creator: currentUser,
-      }
-
-      setForums((prev) => [newForum, ...prev])
-      setNewForumData({ name: "", description: "", category: "", is_private: false })
-      setIsCreateForumOpen(false)
-
+  // Function to fetch forums and threads - extracted for reuse
+  const fetchForumsAndThreads = async () => {
+    setIsLoading(true)
+    try {
+      // Fetch forums
+      const forumsResponse = await fetch('/api/forums')
+      if (!forumsResponse.ok) throw new Error('Failed to fetch forums')
+      const forumsData = await forumsResponse.json()
+      
+      // Filter forums to only include those created by real users (with admin_id)
+      const userCreatedForums = forumsData.filter((forum: Forum) => forum.admin_id && forum.creator)
+      setForums(userCreatedForums)
+      
+      // Extract unique categories from forums
+      const categories = ['All', ...new Set(userCreatedForums.map((forum: Forum) => forum.category))] as string[]
+      setForumCategories(categories)
+      
+      // Fetch recent threads from user-created forums only
+      const recentThreadsPromises = userCreatedForums.slice(0, 3).map((forum: Forum) => 
+        fetch(`/api/forums/${forum.id}/threads`).then(res => res.json())
+      )
+      
+      const threadsArrays = await Promise.all(recentThreadsPromises)
+      const allThreads = threadsArrays.flat().map((thread: any) => ({
+        id: thread.id,
+        title: thread.title,
+        author: {
+          username: thread.author.username,
+          full_name: thread.author.full_name,
+          avatar_url: thread.author.avatar_url,
+        },
+        forum_name: userCreatedForums.find((f: Forum) => f.id === thread.forum_id)?.name || '',
+        replies_count: thread.replies_count,
+        views_count: thread.views_count,
+        created_at: thread.created_at,
+        last_activity: thread.updated_at || thread.created_at,
+        is_pinned: thread.is_pinned,
+        is_locked: thread.is_locked,
+      }))
+      
+      setThreads(allThreads)
+    } catch (error) {
+      console.error('Error fetching data:', error)
       toast({
-        title: "Forum created!",
-        description: `${newForumData.name} has been created successfully`,
+        title: "Error",
+        description: "Failed to load forums and threads",
+        variant: "destructive",
       })
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const isForumCreator = (forum: any) => forum.creator === currentUser
+  // Use the extracted function in useEffect
+  useEffect(() => {
+    fetchForumsAndThreads()
+  }, [])
+
+  const handleCreateForum = async () => {
+    if (!currentUser) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to create a forum",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (newForumData.name.trim() && newForumData.description.trim() && newForumData.category) {
+      try {
+        const response = await fetch('/api/forums', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: newForumData.name,
+            description: newForumData.description,
+            category: newForumData.category,
+            is_private: newForumData.is_private,
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to create forum')
+        }
+        
+        // Reset form data and close dialog
+        const forumName = newForumData.name
+        setNewForumData({ name: "", description: "", category: "", is_private: false })
+        setIsCreateForumOpen(false)
+
+        // Refresh forums list to include the newly created forum
+        await fetchForumsAndThreads()
+
+        toast({
+          title: "Forum created!",
+          description: `${forumName} has been created successfully`,
+        })
+      } catch (error) {
+        console.error('Error creating forum:', error)
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to create forum",
+          variant: "destructive",
+        })
+      }
+    }
+  }
+
+  const isForumCreator = (forum: Forum) => {
+    if (!currentUser) return false;
+    return forum.creator === currentUser;
+  }
 
   return (
     <MainLayout>
@@ -243,13 +307,11 @@ export default function ForumPage() {
                         <SelectValue placeholder="Select a category" />
                       </SelectTrigger>
                       <SelectContent>
-                        {forumCategories
-                          .filter((cat) => cat !== "All")
-                          .map((category) => (
-                            <SelectItem key={category} value={category}>
-                              {category}
-                            </SelectItem>
-                          ))}
+                        {predefinedCategories.map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -302,111 +364,180 @@ export default function ForumPage() {
               </TabsList>
 
               <TabsContent value="forums" className="space-y-4">
-                {filteredForums.map((forum) => (
-                  <Card key={forum.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <Link
-                              href={`/forum/${forum.id}`}
-                              className="text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-green-600"
-                            >
-                              {forum.name}
-                            </Link>
-                            {forum.is_private && <Lock className="w-4 h-4 text-gray-500" />}
+                {isLoading ? (
+                  <div className="flex justify-center items-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+                  </div>
+                ) : filteredForums.length > 0 ? (
+                  filteredForums.map((forum) => (
+                    <Card key={forum.id} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <Link
+                                href={`/forum/${forum.id}`}
+                                className="text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-green-600"
+                              >
+                                {forum.name}
+                              </Link>
+                              {forum.is_private && <Lock className="w-4 h-4 text-gray-500" />}
+                              {isForumCreator(forum) && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Creator
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-gray-600 dark:text-gray-400 mb-3">{forum.description}</p>
+                            <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                              <div className="flex items-center space-x-1">
+                                <Users className="w-4 h-4" />
+                                <span>{forum.member_count.toLocaleString()} members</span>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <MessageSquare className="w-4 h-4" />
+                                <span>{forum.thread_count} threads</span>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <Clock className="w-4 h-4" />
+                                <span>Active {formatTimeAgo(forum.latest_activity)}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="secondary">{forum.category}</Badge>
                             {isForumCreator(forum) && (
-                              <Badge variant="secondary" className="text-xs">
-                                Creator
-                              </Badge>
+                              <Button variant="ghost" size="sm" asChild>
+                                <Link href={`/forum/${forum.id}/manage`}>
+                                  <Settings className="w-4 h-4" />
+                                </Link>
+                              </Button>
                             )}
                           </div>
-                          <p className="text-gray-600 dark:text-gray-400 mb-3">{forum.description}</p>
-                          <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                            <div className="flex items-center space-x-1">
-                              <Users className="w-4 h-4" />
-                              <span>{forum.member_count.toLocaleString()} members</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <MessageSquare className="w-4 h-4" />
-                              <span>{forum.thread_count} threads</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <Clock className="w-4 h-4" />
-                              <span>Active {formatTimeAgo(forum.latest_activity)}</span>
-                            </div>
-                          </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="secondary">{forum.category}</Badge>
-                          {isForumCreator(forum) && (
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/forum/${forum.id}/manage`}>
-                                <Settings className="w-4 h-4" />
-                              </Link>
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No user-created forums found</h3>
+                    <p className="text-gray-600 dark:text-gray-400 mb-4">
+                      {searchQuery 
+                        ? "No forums match your search criteria." 
+                        : currentUser 
+                          ? "Be the first to create a forum for the community!" 
+                          : "Log in to create and view community forums."}
+                    </p>
+                    <Button 
+                      onClick={() => {
+                        if (currentUser) {
+                          setIsCreateForumOpen(true);
+                        } else {
+                          toast({
+                            title: "Login required",
+                            description: "You must be logged in to create a forum",
+                            variant: "destructive",
+                          });
+                        }
+                      }} 
+                      className="sustainability-gradient"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Forum
+                    </Button>
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="threads" className="space-y-4">
-                {filteredThreads.map((thread) => (
-                  <Card key={thread.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex items-start space-x-4">
-                        <Avatar className="w-10 h-10">
-                          <AvatarImage src={thread.author.avatar_url || "/placeholder.svg"} />
-                          <AvatarFallback>{thread.author.full_name.charAt(0)}</AvatarFallback>
-                        </Avatar>
+                {isLoading ? (
+                  <div className="flex justify-center items-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+                  </div>
+                ) : filteredThreads.length > 0 ? (
+                  filteredThreads.map((thread) => (
+                    <Card key={thread.id} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-6">
+                        <div className="flex items-start space-x-4">
+                          <Avatar className="w-10 h-10">
+                            <AvatarImage src={thread.author.avatar_url || "/placeholder.svg"} />
+                            <AvatarFallback>{thread.author.full_name.charAt(0)}</AvatarFallback>
+                          </Avatar>
 
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            {thread.is_pinned && <Pin className="w-4 h-4 text-green-600" />}
-                            <Link
-                              href={`/forum/thread/${thread.id}`}
-                              className="text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-green-600"
-                            >
-                              {thread.title}
-                            </Link>
-                            {thread.is_locked && <Lock className="w-4 h-4 text-gray-500" />}
-                          </div>
-
-                          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 mb-2">
-                            <span>by</span>
-                            <Link
-                              href={`/profile/${thread.author.username}`}
-                              className="font-medium hover:text-green-600"
-                            >
-                              {thread.author.full_name}
-                            </Link>
-                            <span>in</span>
-                            <Badge variant="outline" className="text-xs">
-                              {thread.forum_name}
-                            </Badge>
-                          </div>
-
-                          <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                            <div className="flex items-center space-x-1">
-                              <MessageSquare className="w-4 h-4" />
-                              <span>{thread.replies_count} replies</span>
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-1">
+                              {thread.is_pinned && <Pin className="w-4 h-4 text-green-600" />}
+                              <Link
+                                href={`/forum/thread/${thread.id}`}
+                                className="text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-green-600"
+                              >
+                                {thread.title}
+                              </Link>
+                              {thread.is_locked && <Lock className="w-4 h-4 text-gray-500" />}
                             </div>
-                            <div className="flex items-center space-x-1">
-                              <span>{thread.views_count} views</span>
+
+                            <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 mb-2">
+                              <span>by</span>
+                              <Link
+                                href={`/profile/${thread.author.username}`}
+                                className="font-medium hover:text-green-600"
+                              >
+                                {thread.author.full_name}
+                              </Link>
+                              <span>in</span>
+                              <Badge variant="outline" className="text-xs">
+                                {thread.forum_name}
+                              </Badge>
                             </div>
-                            <div className="flex items-center space-x-1">
-                              <Clock className="w-4 h-4" />
-                              <span>Last activity {formatTimeAgo(thread.last_activity)}</span>
+
+                            <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                              <div className="flex items-center space-x-1">
+                                <MessageSquare className="w-4 h-4" />
+                                <span>{thread.replies_count} replies</span>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <span>{thread.views_count} views</span>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <Clock className="w-4 h-4" />
+                                <span>Last activity {formatTimeAgo(thread.last_activity)}</span>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No threads found</h3>
+                    <p className="text-gray-600 dark:text-gray-400 mb-4">
+                      {searchQuery 
+                        ? "No threads match your search criteria." 
+                        : forums.length > 0 
+                          ? "No threads have been created in any forums yet." 
+                          : currentUser 
+                            ? "Create a forum first to start discussions!" 
+                            : "Log in to create forums and participate in discussions."}
+                    </p>
+                    {forums.length > 0 && (
+                      <p className="text-gray-600 dark:text-gray-400 mb-4">
+                        Visit a forum to create the first thread!
+                      </p>
+                    )}
+                    {forums.length === 0 && currentUser && (
+                      <Button 
+                        onClick={() => setIsCreateForumOpen(true)} 
+                        className="sustainability-gradient"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Forum
+                      </Button>
+                    )}
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </div>

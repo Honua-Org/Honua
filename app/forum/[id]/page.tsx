@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import MainLayout from "@/components/main-layout"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/hooks/use-toast"
 import {
   Users,
   MessageSquare,
@@ -22,151 +23,57 @@ import {
   MoreHorizontal,
   Flag,
   Share2,
+  Loader2,
 } from "lucide-react"
 import Link from "next/link"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
-// Mock forum data
-const mockForums = {
-  "1": {
-    id: "1",
-    name: "Solar Energy Discussion",
-    description: "Share experiences, tips, and questions about solar energy installations and technology",
-    category: "Solar Energy",
-    member_count: 1247,
-    thread_count: 89,
-    latest_activity: "2024-01-15T10:30:00Z",
-    moderators: ["sarah_green", "solar_expert"],
-    is_private: false,
-    cover_image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=800&h=200&fit=crop",
-    rules: [
-      "Keep discussions related to solar energy",
-      "Be respectful to all community members",
-      "No spam or promotional content",
-      "Share reliable sources when posting facts",
-    ],
-  },
-  "2": {
-    id: "2",
-    name: "Zero Waste Living",
-    description: "Community for those pursuing zero waste lifestyles and sustainable living practices",
-    category: "Waste Reduction",
-    member_count: 892,
-    thread_count: 156,
-    latest_activity: "2024-01-15T09:15:00Z",
-    moderators: ["eco_marcus"],
-    is_private: false,
-    cover_image: "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&h=200&fit=crop",
-    rules: [
-      "Focus on zero waste and sustainable practices",
-      "Share practical tips and experiences",
-      "No judgmental attitudes toward beginners",
-      "Provide sources for product recommendations",
-    ],
-  },
-  "3": {
-    id: "3",
-    name: "Climate Action Planning",
-    description: "Organize and plan climate action initiatives in your local community",
-    category: "Climate Action",
-    member_count: 2134,
-    thread_count: 234,
-    latest_activity: "2024-01-15T08:45:00Z",
-    moderators: ["climate_action_now"],
-    is_private: false,
-    cover_image: "https://images.unsplash.com/photo-1569163139394-de4e4f43e4e3?w=800&h=200&fit=crop",
-    rules: [
-      "Focus on actionable climate solutions",
-      "Respect diverse perspectives and approaches",
-      "Share credible scientific information",
-      "Encourage local community involvement",
-    ],
-  },
-  "4": {
-    id: "4",
-    name: "Green Tech Innovations",
-    description: "Discuss latest developments in green technology and sustainable innovations",
-    category: "Technology",
-    member_count: 567,
-    thread_count: 78,
-    latest_activity: "2024-01-14T16:20:00Z",
-    moderators: ["green_tech_co"],
-    is_private: true,
-    cover_image: "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=800&h=200&fit=crop",
-    rules: [
-      "Share verified green technology news",
-      "Discuss technical aspects respectfully",
-      "No unsubstantiated claims",
-      "Credit original sources and research",
-    ],
-  },
+// Define types for our data
+type Thread = {
+  id: string
+  title: string
+  content: string
+  created_at: string
+  updated_at: string
+  forum_id: string
+  author_id: string
+  is_pinned: boolean
+  is_locked: boolean
+  views_count: number
+  replies_count: number
+  author: {
+    id: string
+    username: string
+    full_name: string
+    avatar_url: string
+  }
 }
 
-// Mock threads data
-const mockThreads = [
-  {
-    id: "1",
-    title: "Best practices for community solar installations",
-    content:
-      "I'm looking into setting up a community solar project in my neighborhood. Has anyone here gone through this process? What are the key things to consider?",
-    author: {
-      username: "sarah_green",
-      full_name: "Sarah Green",
-      avatar_url: "/images/profiles/sarah-green-avatar.png",
-      reputation: 850,
-    },
-    forum_id: "1",
-    replies_count: 23,
-    views_count: 456,
-    likes_count: 34,
-    created_at: "2024-01-15T10:30:00Z",
-    last_activity: "2024-01-15T14:20:00Z",
-    is_pinned: true,
-    is_locked: false,
-    tags: ["community-solar", "installation", "planning"],
-  },
-  {
-    id: "2",
-    title: "Solar panel efficiency in winter months",
-    content:
-      "I've noticed my solar panels aren't producing as much energy during winter. Is this normal? What can I do to optimize performance?",
-    author: {
-      username: "solar_newbie",
-      full_name: "Mike Chen",
-      avatar_url: "/placeholder.svg?height=40&width=40",
-      reputation: 120,
-    },
-    forum_id: "1",
-    replies_count: 15,
-    views_count: 289,
-    likes_count: 18,
-    created_at: "2024-01-14T16:45:00Z",
-    last_activity: "2024-01-15T12:30:00Z",
-    is_pinned: false,
-    is_locked: false,
-    tags: ["efficiency", "winter", "maintenance"],
-  },
-  {
-    id: "3",
-    title: "Comparing different solar inverter types",
-    content:
-      "I'm trying to decide between string inverters, power optimizers, and microinverters for my home installation. What are the pros and cons of each?",
-    author: {
-      username: "tech_enthusiast",
-      full_name: "Lisa Rodriguez",
-      avatar_url: "/placeholder.svg?height=40&width=40",
-      reputation: 445,
-    },
-    forum_id: "1",
-    replies_count: 31,
-    views_count: 567,
-    likes_count: 42,
-    created_at: "2024-01-13T09:20:00Z",
-    last_activity: "2024-01-15T11:15:00Z",
-    is_pinned: false,
-    is_locked: false,
-    tags: ["inverters", "technology", "comparison"],
-  },
+type Forum = {
+  id: string
+  name: string
+  description: string
+  category: string
+  member_count: number
+  thread_count: number
+  latest_activity: string
+  moderators: string[]
+  is_private: boolean
+  creator: string
+  admin_id: string
+  created_at: string
+  cover_image?: string
+  rules?: string[]
+}
+
+// Default cover images for forums without custom covers
+const defaultCoverImages = [
+  "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=800&h=200&fit=crop",
+  "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&h=200&fit=crop",
+  "https://images.unsplash.com/photo-1569163139394-de4e4f43e4e3?w=800&h=200&fit=crop",
+  "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=800&h=200&fit=crop",
+  "https://images.unsplash.com/photo-1497436072909-60f360e1d4b1?w=800&h=200&fit=crop",
 ]
 
 const formatTimeAgo = (dateString: string) => {
@@ -183,14 +90,163 @@ const formatTimeAgo = (dateString: string) => {
 export default function ForumDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const { toast } = useToast()
+  const supabase = createClientComponentClient()
   const forumId = params.id as string
-  const forum = mockForums[forumId as keyof typeof mockForums]
-
+  
+  const [forum, setForum] = useState<Forum | null>(null)
+  const [threads, setThreads] = useState<Thread[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [newThreadTitle, setNewThreadTitle] = useState("")
   const [newThreadContent, setNewThreadContent] = useState("")
-  const [activeTab, setActiveTab] = useState("threads")
   const [isCreatingThread, setIsCreatingThread] = useState(false)
+  const [isPinned, setIsPinned] = useState(false)
+  const [isLocked, setIsLocked] = useState(false)
+
+  // Check if the current user is the creator of the forum
+  const isForumCreator = () => {
+    if (!currentUser || !forum) return false
+    return forum.admin_id === currentUser.id
+  }
+  
+  // Check if the user is logged in
+  const isLoggedIn = () => {
+    return !!currentUser
+  }
+
+  // Fetch forum and threads data
+  useEffect(() => {
+    const fetchUserSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          setCurrentUser(session.user)
+        }
+      } catch (error) {
+        console.error("Error fetching user session:", error)
+      }
+    }
+
+    fetchUserSession()
+  }, [])
+
+  useEffect(() => {
+    const fetchForumData = async () => {
+      if (!forumId) return
+      
+      setIsLoading(true)
+      try {
+        // Fetch forum details
+        const forumResponse = await fetch(`/api/forums/${forumId}`)
+        if (!forumResponse.ok) {
+          throw new Error(`Failed to fetch forum: ${forumResponse.statusText}`)
+        }
+        const forumData = await forumResponse.json()
+        setForum(forumData.forum)
+        
+        // Fetch threads for this forum
+        const threadsResponse = await fetch(`/api/forums/${forumId}/threads`)
+        if (!threadsResponse.ok) {
+          throw new Error(`Failed to fetch threads: ${threadsResponse.statusText}`)
+        }
+        const threadsData = await threadsResponse.json()
+        setThreads(threadsData.threads)
+      } catch (error) {
+        console.error("Error fetching forum data:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load forum data. Please try again later.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchForumData()
+  }, [forumId, toast])
+
+  // Filter threads based on search query
+  const filteredThreads = threads.filter(thread => 
+    thread.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    thread.content.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  // Handle creating a new thread
+  const handleCreateThread = async () => {
+    if (!currentUser) {
+      toast({
+        title: "Authentication required",
+        description: "You must be logged in to create a thread.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!newThreadTitle.trim() || !newThreadContent.trim()) {
+      toast({
+        title: "Validation error",
+        description: "Thread title and content are required.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/forums/${forumId}/threads`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: newThreadTitle,
+          content: newThreadContent,
+          is_pinned: isPinned,
+          is_locked: isLocked,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to create thread: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      
+      // Add the new thread to the threads list
+      setThreads(prevThreads => [data.thread, ...prevThreads])
+      
+      // Reset form and close dialog
+      setNewThreadTitle("")
+      setNewThreadContent("")
+      setIsPinned(false)
+      setIsLocked(false)
+      setIsCreatingThread(false)
+      
+      toast({
+        title: "Success",
+        description: "Thread created successfully!",
+      })
+    } catch (error) {
+      console.error("Error creating thread:", error)
+      toast({
+        title: "Error",
+        description: "Failed to create thread. Please try again later.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="max-w-6xl mx-auto p-4 flex justify-center items-center" style={{ minHeight: "60vh" }}>
+          <Loader2 className="w-10 h-10 animate-spin text-green-600" />
+        </div>
+      </MainLayout>
+    )
+  }
 
   if (!forum) {
     return (
@@ -204,18 +260,6 @@ export default function ForumDetailPage() {
         </div>
       </MainLayout>
     )
-  }
-
-  const forumThreads = mockThreads.filter((thread) => thread.forum_id === forumId)
-
-  const handleCreateThread = () => {
-    if (newThreadTitle.trim() && newThreadContent.trim()) {
-      // In a real app, this would create a new thread
-      console.log("Creating thread:", { title: newThreadTitle, content: newThreadContent })
-      setNewThreadTitle("")
-      setNewThreadContent("")
-      setIsCreatingThread(false)
-    }
   }
 
   return (
@@ -264,13 +308,28 @@ export default function ForumDetailPage() {
               </div>
 
               <div className="flex space-x-2">
-                <Button className="bg-green-600 hover:bg-green-700" onClick={() => setIsCreatingThread(true)}>
+                <Button 
+                  className="bg-green-600 hover:bg-green-700" 
+                  onClick={() => {
+                    if (!isLoggedIn()) {
+                      toast({
+                        title: "Authentication required",
+                        description: "You must be logged in to create a thread.",
+                        variant: "destructive",
+                      })
+                      return
+                    }
+                    setIsCreatingThread(true)
+                  }}
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   New Thread
                 </Button>
-                <Button variant="secondary" className="bg-white/20 hover:bg-white/30 text-white">
-                  Join Forum
-                </Button>
+                {isLoggedIn() && (
+                  <Button variant="secondary" className="bg-white/20 hover:bg-white/30 text-white">
+                    Join Forum
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -311,8 +370,38 @@ export default function ForumDetailPage() {
                     onChange={(e) => setNewThreadContent(e.target.value)}
                     rows={4}
                   />
+                  
+                  {/* Admin/Creator Options */}
+                  {isForumCreator() && (
+                    <div className="flex flex-col space-y-2 p-3 border rounded-md border-gray-200 dark:border-gray-800">
+                      <h4 className="text-sm font-medium">Admin Options</h4>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="pin-thread"
+                          checked={isPinned}
+                          onChange={(e) => setIsPinned(e.target.checked)}
+                          className="rounded text-green-600 focus:ring-green-600"
+                        />
+                        <label htmlFor="pin-thread" className="text-sm">Pin Thread</label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="lock-thread"
+                          checked={isLocked}
+                          onChange={(e) => setIsLocked(e.target.checked)}
+                          className="rounded text-green-600 focus:ring-green-600"
+                        />
+                        <label htmlFor="lock-thread" className="text-sm">Lock Thread</label>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="flex space-x-2">
-                    <Button onClick={handleCreateThread}>Create Thread</Button>
+                    <Button onClick={handleCreateThread} className="bg-green-600 hover:bg-green-700">
+                      Create Thread
+                    </Button>
                     <Button variant="outline" onClick={() => setIsCreatingThread(false)}>
                       Cancel
                     </Button>
@@ -323,43 +412,64 @@ export default function ForumDetailPage() {
 
             {/* Threads List */}
             <div className="space-y-4">
-              {forumThreads.map((thread) => (
-                <Card key={thread.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-start space-x-4">
-                      <Avatar className="w-12 h-12">
-                        <AvatarImage src={thread.author.avatar_url || "/placeholder.svg"} />
-                        <AvatarFallback>{thread.author.full_name.charAt(0)}</AvatarFallback>
-                      </Avatar>
+              {filteredThreads.length === 0 ? (
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">No threads found</p>
+                    <Button 
+                      onClick={() => {
+                        if (!isLoggedIn()) {
+                          toast({
+                            title: "Authentication required",
+                            description: "You must be logged in to create a thread.",
+                            variant: "destructive",
+                          })
+                          return
+                        }
+                        setIsCreatingThread(true)
+                      }} 
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Thread
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                filteredThreads.map((thread) => (
+                  <Card key={thread.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex items-start space-x-4">
+                        <Avatar className="w-12 h-12">
+                          <AvatarImage src={thread.author.avatar_url || "/placeholder.svg"} />
+                          <AvatarFallback>{thread.author.full_name?.charAt(0) || 'U'}</AvatarFallback>
+                        </Avatar>
 
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          {thread.is_pinned && <Pin className="w-4 h-4 text-green-600" />}
-                          <Link
-                            href={`/forum/thread/${thread.id}`}
-                            className="text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-green-600"
-                          >
-                            {thread.title}
-                          </Link>
-                          {thread.is_locked && <Lock className="w-4 h-4 text-gray-500" />}
-                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            {thread.is_pinned && <Pin className="w-4 h-4 text-green-600" />}
+                            <Link
+                              href={`/forum/thread/${thread.id}`}
+                              className="text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-green-600"
+                            >
+                              {thread.title}
+                            </Link>
+                            {thread.is_locked && <Lock className="w-4 h-4 text-gray-500" />}
+                          </div>
 
-                        <p className="text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">{thread.content}</p>
+                          <p className="text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">{thread.content}</p>
 
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                            <div className="flex items-center space-x-1">
-                              <span>by</span>
-                              <Link
-                                href={`/profile/${thread.author.username}`}
-                                className="font-medium hover:text-green-600"
-                              >
-                                {thread.author.full_name}
-                              </Link>
-                              <Badge variant="outline" className="text-xs">
-                                {thread.author.reputation}
-                              </Badge>
-                            </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                              <div className="flex items-center space-x-1">
+                                <span>by</span>
+                                <Link
+                                  href={`/profile/${thread.author.username}`}
+                                  className="font-medium hover:text-green-600"
+                                >
+                                  {thread.author.full_name || thread.author.username}
+                                </Link>
+                              </div>
                             <div className="flex items-center space-x-1">
                               <Clock className="w-4 h-4" />
                               <span>{formatTimeAgo(thread.created_at)}</span>
@@ -367,93 +477,83 @@ export default function ForumDetailPage() {
                           </div>
 
                           <div className="flex items-center space-x-4">
-                            <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                              <div className="flex items-center space-x-1">
-                                <ThumbsUp className="w-4 h-4" />
-                                <span>{thread.likes_count}</span>
+                              <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                                <div className="flex items-center space-x-1">
+                                  <MessageSquare className="w-4 h-4" />
+                                  <span>{thread.replies_count || 0}</span>
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                  <span>{thread.views_count || 0} views</span>
+                                </div>
                               </div>
-                              <div className="flex items-center space-x-1">
-                                <MessageSquare className="w-4 h-4" />
-                                <span>{thread.replies_count}</span>
-                              </div>
-                              <div className="flex items-center space-x-1">
-                                <span>{thread.views_count} views</span>
-                              </div>
-                            </div>
 
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                  <MoreHorizontal className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem>
-                                  <Share2 className="w-4 h-4 mr-2" />
-                                  Share
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  <Flag className="w-4 h-4 mr-2" />
-                                  Report
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <MoreHorizontal className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem>
+                                    <Share2 className="w-4 h-4 mr-2" />
+                                    Share
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem>
+                                    <Flag className="w-4 h-4 mr-2" />
+                                    Report
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           </div>
                         </div>
-
-                        {/* Tags */}
-                        {thread.tags && thread.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-3">
-                            {thread.tags.map((tag) => (
-                              <Badge key={tag} variant="secondary" className="text-xs">
-                                #{tag}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Forum Rules</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {forum.rules.map((rule, index) => (
-                  <div key={index} className="flex items-start space-x-2">
-                    <span className="text-green-600 font-bold text-sm">{index + 1}.</span>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{rule}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Moderators</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {forum.moderators.map((moderator) => (
-                  <div key={moderator} className="flex items-center space-x-3">
-                    <Avatar className="w-8 h-8">
-                      <AvatarImage src="/placeholder.svg" />
-                      <AvatarFallback>{moderator.charAt(0).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="text-sm font-medium">@{moderator}</p>
-                      <p className="text-xs text-gray-500">Moderator</p>
+            {forum.rules && forum.rules.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Forum Rules</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {forum.rules.map((rule, index) => (
+                    <div key={index} className="flex items-start space-x-2">
+                      <span className="text-green-600 font-bold text-sm">{index + 1}.</span>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">{rule}</p>
                     </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {forum.moderators && forum.moderators.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Moderators</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {forum.moderators.map((moderator) => (
+                    <div key={moderator} className="flex items-center space-x-3">
+                      <Avatar className="w-8 h-8">
+                        <AvatarImage src="/placeholder.svg" />
+                        <AvatarFallback>{moderator.charAt(0).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-medium">@{moderator}</p>
+                        <p className="text-xs text-gray-500">Moderator</p>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader>
@@ -471,6 +571,10 @@ export default function ForumDetailPage() {
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Last Activity</span>
                   <span className="font-medium">{formatTimeAgo(forum.latest_activity)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Created By</span>
+                  <span className="font-medium">{forum.creator}</span>
                 </div>
               </CardContent>
             </Card>
