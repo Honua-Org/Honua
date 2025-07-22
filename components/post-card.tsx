@@ -7,8 +7,13 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Label } from "@/components/ui/label"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { useToast } from "@/hooks/use-toast"
+import MoveBookmarkDialog from "./move-bookmark-dialog"
 import {
   Heart,
   MessageCircle,
@@ -23,6 +28,9 @@ import {
   UserPlus,
   UserMinus,
   Trash2,
+  FolderPlus,
+  Plus,
+  FolderOpen,
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -58,6 +66,7 @@ interface PostCardProps {
     link_preview_description?: string
     link_preview_image?: string
     link_preview_domain?: string
+    collection_id?: string
   }
   onPostDeleted?: () => void
   onUpdate?: (postId: string, updates: any) => void
@@ -72,6 +81,7 @@ export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProp
   const router = useRouter()
   const { toast } = useToast()
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
+  const [isMoveBookmarkOpen, setIsMoveBookmarkOpen] = useState(false);
 
   const handleLike = async () => {
     const newIsLiked = !isLiked
@@ -92,37 +102,113 @@ export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProp
     })
   }
 
-  const handleBookmark = async () => {
-    const newIsBookmarked = !isBookmarked
-    setIsBookmarked(newIsBookmarked)
+  // State for collection selection dialog
+  const [isCollectionDialogOpen, setIsCollectionDialogOpen] = useState(false)
+  const [collections, setCollections] = useState<Array<{id: string, name: string, color: string}>>([])  
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null)
+  const [isLoadingCollections, setIsLoadingCollections] = useState(false)
 
-    // Update handled optimistically in state
+  // Fetch user's collections
+  const fetchCollections = async () => {
+    if (!session?.user?.id) return
+    
+    setIsLoadingCollections(true)
+    try {
+      const response = await fetch('/api/collections')
+      if (!response.ok) throw new Error('Failed to fetch collections')
+      
+      const data = await response.json()
+      // The API returns the collections array directly, not nested under a 'collections' property
+      setCollections(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error('Error fetching collections:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load collections",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingCollections(false)
+    }
+  }
+
+  const handleBookmarkClick = () => {
+    if (isBookmarked) {
+      // If already bookmarked, remove the bookmark
+      handleRemoveBookmark()
+    } else {
+      // If not bookmarked, show collection selection dialog
+      fetchCollections()
+      setIsCollectionDialogOpen(true)
+    }
+  }
+
+  const handleRemoveBookmark = async () => {
+    setIsBookmarked(false)
 
     try {
-      const method = newIsBookmarked ? 'POST' : 'DELETE'
-      const response = await fetch(`/api/posts/${post.id}/bookmark`, { method })
+      const response = await fetch(`/api/posts/${post.id}/bookmark`, { method: 'DELETE' })
       
       if (!response.ok) {
         // Revert the optimistic update if API call fails
-        setIsBookmarked(!newIsBookmarked)
-        // Revert optimistic update
-        throw new Error('Failed to update bookmark')
+        setIsBookmarked(true)
+        throw new Error('Failed to remove bookmark')
       }
 
       // Update parent component
       onUpdate?.(post.id, {
-        bookmarked_by_user: newIsBookmarked
+        bookmarked_by_user: false
       })
 
       toast({
-        title: newIsBookmarked ? "Post bookmarked!" : "Bookmark removed",
-        description: newIsBookmarked ? "Saved to your bookmarks" : "Removed from bookmarks",
+        title: "Bookmark removed",
+        description: "Removed from bookmarks",
       })
     } catch (error) {
-      console.error('Error updating bookmark:', error)
+      console.error('Error removing bookmark:', error)
       toast({
         title: "Error",
-        description: "Failed to update bookmark",
+        description: "Failed to remove bookmark",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleBookmark = async (collectionId: string | null = null) => {
+    setIsBookmarked(true)
+    setIsCollectionDialogOpen(false)
+
+    try {
+      const response = await fetch(`/api/posts/${post.id}/bookmark`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ collection_id: collectionId }),
+      })
+      
+      if (!response.ok) {
+        // Revert the optimistic update if API call fails
+        setIsBookmarked(false)
+        throw new Error('Failed to bookmark post')
+      }
+
+      // Update parent component
+      onUpdate?.(post.id, {
+        bookmarked_by_user: true
+      })
+
+      toast({
+        title: "Post bookmarked!",
+        description: collectionId 
+          ? `Saved to ${collections.find(c => c.id === collectionId)?.name || 'collection'}` 
+          : "Saved to your bookmarks",
+      })
+    } catch (error) {
+      console.error('Error bookmarking post:', error)
+      toast({
+        title: "Error",
+        description: "Failed to bookmark post",
         variant: "destructive",
       })
     }
@@ -315,10 +401,23 @@ export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProp
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete post
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleBookmark}>
-                          <Bookmark className="mr-2 h-4 w-4" />
-                          {isBookmarked ? "Remove bookmark" : "Bookmark post"}
-                        </DropdownMenuItem>
+                        {isBookmarked ? (
+                          <>
+                            <DropdownMenuItem onClick={handleRemoveBookmark}>
+                              <Bookmark className="mr-2 h-4 w-4" />
+                              Remove bookmark
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setIsMoveBookmarkOpen(true)}>
+                              <FolderOpen className="mr-2 h-4 w-4" />
+                              Move to collection
+                            </DropdownMenuItem>
+                          </>
+                        ) : (
+                          <DropdownMenuItem onClick={handleBookmarkClick}>
+                            <Bookmark className="mr-2 h-4 w-4" />
+                            Bookmark post
+                          </DropdownMenuItem>
+                        )}
                       </>
                     ) : (
                       <>
@@ -341,7 +440,7 @@ export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProp
                             Report post
                           </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleBookmark}>
+                        <DropdownMenuItem onClick={handleBookmarkClick}>
                           <Bookmark className="mr-2 h-4 w-4" />
                           {isBookmarked ? "Remove bookmark" : "Bookmark post"}
                         </DropdownMenuItem>
@@ -501,15 +600,15 @@ export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProp
 
                 <div className="flex items-center space-x-2">
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleBookmark}
-                    className={`${
-                      isBookmarked ? "text-yellow-500 hover:text-yellow-600" : "text-gray-500 hover:text-yellow-500"
-                    }`}
-                  >
-                    <Bookmark className={`w-4 h-4 ${isBookmarked ? "fill-current" : ""}`} />
-                  </Button>
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleBookmarkClick}
+                  className={`${
+                    isBookmarked ? "text-yellow-500 hover:text-yellow-600" : "text-gray-500 hover:text-yellow-500"
+                  }`}
+                >
+                  <Bookmark className={`w-4 h-4 ${isBookmarked ? "fill-current" : ""}`} />
+                </Button>
 
                   <Button variant="ghost" size="sm" onClick={handleShare} className="text-gray-500 hover:text-blue-500">
                     <Share className="w-4 h-4" />
@@ -528,6 +627,83 @@ export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProp
           onClose={() => setSelectedMedia(null)} 
         />
       )}
+
+      {/* Collection Selection Dialog */}
+      <Dialog open={isCollectionDialogOpen} onOpenChange={setIsCollectionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save to Collection</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            <RadioGroup value={selectedCollectionId || ''} onValueChange={setSelectedCollectionId}>
+              <div className="space-y-3 p-2">
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="" id="default-collection" />
+                  <Label htmlFor="default-collection" className="flex items-center space-x-2 cursor-pointer">
+                    <Bookmark className="h-4 w-4" />
+                    <span>Default Collection</span>
+                  </Label>
+                </div>
+                
+                {isLoadingCollections ? (
+                  <div className="py-4 text-center text-gray-500">Loading collections...</div>
+                ) : collections.length > 0 ? (
+                  collections.map((collection) => (
+                    <div key={collection.id} className="flex items-center space-x-2">
+                      <RadioGroupItem value={collection.id} id={`collection-${collection.id}`} />
+                      <Label 
+                        htmlFor={`collection-${collection.id}`} 
+                        className="flex items-center space-x-2 cursor-pointer"
+                      >
+                        <div 
+                          className="w-4 h-4 rounded-full" 
+                          style={{ backgroundColor: collection.color || '#10b981' }}
+                        />
+                        <span>{collection.name}</span>
+                      </Label>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-4 text-center text-gray-500">
+                    No collections found. Create one below.
+                  </div>
+                )}
+                
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full mt-2 flex items-center justify-center"
+                    onClick={() => {
+                      setIsCollectionDialogOpen(false);
+                      router.push('/bookmarks');
+                    }}
+                  >
+                    <FolderPlus className="h-4 w-4 mr-2" />
+                    Manage Collections
+                  </Button>
+              </div>
+            </RadioGroup>
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCollectionDialogOpen(false)}>Cancel</Button>
+            <Button onClick={() => handleBookmark(selectedCollectionId)}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Move Bookmark Dialog */}
+      <MoveBookmarkDialog
+        open={isMoveBookmarkOpen}
+        onOpenChange={setIsMoveBookmarkOpen}
+        bookmarkId={post.id}
+        currentCollectionId={post.collection_id || null}
+        onSuccess={() => {
+          // Update parent component to refresh bookmarks
+          onUpdate?.(post.id, {
+            bookmarked_by_user: true
+          })
+        }}
+      />
     </>
   )
 }

@@ -7,7 +7,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Bookmark, Filter, Download, Trash2, FolderPlus } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { toast } from "@/hooks/use-toast"
+import { Bookmark, Filter, Download, Trash2, FolderPlus, Plus, Edit, X } from "lucide-react"
 import Image from "next/image"
 import { useEffect } from "react"
 import { useSession } from "@supabase/auth-helpers-react"
@@ -62,7 +67,15 @@ const mockBookmarkedPosts = [
   },
 ]
 
-const bookmarkCategories = ["All", "Research", "Events", "Tips", "News", "Inspiration"]
+type Collection = {
+  id: string;
+  name: string;
+  description: string | null;
+  color: string;
+  created_at: string;
+  updated_at: string;
+  bookmark_count: number;
+};
 
 type BookmarkedPost = {
   id: string;
@@ -85,82 +98,48 @@ type BookmarkedPost = {
   liked_by_user: boolean;
   bookmarked_by_user: boolean;
   reposted_by_user: boolean;
-  bookmark_category: string;
+  collection_id: string | null;
+  collection_name: string | null;
 };
 
 export default function BookmarksPage() {
-  const [posts, setPosts] = useState<BookmarkedPost[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState("All")
+  const [posts, setPosts] = useState<BookmarkedPost[]>([])
+  const [collections, setCollections] = useState<Collection[]>([])
+  const [selectedCollection, setSelectedCollection] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState("newest")
+  const [isNewCollectionOpen, setIsNewCollectionOpen] = useState(false)
+  const [newCollectionName, setNewCollectionName] = useState("")
+  const [newCollectionDescription, setNewCollectionDescription] = useState("")
+  const [newCollectionColor, setNewCollectionColor] = useState("#10B981")
+  const [loading, setLoading] = useState(false)
   const session = useSession()
   const supabase = createClient()
 
-  useEffect(() => {
-    const fetchBookmarks = async () => {
-      if (!session?.user?.id) return
-      const { data, error } = await supabase
-        .from('bookmarks')
-        .select(`
-          post_id,
-          created_at,
-          posts (
-            id,
-            content,
-            media_urls,
-            location,
-            sustainability_category,
-            impact_score,
-            created_at,
-            profiles:user_id (
-              id,
-              username,
-              full_name,
-              avatar_url,
-              verified
-            )
-          )
-        `)
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false })
-      if (error) {
-        console.error('Error fetching bookmarks:', error)
-        setPosts([])
-        return
+  const fetchCollections = async () => {
+    if (!session?.user?.id) return
+    try {
+      const response = await fetch('/api/collections')
+      if (response.ok) {
+        const data = await response.json()
+        setCollections(data)
       }
-      // Map to PostCard expected structure
-      const mapped = (data || []).map((b: any) => {
-        const p = b.posts
-        return {
-          id: p.id,
-          user: p.profiles,
-          content: p.content,
-          media_urls: p.media_urls,
-          location: p.location,
-          sustainability_category: p.sustainability_category,
-          impact_score: p.impact_score,
-          likes_count: 0,
-          comments_count: 0,
-          reposts_count: 0,
-          created_at: p.created_at,
-          liked_by_user: false, // Optionally fetch likes
-          bookmarked_by_user: true,
-          reposted_by_user: false,
-          bookmark_category: "General"
-        }
-      })
-      setPosts(mapped)
+    } catch (error) {
+      console.error('Error fetching collections:', error)
     }
-    fetchBookmarks()
-  }, [session?.user?.id])
+  }
 
-  // Add this function to allow manual refresh
-  const refreshBookmarks = async () => {
+  const fetchBookmarks = async () => {
     if (!session?.user?.id) return
     const { data, error } = await supabase
       .from('bookmarks')
       .select(`
         post_id,
         created_at,
+        collection_id,
+        collections (
+          id,
+          name
+        ),
         posts (
           id,
           content,
@@ -181,10 +160,11 @@ export default function BookmarksPage() {
       .eq('user_id', session.user.id)
       .order('created_at', { ascending: false })
     if (error) {
-      console.error('Error refreshing bookmarks:', error)
+      console.error('Error fetching bookmarks:', error)
       setPosts([])
       return
     }
+    // Map to PostCard expected structure
     const mapped = (data || []).map((b: any) => {
       const p = b.posts
       return {
@@ -199,13 +179,118 @@ export default function BookmarksPage() {
         comments_count: 0,
         reposts_count: 0,
         created_at: p.created_at,
-        liked_by_user: false,
+        liked_by_user: false, // Optionally fetch likes
         bookmarked_by_user: true,
         reposted_by_user: false,
-        bookmark_category: "General"
+        collection_id: b.collection_id,
+        collection_name: b.collections?.name || null
       }
     })
     setPosts(mapped)
+  }
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchCollections()
+      fetchBookmarks()
+    }
+  }, [session?.user?.id])
+
+  const refreshBookmarks = async () => {
+    await fetchBookmarks()
+  }
+
+  const createNewCollection = async () => {
+    if (!newCollectionName.trim()) {
+      toast({
+        title: "Error",
+        description: "Collection name is required",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setLoading(true)
+    try {
+      const response = await fetch('/api/collections', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: newCollectionName.trim(),
+          description: newCollectionDescription.trim() || null,
+          color: newCollectionColor
+        })
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Collection created successfully"
+        })
+        setIsNewCollectionOpen(false)
+        setNewCollectionName("")
+        setNewCollectionDescription("")
+        setNewCollectionColor("#10B981")
+        await fetchCollections()
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Failed to create collection",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error('Error creating collection:', error)
+      toast({
+        title: "Error",
+        description: "Failed to create collection",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const clearAllCollections = async () => {
+    if (!confirm('Are you sure you want to clear all collections? This action cannot be undone.')) {
+      return
+    }
+
+    setLoading(true)
+    try {
+      const response = await fetch('/api/collections', {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "All collections cleared successfully"
+        })
+        setCollections([])
+        setSelectedCollection(null)
+        await fetchBookmarks()
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Failed to clear collections",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error('Error clearing collections:', error)
+      toast({
+        title: "Error",
+        description: "Failed to clear collections",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handlePostUpdate = (postId: string, updates: any) => {
@@ -222,9 +307,10 @@ export default function BookmarksPage() {
     }
   }
 
-  const filteredPosts = posts.filter(
-    (post) => selectedCategory === "All" || post.bookmark_category === selectedCategory,
-  )
+  const filteredPosts = posts.filter(post => {
+    if (!selectedCollection) return true
+    return post.collection_id === selectedCollection
+  })
 
   const sortedPosts = [...filteredPosts].sort((a, b) => {
     if (sortBy === "newest") {
@@ -256,10 +342,56 @@ export default function BookmarksPage() {
                 <Download className="w-4 h-4 mr-2" />
                 Export
               </Button>
-              <Button variant="outline" size="sm">
-                <FolderPlus className="w-4 h-4 mr-2" />
-                New Collection
-              </Button>
+              <Dialog open={isNewCollectionOpen} onOpenChange={setIsNewCollectionOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <FolderPlus className="w-4 h-4 mr-2" />
+                    New Collection
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create New Collection</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="collection-name">Collection Name</Label>
+                      <Input
+                        id="collection-name"
+                        value={newCollectionName}
+                        onChange={(e) => setNewCollectionName(e.target.value)}
+                        placeholder="Enter collection name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="collection-description">Description (Optional)</Label>
+                      <Textarea
+                        id="collection-description"
+                        value={newCollectionDescription}
+                        onChange={(e) => setNewCollectionDescription(e.target.value)}
+                        placeholder="Enter collection description"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="collection-color">Color</Label>
+                      <Input
+                        id="collection-color"
+                        type="color"
+                        value={newCollectionColor}
+                        onChange={(e) => setNewCollectionColor(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex justify-end space-x-2">
+                      <Button variant="outline" onClick={() => setIsNewCollectionOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={createNewCollection} disabled={loading}>
+                        {loading ? "Creating..." : "Create Collection"}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
 
@@ -283,15 +415,16 @@ export default function BookmarksPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4">
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <Select value={selectedCollection || "all"} onValueChange={(value) => setSelectedCollection(value === "all" ? null : value)}>
               <SelectTrigger className="w-full sm:w-48">
                 <Filter className="w-4 h-4 mr-2" />
-                <SelectValue />
+                <SelectValue placeholder="All Collections" />
               </SelectTrigger>
               <SelectContent>
-                {bookmarkCategories.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
+                <SelectItem value="all">All Collections</SelectItem>
+                {collections.map((collection) => (
+                  <SelectItem key={collection.id} value={collection.id}>
+                    {collection.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -330,23 +463,47 @@ export default function BookmarksPage() {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Collections</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Collections</CardTitle>
+                  <Dialog open={isNewCollectionOpen} onOpenChange={setIsNewCollectionOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </DialogTrigger>
+                  </Dialog>
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {bookmarkCategories.slice(1).map((category) => (
+                <div
+                  className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
+                    !selectedCollection
+                      ? "bg-green-100 dark:bg-green-900/20"
+                      : "hover:bg-gray-50 dark:hover:bg-gray-800"
+                  }`}
+                  onClick={() => setSelectedCollection(null)}
+                >
+                  <span className="font-medium">All Bookmarks</span>
+                  <Badge variant="secondary">{posts.length}</Badge>
+                </div>
+                {collections.map((collection) => (
                   <div
-                    key={category}
+                    key={collection.id}
                     className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
-                      selectedCategory === category
+                      selectedCollection === collection.id
                         ? "bg-green-100 dark:bg-green-900/20"
                         : "hover:bg-gray-50 dark:hover:bg-gray-800"
                     }`}
-                    onClick={() => setSelectedCategory(category)}
+                    onClick={() => setSelectedCollection(collection.id)}
                   >
-                    <span className="font-medium">{category}</span>
-                    <Badge variant="secondary">
-                      {posts.filter((post) => post.bookmark_category === category).length}
-                    </Badge>
+                    <div className="flex items-center space-x-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: collection.color }}
+                      />
+                      <span className="font-medium">{collection.name}</span>
+                    </div>
+                    <Badge variant="secondary">{collection.bookmark_count}</Badge>
                   </div>
                 ))}
               </CardContent>
@@ -361,9 +518,14 @@ export default function BookmarksPage() {
                   <Download className="w-4 h-4 mr-2" />
                   Export All Bookmarks
                 </Button>
-                <Button variant="outline" className="w-full justify-start">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={clearAllCollections}
+                  disabled={loading}
+                >
                   <Trash2 className="w-4 h-4 mr-2" />
-                  Clear All Bookmarks
+                  Clear All Collections
                 </Button>
               </CardContent>
             </Card>

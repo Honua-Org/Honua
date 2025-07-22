@@ -53,8 +53,9 @@ interface Post {
 }
 
 interface Hashtag {
-  name: string
+  hashtag: string
   count: number
+  trend: 'up' | 'down' | 'stable'
 }
 
 interface Category {
@@ -88,77 +89,43 @@ export default function ExplorePage() {
   const [trendingHashtags, setTrendingHashtags] = useState<Hashtag[]>([])
   const [featuredUsers, setFeaturedUsers] = useState<User[]>([])
   const [trendingPosts, setTrendingPosts] = useState<Post[]>([])
+  const [recentPosts, setRecentPosts] = useState<Post[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
+  const [recentLoading, setRecentLoading] = useState(false)
 
-  const fetchTrendingData = useCallback(async () => {
+  const fetchTrendingData = useCallback(async (category?: string) => {
     try {
       setLoading(true)
       
       // Fetch trending hashtags
-      const hashtagsResponse = await fetch('/api/hashtags/search?q=')
+      const hashtagsResponse = await fetch('/api/hashtags/trending?limit=5')
       if (hashtagsResponse.ok) {
         const hashtagsData = await hashtagsResponse.json()
-        // Extract hashtags array from response object
         const hashtags = hashtagsData.hashtags || []
-        setTrendingHashtags(hashtags.slice(0, 5))
+        setTrendingHashtags(hashtags)
       }
       
-      // Fetch featured users
-      const usersResponse = await fetch('/api/users/search?q=&limit=3')
+      // Fetch user suggestions (who to follow)
+      const usersResponse = await fetch('/api/users/suggestions?limit=3')
       if (usersResponse.ok) {
         const usersData = await usersResponse.json()
-        // Extract users array from response object
         const users = usersData.users || []
-        
-        // Transform users to ensure avatar_url is always present
-        const transformedUsers = users.map((user: any) => ({
-          ...user,
-          avatar_url: user.avatar_url || "/placeholder.svg"
-        }))
-        
-        setFeaturedUsers(transformedUsers)
+        setFeaturedUsers(users)
       }
       
-      // Fetch trending posts
-      const postsResponse = await fetch('/api/posts/search?q=&limit=10')
+      // Fetch trending posts with optional category filter
+      const categoryParam = category && category !== 'All Categories' ? `&category=${encodeURIComponent(category)}` : ''
+      const postsResponse = await fetch(`/api/posts/trending?limit=10${categoryParam}`)
       if (postsResponse.ok) {
-        const postsData = await postsResponse.json()
-        // Extract posts array from response object
-        const posts = postsData.posts || []
-        
-        // Transform posts to include missing properties with default values
-         const transformedPosts = posts.map((post: any) => ({
-           ...post,
-           user: {
-             ...post.user,
-             avatar_url: post.user?.avatar_url || "/placeholder.svg"
-           },
-           reposts_count: post.reposts_count || post.shares_count || 0,
-           updated_at: post.updated_at || post.created_at,
-           liked_by_user: post.liked_by_user || false,
-           bookmarked_by_user: post.bookmarked_by_user || false,
-           reposted_by_user: post.reposted_by_user || false,
-           media_urls: post.media_urls || (post.image_url ? [post.image_url] : []),
-           location: post.location || undefined,
-           sustainability_category: post.sustainability_category || undefined,
-           impact_score: post.impact_score || undefined,
-           parent_id: post.parent_id || undefined,
-           link_preview_url: post.link_preview_url || undefined,
-           link_preview_title: post.link_preview_title || undefined,
-           link_preview_description: post.link_preview_description || undefined,
-           link_preview_image: post.link_preview_image || undefined,
-           link_preview_domain: post.link_preview_domain || undefined
-         }))
-        
-        setTrendingPosts(transformedPosts)
+        const posts = await postsResponse.json()
+        setTrendingPosts(posts || [])
       }
       
       // Fetch categories
       const categoriesResponse = await fetch('/api/categories/search?q=&limit=10')
       if (categoriesResponse.ok) {
         const categoriesData = await categoriesResponse.json()
-        // Extract categories array from response object
         const categories = categoriesData.categories || []
         setCategories(categories)
       }
@@ -169,9 +136,40 @@ export default function ExplorePage() {
     }
   }, [])
 
-  useEffect(() => {
-    fetchTrendingData()
+  const fetchRecentPosts = useCallback(async (category?: string) => {
+    try {
+      setRecentLoading(true)
+      const categoryParam = category && category !== 'All Categories' ? `&category=${encodeURIComponent(category)}` : ''
+      const response = await fetch(`/api/posts/recent?limit=10${categoryParam}`)
+      if (response.ok) {
+        const posts = await response.json()
+        setRecentPosts(posts || [])
+      }
+    } catch (error) {
+      console.error('Error fetching recent posts:', error)
+    } finally {
+      setRecentLoading(false)
+    }
   }, [])
+
+  useEffect(() => {
+    fetchTrendingData(selectedCategory)
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'recent' && recentPosts.length === 0) {
+      fetchRecentPosts(selectedCategory)
+    }
+  }, [activeTab, fetchRecentPosts, recentPosts.length, selectedCategory])
+
+  // Refetch data when category changes
+  useEffect(() => {
+    if (activeTab === 'trending') {
+      fetchTrendingData(selectedCategory)
+    } else if (activeTab === 'recent') {
+      fetchRecentPosts(selectedCategory)
+    }
+  }, [selectedCategory, activeTab, fetchTrendingData, fetchRecentPosts])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -182,6 +180,7 @@ export default function ExplorePage() {
 
   const handlePostUpdate = (postId: string, updates: any) => {
     setTrendingPosts((prevPosts) => prevPosts.map((post) => (post.id === postId ? { ...post, ...updates } : post)))
+    setRecentPosts((prevPosts) => prevPosts.map((post) => (post.id === postId ? { ...post, ...updates } : post)))
   }
 
   return (
@@ -276,11 +275,21 @@ export default function ExplorePage() {
               </TabsContent>
 
               <TabsContent value="recent" className="space-y-6 mt-6">
-                <div className="text-center py-12">
-                  <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Recent Posts</h3>
-                  <p className="text-gray-500 dark:text-gray-400">Latest sustainability posts from the community</p>
-                </div>
+                {recentLoading ? (
+                  <div className="flex justify-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+                  </div>
+                ) : recentPosts.length > 0 ? (
+                  recentPosts.map((post) => (
+                    <PostCard key={post.id} post={post} onUpdate={handlePostUpdate} />
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No Recent Posts</h3>
+                    <p className="text-gray-500 dark:text-gray-400">No recent posts found</p>
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="featured" className="space-y-6 mt-6">
@@ -310,11 +319,11 @@ export default function ExplorePage() {
                 ) : (
                   trendingHashtags.map((hashtag, index) => (
                     <div
-                      key={hashtag.name}
+                      key={hashtag.hashtag}
                       className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
                     >
                       <div>
-                        <p className="font-medium text-gray-900 dark:text-gray-100">#{hashtag.name}</p>
+                        <p className="font-medium text-gray-900 dark:text-gray-100">#{hashtag.hashtag}</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400">{hashtag.count.toLocaleString()} posts</p>
                       </div>
                       <Badge variant="secondary" className="text-green-600">
