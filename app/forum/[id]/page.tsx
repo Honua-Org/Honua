@@ -144,7 +144,7 @@ export default function ForumDetailPage() {
           throw new Error(`Failed to fetch forum: ${forumResponse.statusText}`)
         }
         const forumData = await forumResponse.json()
-        setForum(forumData.forum)
+        setForum(forumData)
         
         // Fetch threads for this forum
         const threadsResponse = await fetch(`/api/forums/${forumId}/threads`)
@@ -152,7 +152,7 @@ export default function ForumDetailPage() {
           throw new Error(`Failed to fetch threads: ${threadsResponse.statusText}`)
         }
         const threadsData = await threadsResponse.json()
-        setThreads(threadsData.threads)
+        setThreads(threadsData)
       } catch (error) {
         console.error("Error fetching forum data:", error)
         toast({
@@ -170,8 +170,8 @@ export default function ForumDetailPage() {
 
   // Filter threads based on search query
   const filteredThreads = threads.filter(thread => 
-    thread.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    thread.content.toLowerCase().includes(searchQuery.toLowerCase())
+    thread.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    thread.content?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   // Handle creating a new thread
@@ -215,7 +215,7 @@ export default function ForumDetailPage() {
       const data = await response.json()
       
       // Add the new thread to the threads list
-      setThreads(prevThreads => [data.thread, ...prevThreads])
+      setThreads(prevThreads => [data, ...prevThreads])
       
       // Reset form and close dialog
       setNewThreadTitle("")
@@ -279,7 +279,7 @@ export default function ForumDetailPage() {
         <div className="relative mb-8">
           <div
             className="h-48 bg-gradient-to-r from-green-400 to-blue-500 rounded-lg bg-cover bg-center"
-            style={{ backgroundImage: `url(${forum.cover_image})` }}
+            style={{ backgroundImage: forum.cover_image ? `url(${forum.cover_image})` : undefined }}
           >
             <div className="absolute inset-0 bg-black bg-opacity-40 rounded-lg"></div>
           </div>
@@ -295,11 +295,11 @@ export default function ForumDetailPage() {
                 <div className="flex items-center space-x-4 text-sm">
                   <div className="flex items-center space-x-1">
                     <Users className="w-4 h-4" />
-                    <span>{forum.member_count.toLocaleString()} members</span>
+                    <span>{(forum.member_count || 0).toLocaleString()} members</span>
                   </div>
                   <div className="flex items-center space-x-1">
                     <MessageSquare className="w-4 h-4" />
-                    <span>{forum.thread_count} threads</span>
+                    <span>{forum.thread_count || 0} threads</span>
                   </div>
                   <Badge variant="secondary" className="bg-white/20 text-white">
                     {forum.category}
@@ -441,8 +441,8 @@ export default function ForumDetailPage() {
                     <CardContent className="p-6">
                       <div className="flex items-start space-x-4">
                         <Avatar className="w-12 h-12">
-                          <AvatarImage src={thread.author.avatar_url || "/placeholder.svg"} />
-                          <AvatarFallback>{thread.author.full_name?.charAt(0) || 'U'}</AvatarFallback>
+                          <AvatarImage src={thread.author?.avatar_url || "/placeholder.svg"} />
+                          <AvatarFallback>{thread.author?.full_name?.charAt(0) || thread.author?.username?.charAt(0) || 'U'}</AvatarFallback>
                         </Avatar>
 
                         <div className="flex-1">
@@ -464,10 +464,10 @@ export default function ForumDetailPage() {
                               <div className="flex items-center space-x-1">
                                 <span>by</span>
                                 <Link
-                                  href={`/profile/${thread.author.username}`}
+                                  href={`/profile/${thread.author?.username || 'unknown'}`}
                                   className="font-medium hover:text-green-600"
                                 >
-                                  {thread.author.full_name || thread.author.username}
+                                  {thread.author?.full_name || thread.author?.username || 'Unknown User'}
                                 </Link>
                               </div>
                             <div className="flex items-center space-x-1">
@@ -562,19 +562,19 @@ export default function ForumDetailPage() {
               <CardContent className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Total Threads</span>
-                  <span className="font-medium">{forum.thread_count}</span>
+                  <span className="font-medium">{forum.thread_count || 0}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Total Members</span>
-                  <span className="font-medium">{forum.member_count.toLocaleString()}</span>
+                  <span className="font-medium">{(forum.member_count || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Last Activity</span>
-                  <span className="font-medium">{formatTimeAgo(forum.latest_activity)}</span>
+                  <span className="font-medium">{forum.latest_activity ? formatTimeAgo(forum.latest_activity) : 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Created By</span>
-                  <span className="font-medium">{forum.creator}</span>
+                  <span className="font-medium">{forum.creator || 'Unknown'}</span>
                 </div>
               </CardContent>
             </Card>

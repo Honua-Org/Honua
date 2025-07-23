@@ -126,16 +126,16 @@ export default function ForumPage() {
 
   const filteredForums = forums.filter((forum) => {
     const matchesSearch =
-      forum.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      forum.description.toLowerCase().includes(searchQuery.toLowerCase())
+      forum.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      forum.description?.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = selectedCategory === "All" || forum.category === selectedCategory
     return matchesSearch && matchesCategory
   })
 
   const filteredThreads = threads.filter(
     (thread) =>
-      thread.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      thread.author.full_name.toLowerCase().includes(searchQuery.toLowerCase()),
+      thread.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      thread.author?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
   // Function to fetch forums and threads - extracted for reuse
@@ -148,7 +148,7 @@ export default function ForumPage() {
       const forumsData = await forumsResponse.json()
       
       // Filter forums to only include those created by real users (with admin_id)
-      const userCreatedForums = forumsData.filter((forum: Forum) => forum.admin_id && forum.creator)
+      const userCreatedForums = forumsData.filter((forum: Forum) => forum.admin_id)
       setForums(userCreatedForums)
       
       // Extract unique categories from forums
@@ -165,9 +165,9 @@ export default function ForumPage() {
         id: thread.id,
         title: thread.title,
         author: {
-          username: thread.author.username,
-          full_name: thread.author.full_name,
-          avatar_url: thread.author.avatar_url,
+          username: thread.author?.username || 'Unknown User',
+          full_name: thread.author?.full_name || 'Unknown User',
+          avatar_url: thread.author?.avatar_url || null,
         },
         forum_name: userCreatedForums.find((f: Forum) => f.id === thread.forum_id)?.name || '',
         replies_count: thread.replies_count,
