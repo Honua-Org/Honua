@@ -137,7 +137,10 @@ export async function POST(
         is_pinned: isPinned,
         is_locked: isLocked,
       })
-      .select()
+      .select(`
+        *,
+        profiles:user_id(id, username, full_name, avatar_url)
+      `)
 
     if (error) {
       console.error('Error creating thread:', error)
@@ -150,7 +153,27 @@ export async function POST(
       .update({ updated_at: new Date().toISOString() })
       .eq('id', id)
 
-    return NextResponse.json(thread[0], { status: 201 })
+    // Format the response to match the GET endpoint structure
+    const formattedThread = {
+      id: thread[0].id,
+      title: thread[0].title,
+      content: thread[0].content,
+      forum_id: thread[0].forum_id,
+      created_at: thread[0].created_at,
+      updated_at: thread[0].updated_at,
+      author: {
+        id: thread[0].profiles?.id,
+        username: thread[0].profiles?.username,
+        full_name: thread[0].profiles?.full_name,
+        avatar_url: thread[0].profiles?.avatar_url,
+      },
+      replies_count: 0,
+      views_count: 0,
+      is_pinned: thread[0].is_pinned || false,
+      is_locked: thread[0].is_locked || false,
+    }
+
+    return NextResponse.json(formattedThread, { status: 201 })
   } catch (error) {
     console.error('Error in threads POST route:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

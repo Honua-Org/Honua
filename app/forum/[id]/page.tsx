@@ -540,13 +540,19 @@ export default function ForumDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {forum.moderators.map((moderator) => (
-                    <div key={moderator} className="flex items-center space-x-3">
+                    <div key={moderator.id || moderator.username || moderator} className="flex items-center space-x-3">
                       <Avatar className="w-8 h-8">
-                        <AvatarImage src="/placeholder.svg" />
-                        <AvatarFallback>{moderator.charAt(0).toUpperCase()}</AvatarFallback>
+                        <AvatarImage src={moderator.avatar_url || "/placeholder.svg"} />
+                        <AvatarFallback>
+                          {moderator.full_name?.charAt(0)?.toUpperCase() || 
+                           moderator.username?.charAt(0)?.toUpperCase() || 
+                           (typeof moderator === 'string' ? moderator.charAt(0).toUpperCase() : 'M')}
+                        </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="text-sm font-medium">@{moderator}</p>
+                        <p className="text-sm font-medium">
+                          @{moderator.username || moderator}
+                        </p>
                         <p className="text-xs text-gray-500">Moderator</p>
                       </div>
                     </div>
