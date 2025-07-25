@@ -5,8 +5,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 // GET /api/conversations - Fetch user's conversations
 export async function GET() {
   try {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const supabase = createRouteHandlerClient({ cookies })
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -83,8 +82,7 @@ export async function GET() {
 // POST /api/conversations - Create or get conversation with a user
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const supabase = createRouteHandlerClient({ cookies })
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()

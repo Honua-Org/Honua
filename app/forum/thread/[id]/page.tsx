@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import MainLayout from "@/components/main-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -77,134 +78,7 @@ interface Thread {
   user_vote: "up" | "down" | null
 }
 
-// Mock thread data
-const mockThread: Thread = {
-  id: "1",
-  title: "Best practices for community solar installations",
-  content: `I'm looking into setting up a community solar project in my neighborhood. Has anyone here gone through this process? What are the key things to consider?
-
-Here are some specific questions I have:
-
-1. How do you handle the legal aspects and permits?
-2. What's the typical cost breakdown for a community project?
-3. How do you get neighbors involved and committed?
-4. What are the maintenance requirements?
-
-I've done some initial research but would love to hear from people with real experience. Any advice, resources, or lessons learned would be greatly appreciated!
-
-Looking forward to your insights!`,
-  author: {
-    username: "sarah_green",
-    full_name: "Sarah Green",
-    avatar_url: "/images/profiles/sarah-green-avatar.png",
-    reputation: 850,
-    badges: ["Solar Expert", "Community Leader"],
-  },
-  forum: {
-    id: "1",
-    name: "Solar Energy Discussion",
-    category: "Solar Energy",
-  },
-  replies_count: 23,
-  views_count: 456,
-  likes_count: 34,
-  dislikes_count: 2,
-  created_at: "2024-01-15T10:30:00Z",
-  last_activity: "2024-01-15T14:20:00Z",
-  is_pinned: true,
-  is_locked: false,
-  tags: ["community-solar", "installation", "planning"],
-  user_vote: null as "up" | "down" | null, // null, 'up', or 'down'
-}
-
-// Mock comments data
-const mockComments: Comment[] = [
-  {
-    id: "1",
-    content: `Great question! I helped set up a community solar project in Portland last year. Here's what I learned:
-
-**Legal aspects:** You'll need to work with a lawyer familiar with energy law. The main permits you need are:
-- Building permits for the installation
-- Electrical permits
-- Interconnection agreement with your utility
-
-**Cost breakdown:** For our 100kW project:
-- Equipment: ~$150,000
-- Installation: ~$50,000
-- Legal/permits: ~$15,000
-- Project management: ~$10,000
-
-The key is getting enough neighbors committed upfront to make the economics work!`,
-    author: {
-      username: "solar_expert",
-      full_name: "David Martinez",
-      avatar_url: "/placeholder.svg?height=40&width=40",
-      reputation: 1240,
-      badges: ["Solar Expert"],
-    },
-    likes_count: 18,
-    dislikes_count: 0,
-    created_at: "2024-01-15T11:15:00Z",
-    user_vote: null as "up" | "down" | null,
-    replies: [
-      {
-        id: "1-1",
-        content:
-          "Thanks David! This is super helpful. Do you have any recommendations for lawyers who specialize in energy law?",
-        author: {
-          username: "sarah_green",
-          full_name: "Sarah Green",
-          avatar_url: "/images/profiles/sarah-green-avatar.png",
-          reputation: 850,
-        },
-        likes_count: 5,
-        created_at: "2024-01-15T11:30:00Z",
-        user_vote: null as "up" | "down" | null,
-      },
-    ],
-  },
-  {
-    id: "2",
-    content: `I'm currently in the middle of organizing a community solar project in Denver. One thing I'd add to David's excellent response is the importance of community engagement.
-
-We found that hosting information sessions and having a clear communication plan was crucial. People need to understand:
-- How the cost savings work
-- What their commitment means
-- Timeline for the project
-
-Happy to share our community engagement materials if that would be helpful!`,
-    author: {
-      username: "denver_solar",
-      full_name: "Maria Rodriguez",
-      avatar_url: "/placeholder.svg?height=40&width=40",
-      reputation: 680,
-      badges: ["Community Organizer"],
-    },
-    likes_count: 12,
-    dislikes_count: 0,
-    created_at: "2024-01-15T12:45:00Z",
-    user_vote: null as "up" | "down" | null,
-    replies: [],
-  },
-  {
-    id: "3",
-    content: `One challenge we faced was dealing with the utility company. Make sure you understand their interconnection process early on. Some utilities are more solar-friendly than others.
-
-Also, consider the ongoing maintenance structure. Who will be responsible for cleaning, repairs, monitoring? This needs to be clearly defined upfront.`,
-    author: {
-      username: "maintenance_mike",
-      full_name: "Mike Johnson",
-      avatar_url: "/placeholder.svg?height=40&width=40",
-      reputation: 445,
-      badges: [],
-    },
-    likes_count: 8,
-    dislikes_count: 1,
-    created_at: "2024-01-15T13:20:00Z",
-    user_vote: null as "up" | "down" | null,
-    replies: [],
-  },
-]
+// Utility function for formatting time
 
 const formatTimeAgo = (dateString: string) => {
   const date = new Date(dateString)
@@ -221,13 +95,88 @@ export default function ThreadDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
+  const supabase = createClientComponentClient()
   const threadId = params.id as string
 
-  const [thread, setThread] = useState(mockThread)
-  const [comments, setComments] = useState(mockComments)
+  const [thread, setThread] = useState<Thread | null>(null)
+  const [comments, setComments] = useState<Comment[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [newComment, setNewComment] = useState("")
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [replyContent, setReplyContent] = useState("")
+
+  // Fetch thread data and comments
+  useEffect(() => {
+    const fetchThreadAndComments = async () => {
+      try {
+        setIsLoading(true)
+        
+        // Fetch thread data
+        const threadResponse = await fetch(`/api/threads/${threadId}`)
+        if (!threadResponse.ok) {
+          throw new Error('Failed to fetch thread')
+        }
+        
+        const threadData = await threadResponse.json()
+        
+        // Transform API data to match our Thread interface
+        const formattedThread: Thread = {
+          id: threadData.id,
+          title: threadData.title,
+          content: threadData.content,
+          author: {
+            username: threadData.author.username || 'Unknown',
+            full_name: threadData.author.full_name || 'Unknown User',
+            avatar_url: threadData.author.avatar_url || '/placeholder.svg',
+            reputation: 0, // API doesn't provide this yet
+            badges: [] // API doesn't provide this yet
+          },
+          forum: {
+            id: threadData.forum_id,
+            name: threadData.forum_name || 'Unknown Forum',
+            category: threadData.forum_category || 'General'
+          },
+          replies_count: threadData.replies_count || 0,
+          views_count: threadData.views_count || 0,
+          likes_count: 0, // API doesn't provide this yet
+          dislikes_count: 0, // API doesn't provide this yet
+          created_at: threadData.created_at,
+          last_activity: threadData.updated_at || threadData.created_at,
+          is_pinned: threadData.is_pinned || false,
+          is_locked: threadData.is_locked || false,
+          tags: [], // API doesn't provide this yet
+          user_vote: null
+        }
+        
+        setThread(formattedThread)
+        
+        // Fetch comments for the thread
+        const commentsResponse = await fetch(`/api/threads/${threadId}/comments`)
+        if (commentsResponse.ok) {
+          const commentsData = await commentsResponse.json()
+          setComments(commentsData.comments || [])
+        } else {
+          console.warn('Failed to fetch comments, using empty array')
+          setComments([])
+        }
+        
+      } catch (error) {
+        console.error('Error fetching thread:', error)
+        toast({
+          title: "Error",
+          description: "Failed to load thread. Please try again.",
+          variant: "destructive"
+        })
+        router.push('/forum')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    if (threadId) {
+      fetchThreadAndComments()
+    }
+  }, [threadId, toast, router])
 
   const handleVote = (type: "up" | "down", commentId?: string) => {
     if (commentId) {
@@ -256,21 +205,24 @@ export default function ThreadDetailPage() {
           return comment
         }),
       )
-    } else {
+    } else if (thread) {
       // Handle thread vote
       const newVote = thread.user_vote === type ? null : type
-      setThread((prev) => ({
-        ...prev,
-        user_vote: newVote,
-        likes_count:
-          newVote === "up" ? prev.likes_count + 1 : prev.user_vote === "up" ? prev.likes_count - 1 : prev.likes_count,
-        dislikes_count:
-          newVote === "down"
-            ? prev.dislikes_count + 1
-            : prev.user_vote === "down"
-              ? prev.dislikes_count - 1
-              : prev.dislikes_count,
-      }))
+      setThread((prev) => {
+        if (!prev) return null
+        return {
+          ...prev,
+          user_vote: newVote,
+          likes_count:
+            newVote === "up" ? prev.likes_count + 1 : prev.user_vote === "up" ? prev.likes_count - 1 : prev.likes_count,
+          dislikes_count:
+            newVote === "down"
+              ? prev.dislikes_count + 1
+              : prev.user_vote === "down"
+                ? prev.dislikes_count - 1
+                : prev.dislikes_count,
+        }
+      })
     }
 
     toast({
@@ -279,25 +231,25 @@ export default function ThreadDetailPage() {
     })
   }
 
-  const handleAddComment = () => {
-    if (newComment.trim()) {
-      const comment = {
-        id: Date.now().toString(),
-        content: newComment,
-        author: {
-          username: "sarah_green",
-          full_name: "Sarah Green",
-          avatar_url: "/images/profiles/sarah-green-avatar.png",
-          reputation: 850,
-          badges: ["Solar Expert", "Community Leader"],
+  const handleAddComment = async () => {
+    if (!newComment.trim()) return
+
+    try {
+      const response = await fetch(`/api/threads/${threadId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        likes_count: 0,
-        dislikes_count: 0,
-        created_at: new Date().toISOString(),
-        user_vote: null as "up" | "down" | null,
-        replies: [],
+        body: JSON.stringify({
+          content: newComment
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to add comment')
       }
 
+      const { comment } = await response.json()
       setComments((prev) => [...prev, comment])
       setNewComment("")
 
@@ -305,25 +257,37 @@ export default function ThreadDetailPage() {
         title: "Comment added!",
         description: "Your comment has been posted",
       })
+    } catch (error) {
+      console.error('Error adding comment:', error)
+      toast({
+        title: "Error",
+        description: "Failed to add comment. Please try again.",
+        variant: "destructive"
+      })
     }
   }
 
-  const handleAddReply = (parentId: string) => {
-    if (replyContent.trim()) {
-      const reply = {
-        id: `${parentId}-${Date.now()}`,
-        content: replyContent,
-        author: {
-          username: "sarah_green",
-          full_name: "Sarah Green",
-          avatar_url: "/images/profiles/sarah-green-avatar.png",
-          reputation: 850,
+  const handleAddReply = async (parentId: string) => {
+    if (!replyContent.trim()) return
+
+    try {
+      const response = await fetch(`/api/threads/${threadId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        likes_count: 0,
-        created_at: new Date().toISOString(),
-        user_vote: null as "up" | "down" | null,
+        body: JSON.stringify({
+          content: replyContent,
+          parent_id: parentId
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to add reply')
       }
 
+      const { comment: reply } = await response.json()
+      
       setComments((prev) =>
         prev.map((comment) => {
           if (comment.id === parentId) {
@@ -343,7 +307,47 @@ export default function ThreadDetailPage() {
         title: "Reply added!",
         description: "Your reply has been posted",
       })
+    } catch (error) {
+      console.error('Error adding reply:', error)
+      toast({
+        title: "Error",
+        description: "Failed to add reply. Please try again.",
+        variant: "destructive"
+      })
     }
+  }
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="max-w-4xl mx-auto p-4 pb-20 lg:pb-4">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-400">Loading thread...</p>
+            </div>
+          </div>
+        </div>
+      </MainLayout>
+    )
+  }
+
+  if (!thread) {
+    return (
+      <MainLayout>
+        <div className="max-w-4xl mx-auto p-4 pb-20 lg:pb-4">
+          <div className="text-center py-12">
+            <p className="text-gray-600 dark:text-gray-400">Thread not found.</p>
+            <Button asChild className="mt-4">
+              <Link href="/forum">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Forums
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </MainLayout>
+    )
   }
 
   return (

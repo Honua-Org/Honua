@@ -83,7 +83,7 @@ export async function PUT(
     // Check if thread exists and user is the author
     const { data: thread, error: threadError } = await supabase
       .from('threads')
-      .select('user_id, forum_id, is_locked')
+      .select('user_id, forum_id, is_locked, is_pinned')
       .eq('id', id)
       .single()
 
