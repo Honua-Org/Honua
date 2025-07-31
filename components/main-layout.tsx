@@ -6,7 +6,6 @@ import { useState, useEffect } from "react"
 import { useSession } from "@supabase/auth-helpers-react"
 import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -21,7 +20,6 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useTheme } from "next-themes"
 import {
   Home,
-  Search,
   Compass,
   Bookmark,
   Bell,
@@ -39,6 +37,7 @@ import {
 import Link from "next/link"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import Image from "next/image"
+import SearchModal from "@/components/search-modal"
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -48,12 +47,12 @@ interface MainLayoutProps {
 // const navigationItems will be defined inside the component
 
 export default function MainLayout({ children }: MainLayoutProps) {
-  const [searchQuery, setSearchQuery] = useState("")
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [profile, setProfile] = useState<any>(null)
   const [unreadNotifications, setUnreadNotifications] = useState(0)
   const [unreadMessages, setUnreadMessages] = useState(0)
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
   const session = useSession()
   const router = useRouter()
   const pathname = usePathname()
@@ -181,13 +180,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
     router.push("/auth/login")
   }
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (searchQuery.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchQuery)}`)
-    }
-  }
-
   // Keyboard shortcut for search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -197,14 +189,16 @@ export default function MainLayout({ children }: MainLayoutProps) {
       
       if (e.key === "/" && !e.ctrlKey && !e.metaKey && !isInputField) {
         e.preventDefault()
-        const searchInput = document.getElementById("search-input")
-        searchInput?.focus()
+        setIsSearchModalOpen(true)
       }
     }
 
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [])
+
+
+
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
@@ -340,21 +334,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       {/* Main Content */}
       <div className="lg:pl-64">
         {/* Desktop Header */}
-        <div className="hidden lg:flex items-center justify-between p-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-          <form onSubmit={handleSearch} className="flex-1 max-w-lg">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                id="search-input"
-                type="text"
-                placeholder="Search Honua... (Press / to focus)"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4"
-              />
-            </div>
-          </form>
-
+        <div className="hidden lg:flex items-center justify-end p-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-4">
             <Button variant="ghost" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
               {mounted && theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -443,6 +423,12 @@ export default function MainLayout({ children }: MainLayoutProps) {
           })}
         </div>
       </div>
+
+      {/* Search Modal */}
+      <SearchModal 
+        isOpen={isSearchModalOpen} 
+        onClose={() => setIsSearchModalOpen(false)} 
+      />
     </div>
   )
 }
