@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import MainLayout from "@/components/main-layout"
 import PostCard from "@/components/post-card"
@@ -73,7 +73,7 @@ interface SearchResults {
   categories: Category[]
 }
 
-export default function SearchPage() {
+function SearchPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [query, setQuery] = useState(searchParams.get("q") || "")
@@ -464,5 +464,26 @@ export default function SearchPage() {
         )}
       </div>
     </MainLayout>
+  )
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={
+      <MainLayout>
+        <div className="max-w-4xl mx-auto p-4 pb-20 lg:pb-4">
+          <div className="flex justify-center items-center py-12">
+            <div className="text-center">
+              <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h2 className="text-xl font-semibold text-gray-600 dark:text-gray-300 mb-2">
+                Loading Search...
+              </h2>
+            </div>
+          </div>
+        </div>
+      </MainLayout>
+    }>
+      <SearchPageContent />
+    </Suspense>
   )
 }

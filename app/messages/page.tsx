@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { useSession } from '@supabase/auth-helpers-react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
@@ -33,7 +33,7 @@ import {
   Loader2,
 } from "lucide-react"
 
-export default function MessagesPage() {
+function MessagesPageContent() {
   const searchParams = useSearchParams()
   const session = useSession()
   const supabase = createClientComponentClient()
@@ -869,5 +869,26 @@ export default function MessagesPage() {
         </DialogContent>
       </Dialog>
     </MainLayout>
+  )
+}
+
+export default function MessagesPage() {
+  return (
+    <Suspense fallback={
+      <MainLayout>
+        <div className="h-screen flex">
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <Loader2 className="w-8 h-8 animate-spin text-green-600 mx-auto mb-4" />
+              <h2 className="text-xl font-semibold text-gray-600 dark:text-gray-300 mb-2">
+                Loading Messages...
+              </h2>
+            </div>
+          </div>
+        </div>
+      </MainLayout>
+    }>
+      <MessagesPageContent />
+    </Suspense>
   )
 }
