@@ -397,27 +397,6 @@ export default function ProfilePage() {
                 <AvatarImage src={user.avatar_url || "/placeholder.svg"} />
                 <AvatarFallback className="bg-green-500 text-white text-2xl">{user.full_name.charAt(0)}</AvatarFallback>
               </Avatar>
-
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{user.full_name}</h1>
-                  {user.verified && <CheckCircle className="w-6 h-6 text-blue-500" />}
-                </div>
-                <p className="text-gray-600 dark:text-gray-400">@{user.username}</p>
-                <div className="flex items-center space-x-2">
-                  <ReputationBadge 
-                    reputation={user.reputation || 0} 
-                    size="md"
-                    showTooltip={true}
-                  />
-                  <Badge
-                    variant="secondary"
-                    className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                  >
-                    {user.role}
-                  </Badge>
-                </div>
-              </div>
             </div>
 
             <div className="flex flex-col items-end space-y-2 mt-4 md:mt-0">
@@ -459,6 +438,30 @@ export default function ProfilePage() {
                   </a>
                 </Button>
               )}
+            </div>
+          </div>
+
+          {/* Name and User Info */}
+          <div className="mt-6 space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{user.full_name}</h1>
+                {user.verified && <CheckCircle className="w-6 h-6 text-blue-500" />}
+              </div>
+              <p className="text-gray-600 dark:text-gray-400">@{user.username}</p>
+              <div className="flex items-center space-x-2">
+                <ReputationBadge 
+                  reputation={user.reputation || 0} 
+                  size="md"
+                  showTooltip={true}
+                />
+                <Badge
+                  variant="secondary"
+                  className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                >
+                  {user.role}
+                </Badge>
+              </div>
             </div>
           </div>
 

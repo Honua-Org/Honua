@@ -95,7 +95,7 @@ const ReputationBadge: React.FC<ReputationBadgeProps> = ({
         style={{ backgroundColor: reputationLevel.badge_color }}
       >
         <span className={iconSizes[size]}>{reputationLevel.badge_icon}</span>
-        <span>{reputation}</span>
+
         <span className="hidden sm:inline">{reputationLevel.level_name}</span>
       </div>
       

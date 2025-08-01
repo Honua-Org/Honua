@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSession } from "@supabase/auth-helpers-react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import MainLayout from "@/components/main-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -332,12 +334,84 @@ export default function TasksPage() {
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [activeTab, setActiveTab] = useState("available")
   const [leaderboardTab, setLeaderboardTab] = useState("points")
-  const [inviteLink] = useState("https://honua.app/invite/user123")
+  const [inviteLink, setInviteLink] = useState("https://honua.app/invite/loading...")
+  const [profile, setProfile] = useState<any>(null)
+  const [isCopied, setIsCopied] = useState(false)
+  const [userStats, setUserStats] = useState({
+    points: 0,
+    rank: 0,
+    tasks_completed: 0,
+    invites_sent: 0
+  })
+  const [leaderboards, setLeaderboards] = useState({
+    points: [],
+    invites: []
+  })
+  const [isLoadingStats, setIsLoadingStats] = useState(true)
+  
+  const session = useSession()
+  const supabase = createClientComponentClient()
 
-  const userPoints = 485
-  const userRank = 8
-  const tasksCompleted = 12
-  const userInvites = 6
+  // Fetch user stats from API
+  const fetchUserStats = async () => {
+    if (!session?.user?.id) return
+    
+    try {
+      setIsLoadingStats(true)
+      const response = await fetch(`/api/users/stats?userId=${session.user.id}`)
+      
+      if (response.ok) {
+        const data = await response.json()
+        setUserStats({
+          points: data.user.points,
+          rank: data.user.rank,
+          tasks_completed: data.user.tasks_completed,
+          invites_sent: data.user.invites_sent
+        })
+        setLeaderboards({
+          points: data.leaderboards.points,
+          invites: data.leaderboards.invites
+        })
+      } else {
+        console.error('Failed to fetch user stats')
+        toast.error('Failed to load dashboard data')
+      }
+    } catch (error) {
+      console.error('Error fetching user stats:', error)
+      toast.error('Failed to load dashboard data')
+    } finally {
+      setIsLoadingStats(false)
+    }
+  }
+
+  // Fetch user profile and generate unique invite link
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (session?.user?.id) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('username, id')
+          .eq('id', session.user.id)
+          .single()
+        
+        if (!error && data) {
+          setProfile(data)
+          // Generate unique invite link using username or user ID
+          const uniqueCode = data.username || data.id.slice(0, 8)
+          setInviteLink(`https://honuasocial.vercel.app/invite/${uniqueCode}`)
+        } else {
+          // Fallback to user ID if profile not found
+          const uniqueCode = session.user.id.slice(0, 8)
+          setInviteLink(`https://honuasocial.vercel.app/invite/${uniqueCode}`)
+        }
+        
+        // Fetch user stats after profile is loaded
+        await fetchUserStats()
+      }
+    }
+    
+    fetchUserProfile()
+  }, [session?.user?.id, supabase])
 
   const filteredTasks = allTasks.filter((task) => {
     const matchesCategory = selectedCategory === "All" || task.category === selectedCategory
@@ -352,12 +426,42 @@ export default function TasksPage() {
     toast.success("Task started! Complete the requirements to earn points.")
   }
 
-  const handleCompleteTask = (taskId: string) => {
+  const handleCompleteTask = async (taskId: string) => {
     const task = allTasks.find((t) => t.id === taskId)
-    setAllTasks((prev) =>
-      prev.map((task) => (task.id === taskId ? { ...task, completed_by_user: true, progress: 100 } : task)),
-    )
-    toast.success(`Task completed! You earned ${task?.points} points.`)
+    if (!task || !session?.user?.id) return
+
+    try {
+      // Call the tasks API to mark task as completed and award points
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          task_id: taskId,
+          user_id: session.user.id,
+          verification_status: 'verified' // Auto-verify for demo purposes
+        }),
+      })
+
+      if (response.ok) {
+        // Update local state
+        setAllTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? { ...t, completed_by_user: true, progress: 100 } : t)),
+        )
+        
+        // Refresh user stats to show updated points
+        await fetchUserStats()
+        
+        toast.success(`Task completed! You earned ${task.points} points.`)
+      } else {
+        const errorData = await response.json()
+        toast.error(errorData.error || 'Failed to complete task')
+      }
+    } catch (error) {
+      console.error('Error completing task:', error)
+      toast.error('Failed to complete task')
+    }
   }
 
   const handleExternalAction = (url: string, taskId: string) => {
@@ -372,7 +476,9 @@ export default function TasksPage() {
 
   const copyInviteLink = () => {
     navigator.clipboard.writeText(inviteLink)
+    setIsCopied(true)
     toast.success("Invite link copied to clipboard!")
+    setTimeout(() => setIsCopied(false), 2000)
   }
 
   return (
@@ -401,7 +507,7 @@ export default function TasksPage() {
                       <Award className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-green-700 dark:text-green-300">{userPoints}</p>
+                      <p className="text-2xl font-bold text-green-700 dark:text-green-300">{isLoadingStats ? '...' : userStats.points}</p>
                       <p className="text-sm text-green-600 dark:text-green-400">Total Points</p>
                     </div>
                   </div>
@@ -415,7 +521,7 @@ export default function TasksPage() {
                       <TrendingUp className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">#{userRank}</p>
+                      <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">#{isLoadingStats ? '...' : userStats.rank}</p>
                       <p className="text-sm text-blue-600 dark:text-blue-400">Global Rank</p>
                     </div>
                   </div>
@@ -429,7 +535,7 @@ export default function TasksPage() {
                       <Target className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{tasksCompleted}</p>
+                      <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{isLoadingStats ? '...' : userStats.tasks_completed}</p>
                       <p className="text-sm text-purple-600 dark:text-purple-400">Tasks Done</p>
                     </div>
                   </div>
@@ -443,7 +549,7 @@ export default function TasksPage() {
                       <UserPlus className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">{userInvites}</p>
+                      <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">{isLoadingStats ? '...' : userStats.invites_sent}</p>
                       <p className="text-sm text-orange-600 dark:text-orange-400">Invites Sent</p>
                     </div>
                   </div>
@@ -477,7 +583,7 @@ export default function TasksPage() {
                       className="bg-white/20 hover:bg-white/30 text-white border-white/20"
                     >
                       <Copy className="w-4 h-4 mr-2" />
-                      Copy
+                      {isCopied ? 'Copied!' : 'Copy'}
                     </Button>
                   </div>
                 </div>
@@ -663,69 +769,89 @@ export default function TasksPage() {
                   </TabsList>
 
                   <TabsContent value="points" className="space-y-4">
-                    {pointsLeaderboard.map((entry) => (
-                      <div key={entry.rank} className="flex items-center space-x-3">
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                            entry.rank === 1
-                              ? "bg-yellow-100 text-yellow-800"
-                              : entry.rank === 2
-                                ? "bg-gray-100 text-gray-800"
-                                : entry.rank === 3
-                                  ? "bg-orange-100 text-orange-800"
-                                  : "bg-gray-50 text-gray-600"
-                          }`}
-                        >
-                          {entry.rank}
-                        </div>
-                        <img
-                          src={entry.user.avatar_url || "/placeholder.svg"}
-                          alt={entry.user.full_name}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                            {entry.user.full_name}
-                          </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {entry.points} points • {entry.tasks_completed} tasks
-                          </p>
-                        </div>
+                    {isLoadingStats ? (
+                      <div className="text-center py-4">
+                        <p className="text-gray-500">Loading leaderboard...</p>
                       </div>
-                    ))}
+                    ) : leaderboards.points.length > 0 ? (
+                      leaderboards.points.map((entry: any) => (
+                        <div key={entry.rank} className="flex items-center space-x-3">
+                          <div
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                              entry.rank === 1
+                                ? "bg-yellow-100 text-yellow-800"
+                                : entry.rank === 2
+                                  ? "bg-gray-100 text-gray-800"
+                                  : entry.rank === 3
+                                    ? "bg-orange-100 text-orange-800"
+                                    : "bg-gray-50 text-gray-600"
+                            }`}
+                          >
+                            {entry.rank}
+                          </div>
+                          <img
+                            src={entry.user.avatar_url || "/placeholder.svg"}
+                            alt={entry.user.full_name}
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                              {entry.user.full_name}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {entry.points} points • {entry.tasks_completed} tasks
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4">
+                        <p className="text-gray-500">No leaderboard data available</p>
+                      </div>
+                    )}
                   </TabsContent>
 
                   <TabsContent value="invites" className="space-y-4">
-                    {inviteLeaderboard.map((entry) => (
-                      <div key={entry.rank} className="flex items-center space-x-3">
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                            entry.rank === 1
-                              ? "bg-yellow-100 text-yellow-800"
-                              : entry.rank === 2
-                                ? "bg-gray-100 text-gray-800"
-                                : entry.rank === 3
-                                  ? "bg-orange-100 text-orange-800"
-                                  : "bg-gray-50 text-gray-600"
-                          }`}
-                        >
-                          {entry.rank}
-                        </div>
-                        <img
-                          src={entry.user.avatar_url || "/placeholder.svg"}
-                          alt={entry.user.full_name}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                            {entry.user.full_name}
-                          </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {entry.invites} invites • {entry.points_earned} pts
-                          </p>
-                        </div>
+                    {isLoadingStats ? (
+                      <div className="text-center py-4">
+                        <p className="text-gray-500">Loading leaderboard...</p>
                       </div>
-                    ))}
+                    ) : leaderboards.invites.length > 0 ? (
+                      leaderboards.invites.map((entry: any) => (
+                        <div key={entry.rank} className="flex items-center space-x-3">
+                          <div
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                              entry.rank === 1
+                                ? "bg-yellow-100 text-yellow-800"
+                                : entry.rank === 2
+                                  ? "bg-gray-100 text-gray-800"
+                                  : entry.rank === 3
+                                    ? "bg-orange-100 text-orange-800"
+                                    : "bg-gray-50 text-gray-600"
+                            }`}
+                          >
+                            {entry.rank}
+                          </div>
+                          <img
+                            src={entry.user.avatar_url || "/placeholder.svg"}
+                            alt={entry.user.full_name}
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                              {entry.user.full_name}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {entry.invites} invites • {entry.points_earned} pts
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4">
+                        <p className="text-gray-500">No leaderboard data available</p>
+                      </div>
+                    )}
                   </TabsContent>
                 </Tabs>
               </CardContent>
