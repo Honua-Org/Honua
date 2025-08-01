@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSession } from "@supabase/auth-helpers-react"
+import type { Session } from "@supabase/auth-helpers-nextjs"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import MainLayout from "@/components/main-layout"
 import { Button } from "@/components/ui/button"
@@ -348,9 +348,24 @@ export default function TasksPage() {
     invites: []
   })
   const [isLoadingStats, setIsLoadingStats] = useState(true)
+  const [session, setSession] = useState<Session | null>(null)
   
-  const session = useSession()
   const supabase = createClientComponentClient()
+
+  // Get session
+  useEffect(() => {
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setSession(session)
+    }
+    getSession()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [supabase])
 
   // Fetch user stats from API
   const fetchUserStats = async () => {

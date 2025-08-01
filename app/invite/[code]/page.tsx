@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { useSession } from "@supabase/auth-helpers-react"
+import type { Session } from "@supabase/auth-helpers-nextjs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -23,12 +23,28 @@ interface InviterProfile {
 export default function InvitePage() {
   const params = useParams()
   const router = useRouter()
-  const session = useSession()
   const supabase = createClientComponentClient()
+  const [session, setSession] = useState<Session | null>(null)
   const [inviterProfile, setInviterProfile] = useState<InviterProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const inviteCode = params.code as string
+
+  useEffect(() => {
+    // Get initial session
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setSession(session)
+    }
+    getSession()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [supabase])
 
   useEffect(() => {
     const fetchInviterProfile = async () => {
