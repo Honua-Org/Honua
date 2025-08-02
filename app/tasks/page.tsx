@@ -334,7 +334,7 @@ export default function TasksPage() {
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [activeTab, setActiveTab] = useState("available")
   const [leaderboardTab, setLeaderboardTab] = useState("points")
-  const [inviteLink, setInviteLink] = useState("https://honua.app/invite/loading...")
+  const [inviteLink, setInviteLink] = useState("https://beta.honua.green/invite/loading...")
   const [profile, setProfile] = useState<any>(null)
   const [isCopied, setIsCopied] = useState(false)
   const [userStats, setUserStats] = useState({
@@ -413,11 +413,11 @@ export default function TasksPage() {
           setProfile(data)
           // Generate unique invite link using username or user ID
           const uniqueCode = data.username || data.id.slice(0, 8)
-          setInviteLink(`https://honuasocial.vercel.app/invite/${uniqueCode}`)
+          setInviteLink(`https://beta.honua.green/invite/${uniqueCode}`)
         } else {
           // Fallback to user ID if profile not found
           const uniqueCode = session.user.id.slice(0, 8)
-          setInviteLink(`https://honuasocial.vercel.app/invite/${uniqueCode}`)
+          setInviteLink(`https://beta.honua.green/invite/${uniqueCode}`)
         }
         
         // Fetch user stats after profile is loaded
