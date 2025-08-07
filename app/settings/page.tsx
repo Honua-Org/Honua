@@ -36,6 +36,12 @@ import {
   EyeOff,
   Save,
   AlertTriangle,
+  Building2,
+  FileText,
+  Upload,
+  CheckCircle,
+  Clock,
+  XCircle,
 } from "lucide-react"
 import { DeleteAccountModal, ConfirmDeleteModal } from "@/components/delete-account-modals"
 
@@ -162,6 +168,31 @@ export default function SettingsPage() {
     reduce_motion: false,
     high_contrast: false,
   })
+
+  // Organization upgrade state
+  const [organizationData, setOrganizationData] = useState({
+    request_type: "organization",
+    organization_name: "",
+    organization_type: "",
+    business_registration_number: "",
+    tax_id: "",
+    industry: "",
+    company_size: "",
+    founded_year: new Date().getFullYear(),
+    headquarters_address: "",
+    contact_phone: "",
+    contact_email: "",
+    organization_description: "",
+    organization_mission: "",
+    sustainability_goals: "",
+    certifications: [],
+    website_url: "",
+    linkedin_url: "",
+  })
+
+  const [upgradeRequest, setUpgradeRequest] = useState(null)
+  const [uploadingDocuments, setUploadingDocuments] = useState(false)
+  const [submittingUpgrade, setSubmittingUpgrade] = useState(false)
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -374,6 +405,134 @@ export default function SettingsPage() {
     setShowDeleteModal(true)
   }
 
+  // Load existing upgrade request
+  useEffect(() => {
+    const loadUpgradeRequest = async () => {
+      if (session?.user?.id) {
+        try {
+          const supabase = createClient()
+          const { data: request, error } = await supabase
+            .from('organization_upgrade_requests')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single()
+          
+          if (error && error.code !== 'PGRST116') {
+            console.error('Error loading upgrade request:', error)
+            return
+          }
+
+          if (request) {
+            setUpgradeRequest(request)
+          }
+        } catch (error) {
+          console.error('Error loading upgrade request:', error)
+        }
+      }
+    }
+    
+    loadUpgradeRequest()
+  }, [session])
+
+  const handleSubmitUpgrade = async () => {
+    if (!session?.user?.id) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to submit an upgrade request.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate required fields
+    if (!organizationData.organization_name || !organizationData.industry || 
+        !organizationData.headquarters_address || !organizationData.contact_phone || 
+        !organizationData.contact_email || !organizationData.organization_description) {
+      toast({
+        title: "Missing required fields",
+        description: "Please fill in all required fields marked with *",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSubmittingUpgrade(true)
+
+    try {
+      const supabase = createClient()
+      
+      const upgradePayload = {
+        user_id: session.user.id,
+        request_type: organizationData.request_type,
+        organization_name: organizationData.organization_name,
+        organization_type: organizationData.organization_type || null,
+        business_registration_number: organizationData.business_registration_number || null,
+        tax_id: organizationData.tax_id || null,
+        industry: organizationData.industry,
+        company_size: organizationData.company_size || null,
+        founded_year: organizationData.founded_year || null,
+        headquarters_address: organizationData.headquarters_address,
+        contact_phone: organizationData.contact_phone,
+        contact_email: organizationData.contact_email,
+        organization_description: organizationData.organization_description,
+        organization_mission: organizationData.organization_mission || null,
+        sustainability_goals: organizationData.sustainability_goals || null,
+        website_url: organizationData.website_url || null,
+        linkedin_url: organizationData.linkedin_url || null,
+        status: 'pending'
+      }
+
+      const { data: request, error } = await supabase
+        .from('organization_upgrade_requests')
+        .insert([upgradePayload])
+        .select()
+        .single()
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      setUpgradeRequest(request)
+      
+      toast({
+        title: "Upgrade request submitted!",
+        description: "Your organization upgrade request has been submitted for review. We'll notify you within 3-5 business days.",
+      })
+
+      // Reset form
+      setOrganizationData({
+        request_type: "organization",
+        organization_name: "",
+        organization_type: "",
+        business_registration_number: "",
+        tax_id: "",
+        industry: "",
+        company_size: "",
+        founded_year: new Date().getFullYear(),
+        headquarters_address: "",
+        contact_phone: "",
+        contact_email: "",
+        organization_description: "",
+        organization_mission: "",
+        sustainability_goals: "",
+        certifications: [],
+        website_url: "",
+        linkedin_url: "",
+      })
+    } catch (error) {
+      console.error('Error submitting upgrade request:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to submit upgrade request",
+        variant: "destructive",
+      })
+    } finally {
+      setSubmittingUpgrade(false)
+    }
+  }
+
   return (
     <MainLayout>
       <div className="max-w-4xl mx-auto p-4 pb-20 lg:pb-4">
@@ -388,7 +547,7 @@ export default function SettingsPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="profile" className="flex items-center space-x-2">
               <User className="w-4 h-4" />
               <span className="hidden sm:inline">Profile</span>
@@ -396,6 +555,10 @@ export default function SettingsPage() {
             <TabsTrigger value="account" className="flex items-center space-x-2">
               <Shield className="w-4 h-4" />
               <span className="hidden sm:inline">Account</span>
+            </TabsTrigger>
+            <TabsTrigger value="organization" className="flex items-center space-x-2">
+              <Building2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Organization</span>
             </TabsTrigger>
             <TabsTrigger value="privacy" className="flex items-center space-x-2">
               <Lock className="w-4 h-4" />
@@ -661,6 +824,353 @@ export default function SettingsPage() {
                     Update Account
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Organization Upgrade */}
+          <TabsContent value="organization" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Building2 className="w-5 h-5" />
+                  <span>Organization Account Upgrade</span>
+                </CardTitle>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Upgrade your account to access organization features, marketplace access, and business tools.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {upgradeRequest ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                      {upgradeRequest.status === 'pending' && (
+                        <>
+                          <Clock className="w-5 h-5 text-blue-600" />
+                          <div>
+                            <h3 className="font-semibold text-blue-900 dark:text-blue-100">Request Submitted</h3>
+                            <p className="text-sm text-blue-700 dark:text-blue-300">
+                              Your organization upgrade request is pending review. We'll notify you within 3-5 business days.
+                            </p>
+                          </div>
+                        </>
+                      )}
+                      {upgradeRequest.status === 'under_review' && (
+                        <>
+                          <FileText className="w-5 h-5 text-yellow-600" />
+                          <div>
+                            <h3 className="font-semibold text-yellow-900 dark:text-yellow-100">Under Review</h3>
+                            <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                              Our team is currently reviewing your application. You'll hear from us soon.
+                            </p>
+                          </div>
+                        </>
+                      )}
+                      {upgradeRequest.status === 'approved' && (
+                        <>
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                          <div>
+                            <h3 className="font-semibold text-green-900 dark:text-green-100">Approved!</h3>
+                            <p className="text-sm text-green-700 dark:text-green-300">
+                              Congratulations! Your organization account has been approved and activated.
+                            </p>
+                          </div>
+                        </>
+                      )}
+                      {upgradeRequest.status === 'rejected' && (
+                        <>
+                          <XCircle className="w-5 h-5 text-red-600" />
+                          <div>
+                            <h3 className="font-semibold text-red-900 dark:text-red-100">Request Declined</h3>
+                            <p className="text-sm text-red-700 dark:text-red-300">
+                              {upgradeRequest.admin_notes || 'Your request was declined. Please contact support for more information.'}
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Organization Name</Label>
+                        <p className="text-sm text-gray-900 dark:text-gray-100">{upgradeRequest.organization_name}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Industry</Label>
+                        <p className="text-sm text-gray-900 dark:text-gray-100">{upgradeRequest.industry}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Request Type</Label>
+                        <p className="text-sm text-gray-900 dark:text-gray-100 capitalize">{upgradeRequest.request_type}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Submitted</Label>
+                        <p className="text-sm text-gray-900 dark:text-gray-100">
+                          {new Date(upgradeRequest.submitted_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="request_type">Account Type</Label>
+                        <Select
+                          value={organizationData.request_type}
+                          onValueChange={(value) => setOrganizationData({ ...organizationData, request_type: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="organization">Non-Profit Organization</SelectItem>
+                            <SelectItem value="business">Business/Company</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="organization_name">Organization Name *</Label>
+                        <Input
+                          id="organization_name"
+                          value={organizationData.organization_name}
+                          onChange={(e) => setOrganizationData({ ...organizationData, organization_name: e.target.value })}
+                          placeholder="Enter your organization name"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="organization_type">Organization Type</Label>
+                        <Input
+                          id="organization_type"
+                          value={organizationData.organization_type}
+                          onChange={(e) => setOrganizationData({ ...organizationData, organization_type: e.target.value })}
+                          placeholder="e.g., Non-Profit, LLC, Corporation"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="industry">Industry *</Label>
+                        <Select
+                          value={organizationData.industry}
+                          onValueChange={(value) => setOrganizationData({ ...organizationData, industry: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select industry" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Environmental Conservation">Environmental Conservation</SelectItem>
+                            <SelectItem value="Renewable Energy">Renewable Energy</SelectItem>
+                            <SelectItem value="Sustainable Agriculture">Sustainable Agriculture</SelectItem>
+                            <SelectItem value="Green Technology">Green Technology</SelectItem>
+                            <SelectItem value="Waste Management">Waste Management</SelectItem>
+                            <SelectItem value="Water Conservation">Water Conservation</SelectItem>
+                            <SelectItem value="Climate Action">Climate Action</SelectItem>
+                            <SelectItem value="Sustainable Fashion">Sustainable Fashion</SelectItem>
+                            <SelectItem value="Eco-Tourism">Eco-Tourism</SelectItem>
+                            <SelectItem value="Green Building">Green Building</SelectItem>
+                            <SelectItem value="Other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="business_registration_number">Business Registration Number</Label>
+                        <Input
+                          id="business_registration_number"
+                          value={organizationData.business_registration_number}
+                          onChange={(e) => setOrganizationData({ ...organizationData, business_registration_number: e.target.value })}
+                          placeholder="Enter registration number"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="tax_id">Tax ID/EIN</Label>
+                        <Input
+                          id="tax_id"
+                          value={organizationData.tax_id}
+                          onChange={(e) => setOrganizationData({ ...organizationData, tax_id: e.target.value })}
+                          placeholder="Enter tax identification number"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="company_size">Company Size</Label>
+                        <Select
+                          value={organizationData.company_size}
+                          onValueChange={(value) => setOrganizationData({ ...organizationData, company_size: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select company size" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1-10">1-10 employees</SelectItem>
+                            <SelectItem value="11-50">11-50 employees</SelectItem>
+                            <SelectItem value="51-200">51-200 employees</SelectItem>
+                            <SelectItem value="201-500">201-500 employees</SelectItem>
+                            <SelectItem value="501-1000">501-1000 employees</SelectItem>
+                            <SelectItem value="1000+">1000+ employees</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="founded_year">Founded Year</Label>
+                        <Input
+                          id="founded_year"
+                          type="number"
+                          min="1800"
+                          max={new Date().getFullYear()}
+                          value={organizationData.founded_year}
+                          onChange={(e) => setOrganizationData({ ...organizationData, founded_year: parseInt(e.target.value) })}
+                          placeholder="Enter founding year"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="headquarters_address">Headquarters Address *</Label>
+                      <Textarea
+                        id="headquarters_address"
+                        value={organizationData.headquarters_address}
+                        onChange={(e) => setOrganizationData({ ...organizationData, headquarters_address: e.target.value })}
+                        placeholder="Enter your organization's headquarters address"
+                        required
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="contact_phone">Contact Phone *</Label>
+                        <Input
+                          id="contact_phone"
+                          value={organizationData.contact_phone}
+                          onChange={(e) => setOrganizationData({ ...organizationData, contact_phone: e.target.value })}
+                          placeholder="Enter contact phone number"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="contact_email">Contact Email *</Label>
+                        <Input
+                          id="contact_email"
+                          type="email"
+                          value={organizationData.contact_email}
+                          onChange={(e) => setOrganizationData({ ...organizationData, contact_email: e.target.value })}
+                          placeholder="Enter contact email address"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="organization_description">Organization Description *</Label>
+                      <Textarea
+                        id="organization_description"
+                        value={organizationData.organization_description}
+                        onChange={(e) => setOrganizationData({ ...organizationData, organization_description: e.target.value })}
+                        placeholder="Describe your organization, its mission, and activities..."
+                        className="min-h-[100px]"
+                        required
+                      />
+                      <p className="text-sm text-gray-500">{organizationData.organization_description.length}/500 characters</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="sustainability_goals">Sustainability Goals</Label>
+                      <Textarea
+                        id="sustainability_goals"
+                        value={organizationData.sustainability_goals}
+                        onChange={(e) => setOrganizationData({ ...organizationData, sustainability_goals: e.target.value })}
+                        placeholder="Describe your organization's sustainability goals and initiatives..."
+                        className="min-h-[80px]"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="website_url">Website URL</Label>
+                        <Input
+                          id="website_url"
+                          type="url"
+                          value={organizationData.website_url}
+                          onChange={(e) => setOrganizationData({ ...organizationData, website_url: e.target.value })}
+                          placeholder="https://yourorganization.com"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="linkedin_url">LinkedIn URL</Label>
+                        <Input
+                          id="linkedin_url"
+                          type="url"
+                          value={organizationData.linkedin_url}
+                          onChange={(e) => setOrganizationData({ ...organizationData, linkedin_url: e.target.value })}
+                          placeholder="https://linkedin.com/company/yourorg"
+                        />
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100">Organization Benefits</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-start space-x-3">
+                          <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                          <div>
+                            <h4 className="font-medium text-gray-900 dark:text-gray-100">Verified Badge</h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Display a verified organization badge on your profile</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start space-x-3">
+                          <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                          <div>
+                            <h4 className="font-medium text-gray-900 dark:text-gray-100">Marketplace Access</h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">List and sell sustainable products in our marketplace</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start space-x-3">
+                          <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                          <div>
+                            <h4 className="font-medium text-gray-900 dark:text-gray-100">Enhanced Profile</h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Centered profile layout with organization details</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start space-x-3">
+                          <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                          <div>
+                            <h4 className="font-medium text-gray-900 dark:text-gray-100">Business Tools</h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Access to organization-specific features and analytics</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Button 
+                        onClick={handleSubmitUpgrade} 
+                        className="sustainability-gradient"
+                        disabled={submittingUpgrade || !organizationData.organization_name || !organizationData.industry || !organizationData.headquarters_address || !organizationData.contact_phone || !organizationData.contact_email || !organizationData.organization_description}
+                      >
+                        {submittingUpgrade ? (
+                          <>
+                            <Clock className="w-4 h-4 mr-2 animate-spin" />
+                            Submitting...
+                          </>
+                        ) : (
+                          <>
+                            <FileText className="w-4 h-4 mr-2" />
+                            Submit Upgrade Request
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
