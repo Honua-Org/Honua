@@ -85,39 +85,56 @@ ALTER TABLE sustainability_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_task_completions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reputation_levels ENABLE ROW LEVEL SECURITY;
 
--- Create policies for reputation_actions
+-- Drop existing policies if they exist and create new ones
+DROP POLICY IF EXISTS "Users can view their own reputation actions" ON reputation_actions;
 CREATE POLICY "Users can view their own reputation actions" ON reputation_actions
   FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "System can insert reputation actions" ON reputation_actions;
 CREATE POLICY "System can insert reputation actions" ON reputation_actions
   FOR INSERT WITH CHECK (true); -- Allow system to insert
 
--- Create policies for achievements
+DROP POLICY IF EXISTS "Achievements are viewable by everyone" ON achievements;
 CREATE POLICY "Achievements are viewable by everyone" ON achievements
   FOR SELECT USING (true);
 
--- Create policies for user_achievements
+DROP POLICY IF EXISTS "User achievements are viewable by everyone" ON user_achievements;
 CREATE POLICY "User achievements are viewable by everyone" ON user_achievements
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "System can insert user achievements" ON user_achievements;
 CREATE POLICY "System can insert user achievements" ON user_achievements
   FOR INSERT WITH CHECK (true);
 
--- Create policies for sustainability_tasks
+DROP POLICY IF EXISTS "Tasks are viewable by everyone" ON sustainability_tasks;
 CREATE POLICY "Tasks are viewable by everyone" ON sustainability_tasks
   FOR SELECT USING (true);
 
--- Create policies for user_task_completions
+DROP POLICY IF EXISTS "Authenticated users can insert tasks" ON sustainability_tasks;
+CREATE POLICY "Authenticated users can insert tasks" ON sustainability_tasks
+  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "Authenticated users can update tasks" ON sustainability_tasks;
+CREATE POLICY "Authenticated users can update tasks" ON sustainability_tasks
+  FOR UPDATE USING (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "Authenticated users can delete tasks" ON sustainability_tasks;
+CREATE POLICY "Authenticated users can delete tasks" ON sustainability_tasks
+  FOR DELETE USING (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "Users can view all task completions" ON user_task_completions;
 CREATE POLICY "Users can view all task completions" ON user_task_completions
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Users can insert their own task completions" ON user_task_completions;
 CREATE POLICY "Users can insert their own task completions" ON user_task_completions
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own task completions" ON user_task_completions;
 CREATE POLICY "Users can update their own task completions" ON user_task_completions
   FOR UPDATE USING (auth.uid() = user_id);
 
--- Create policies for reputation_levels
+DROP POLICY IF EXISTS "Reputation levels are viewable by everyone" ON reputation_levels;
 CREATE POLICY "Reputation levels are viewable by everyone" ON reputation_levels
   FOR SELECT USING (true);
 

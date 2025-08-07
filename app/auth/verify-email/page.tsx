@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Button } from "@/components/ui/button"
@@ -10,7 +10,7 @@ import { Mail, CheckCircle, AlertCircle, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 
-export default function VerifyEmailPage() {
+function VerifyEmailPageContent() {
   const [isResending, setIsResending] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
   const router = useRouter()
@@ -169,5 +169,25 @@ export default function VerifyEmailPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-900 p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-4 shadow-lg">
+              <Image src="/images/honua-logo.svg" alt="Honua Logo" width={40} height={40} className="w-10 h-10" />
+            </div>
+            <h1 className="text-3xl font-bold text-green-800 dark:text-green-200">Honua</h1>
+            <p className="text-green-600 dark:text-green-400">Loading...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <VerifyEmailPageContent />
+    </Suspense>
   )
 }

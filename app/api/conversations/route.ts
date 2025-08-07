@@ -14,28 +14,22 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch conversations with participant profiles and latest message
+    // Fetch conversations with participant profiles
     const { data: conversations, error } = await supabase
       .from('conversations')
       .select(`
         *,
-        participant_one:profiles!conversations_participant_one_id_fkey (
+        participant_one:profiles!participant_one_id (
           id,
           username,
           full_name,
           avatar_url
         ),
-        participant_two:profiles!conversations_participant_two_id_fkey (
+        participant_two:profiles!participant_two_id (
           id,
           username,
           full_name,
           avatar_url
-        ),
-        messages!messages_conversation_id_fkey (
-          id,
-          content,
-          created_at,
-          sender_id
         )
       `)
       .or(`participant_one_id.eq.${user.id},participant_two_id.eq.${user.id}`)
@@ -46,31 +40,37 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to fetch conversations' }, { status: 500 })
     }
 
-    // Transform conversations to include other participant and latest message
-    const transformedConversations = conversations
-      .filter(conversation => {
-        // Filter out conversations where participant data is missing
-        return conversation.participant_one && conversation.participant_two
-      })
-      .map(conversation => {
-        const otherParticipant = conversation.participant_one.id === user.id 
-          ? conversation.participant_two 
-          : conversation.participant_one
-        
-        // Get latest message
-        const latestMessage = conversation.messages && conversation.messages.length > 0
-          ? conversation.messages
-              .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
-          : null
+    // For each conversation, fetch the latest message separately
+    const transformedConversations = await Promise.all(
+      conversations
+        .filter(conversation => {
+          // Only filter out conversations where both participants are missing
+          return conversation.participant_one || conversation.participant_two
+        })
+        .map(async conversation => {
+          const otherParticipant = conversation.participant_one?.id === user.id 
+            ? conversation.participant_two 
+            : conversation.participant_one
+          
+          // Fetch latest message for this conversation
+          const { data: latestMessages } = await supabase
+            .from('messages')
+            .select('id, content, created_at, sender_id')
+            .eq('conversation_id', conversation.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+          
+          const latestMessage = latestMessages && latestMessages.length > 0 ? latestMessages[0] : null
 
-        return {
-          id: conversation.id,
-          otherParticipant,
-          latestMessage,
-          updated_at: conversation.updated_at,
-          created_at: conversation.created_at
-        }
-      })
+          return {
+            id: conversation.id,
+            otherParticipant,
+            latestMessage,
+            updated_at: conversation.updated_at,
+            created_at: conversation.created_at
+          }
+        })
+    )
 
     return NextResponse.json(transformedConversations)
   } catch (error) {

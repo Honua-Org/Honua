@@ -39,6 +39,14 @@ interface LocationSuggestion {
   display_name: string
   lat: string
   lon: string
+  address?: {
+    city?: string
+    town?: string
+    village?: string
+    state?: string
+    country?: string
+    country_code?: string
+  }
 }
 
 interface LinkPreview {
@@ -125,9 +133,41 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
     }, 300)
   }
 
+  // Format location to show only city/state and country
+  const formatLocationDisplay = (suggestion: LocationSuggestion): string => {
+    const { address } = suggestion
+    if (!address) {
+      // Fallback to parsing display_name if address details are not available
+      const parts = suggestion.display_name.split(', ')
+      if (parts.length >= 2) {
+        return `${parts[0]}, ${parts[parts.length - 1]}`
+      }
+      return suggestion.display_name
+    }
+
+    const city = address.city || address.town || address.village
+    const state = address.state
+    const country = address.country
+
+    let formatted = ''
+    if (city) {
+      formatted += city
+    }
+    if (state && city) {
+      formatted += `, ${state}`
+    } else if (state && !city) {
+      formatted = state
+    }
+    if (country) {
+      formatted += `, ${country}`
+    }
+
+    return formatted || suggestion.display_name
+  }
+
   // Handle location suggestion selection
-  const handleLocationSelect = (suggestion: any) => {
-    setLocation(suggestion.display_name)
+  const handleLocationSelect = (suggestion: LocationSuggestion) => {
+    setLocation(formatLocationDisplay(suggestion))
     setShowSuggestions(false)
     setLocationSuggestions([])
   }
@@ -484,7 +524,7 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
                     value={location}
                     onChange={(e) => handleLocationChange(e.target.value)}
                     onFocus={() => location.length >= 3 && setShowSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 300)}
                     className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                   
@@ -500,12 +540,15 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
                           <button
                             key={index}
                             type="button"
-                            onClick={() => handleLocationSelect(suggestion)}
+                            onMouseDown={(e) => {
+                              e.preventDefault()
+                              handleLocationSelect(suggestion)
+                            }}
                             className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700 focus:outline-none"
                           >
                             <div className="flex items-center">
                               <MapPin className="w-3 h-3 mr-2 text-gray-400 flex-shrink-0" />
-                              <span className="truncate">{suggestion.display_name}</span>
+                              <span className="truncate">{formatLocationDisplay(suggestion)}</span>
                             </div>
                           </button>
                         ))

@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import type { Session } from "@supabase/auth-helpers-nextjs"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import MainLayout from "@/components/main-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,6 +30,12 @@ import {
   Zap,
   Heart,
   MessageCircle,
+  Recycle,
+  Droplets,
+  Car,
+  Home,
+  ShoppingBag,
+  Clock,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -37,146 +45,72 @@ interface Task {
   description: string
   category: string
   points: number
-  deadline: string
+  deadline?: string
   difficulty: string
-  participants: number
+  participants?: number
   completed_by_user: boolean
   progress: number
   icon: any
   action_text: string
   verification_required: boolean
   action_url?: string
+  task_type?: string
+  verification_method?: string
+  social_platform?: string
+  blockchain_network?: string
+  contract_address?: string
+  requirements?: any
+  is_active?: boolean
+  completion_status?: string | null
+  impact_score?: number
+  estimated_time?: string
 }
 
-const socialFiTasks: Task[] = [
-  {
-    id: "social-1",
-    title: "Follow Honua on Twitter",
-    description: "Follow @HonuaEcosystem on Twitter to stay updated with our latest news",
-    category: "SocialFi",
-    points: 25,
-    deadline: "2024-03-31T23:59:59Z",
-    difficulty: "Easy",
-    participants: 1234,
-    completed_by_user: false,
-    progress: 0,
-    icon: Twitter,
-    action_url: "https://x.com/HonuaEcosystem",
-    action_text: "Follow on Twitter",
-    verification_required: true,
-  },
-  {
-    id: "social-2",
-    title: "Like Our Latest Post",
-    description: "Like and retweet our pinned tweet about sustainable living",
-    category: "SocialFi",
-    points: 15,
-    deadline: "2024-02-28T23:59:59Z",
-    difficulty: "Easy",
-    participants: 892,
-    completed_by_user: true,
-    progress: 100,
-    icon: Heart,
-    action_url: "https://x.com/HonuaEcosystem/status/1936335715341844968",
-    action_text: "Like Tweet",
-    verification_required: true,
-  },
-  {
-    id: "social-3",
-    title: "Share Honua with Friends",
-    description: "Share Honua platform on your social media and tag 3 friends",
-    category: "SocialFi",
-    points: 40,
-    deadline: "2024-03-15T23:59:59Z",
-    difficulty: "Medium",
-    participants: 567,
-    completed_by_user: false,
-    progress: 0,
-    icon: Share2,
-    action_url: "#",
-    action_text: "Share Now",
-    verification_required: true,
-  },
-  {
-    id: "social-4",
-    title: "Join Our Discord",
-    description: "Join our Discord community and introduce yourself",
-    category: "SocialFi",
-    points: 30,
-    deadline: "2024-02-29T23:59:59Z",
-    difficulty: "Easy",
-    participants: 2341,
-    completed_by_user: false,
-    progress: 0,
-    icon: MessageCircle,
-    action_url: "https://t.co/4xmmjkfGgT",
-    action_text: "Join Discord",
-    verification_required: true,
-  },
+// Task categories with icons
+const taskCategories = [
+  { id: 'all', name: 'All Tasks', icon: Target, color: 'bg-blue-500' },
+  { id: 'social', name: 'Social', icon: Users, color: 'bg-indigo-500' },
+  { id: 'blockchain', name: 'Blockchain', icon: Star, color: 'bg-purple-600' },
+  { id: 'energy', name: 'Energy', icon: Zap, color: 'bg-yellow-500' },
+  { id: 'waste', name: 'Waste', icon: Recycle, color: 'bg-green-500' },
+  { id: 'water', name: 'Water', icon: Droplets, color: 'bg-blue-400' },
+  { id: 'transport', name: 'Transport', icon: Car, color: 'bg-purple-500' },
+  { id: 'home', name: 'Home', icon: Home, color: 'bg-orange-500' },
+  { id: 'shopping', name: 'Shopping', icon: ShoppingBag, color: 'bg-pink-500' },
 ]
 
-const sustainabilityTasks: Task[] = [
-  {
-    id: "sustain-1",
-    title: "Plant a Tree Challenge",
-    description: "Plant a native tree in your community and share a photo with location",
-    category: "Conservation",
-    points: 100,
-    deadline: "2024-04-22T23:59:59Z",
-    difficulty: "Medium",
-    participants: 234,
-    completed_by_user: false,
-    progress: 0,
-    icon: Leaf,
-    action_text: "Upload Photo",
-    verification_required: true,
-  },
-  {
-    id: "sustain-2",
-    title: "Zero Waste Week",
-    description: "Document your zero waste journey for 7 consecutive days",
-    category: "Waste Reduction",
-    points: 80,
-    deadline: "2024-03-31T23:59:59Z",
-    difficulty: "Hard",
-    participants: 156,
-    completed_by_user: false,
-    progress: 25,
-    icon: Target,
-    action_text: "Continue Challenge",
-    verification_required: true,
-  },
-  {
-    id: "sustain-3",
-    title: "Energy Audit Report",
-    description: "Conduct a home energy audit and share your findings and improvements",
-    category: "Energy Efficiency",
-    points: 60,
-    deadline: "2024-03-15T23:59:59Z",
-    difficulty: "Medium",
-    participants: 89,
-    completed_by_user: true,
-    progress: 100,
-    icon: Zap,
-    action_text: "View Report",
-    verification_required: true,
-  },
-  {
-    id: "sustain-4",
-    title: "Sustainable Transportation",
-    description: "Use eco-friendly transport (bike, walk, public transport) for 5 days",
-    category: "Transportation",
-    points: 50,
-    deadline: "2024-02-28T23:59:59Z",
-    difficulty: "Medium",
-    participants: 445,
-    completed_by_user: false,
-    progress: 60,
-    icon: Target,
-    action_text: "Log Journey",
-    verification_required: true,
-  },
-]
+// Utility functions
+const getCategoryIcon = (category: string) => {
+  const categoryData = taskCategories.find(cat => cat.id === category.toLowerCase())
+  return categoryData ? categoryData.icon : Leaf
+}
+
+const getCategoryColor = (category: string) => {
+  const categoryData = taskCategories.find(cat => cat.id === category.toLowerCase())
+  return categoryData ? categoryData.color : 'bg-gray-500'
+}
+
+const getSocialActionText = (taskType: string, socialPlatform: string | null, requirements: any) => {
+  if (taskType !== 'social_media' || !socialPlatform) {
+    return 'Start Task'
+  }
+
+  const action = requirements?.action || 'visit'
+  const platformName = socialPlatform.charAt(0).toUpperCase() + socialPlatform.slice(1)
+  
+  switch (action) {
+    case 'follow':
+      return `Follow on ${platformName}`
+    case 'like':
+      return `Like on ${platformName}`
+    case 'share':
+      return `Share on ${platformName}`
+    case 'visit':
+      return `Visit ${platformName}`
+    default:
+      return `Open ${platformName}`
+  }
+}
 
 const inviteLeaderboard = [
   {
@@ -284,33 +218,39 @@ const pointsLeaderboard = [
   },
 ]
 
-const taskCategories = ["All", "SocialFi", "Conservation", "Waste Reduction", "Energy Efficiency", "Transportation"]
+
 
 const getDifficultyColor = (difficulty: string) => {
-  switch (difficulty) {
-    case "Easy":
+  switch (difficulty.toLowerCase()) {
+    case "easy":
       return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-    case "Medium":
+    case "medium":
       return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-    case "Hard":
+    case "hard":
       return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
     default:
       return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200"
   }
 }
 
-const getCategoryColor = (category: string) => {
-  switch (category) {
-    case "SocialFi":
+const getCategoryBadgeColor = (category: string) => {
+  switch (category.toLowerCase()) {
+    case "social":
       return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-    case "Conservation":
-      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-    case "Waste Reduction":
-      return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
-    case "Energy Efficiency":
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-    case "Transportation":
+    case "blockchain":
       return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+    case "energy":
+      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+    case "waste":
+      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+    case "water":
+      return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+    case "transport":
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+    case "home":
+      return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
+    case "shopping":
+      return "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200"
     default:
       return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200"
   }
@@ -328,19 +268,177 @@ const formatDeadline = (dateString: string) => {
 }
 
 export default function TasksPage() {
-  const [allTasks, setAllTasks] = useState<Task[]>([...socialFiTasks, ...sustainabilityTasks])
-  const [selectedCategory, setSelectedCategory] = useState("All")
+  const [allTasks, setAllTasks] = useState<Task[]>([])
+  const [selectedCategory, setSelectedCategory] = useState("All Tasks")
   const [activeTab, setActiveTab] = useState("available")
   const [leaderboardTab, setLeaderboardTab] = useState("points")
-  const [inviteLink] = useState("https://honua.app/invite/user123")
+  const [inviteLink, setInviteLink] = useState("https://beta.honua.green/invite/loading...")
+  const [profile, setProfile] = useState<any>(null)
+  const [isCopied, setIsCopied] = useState(false)
+  const [userStats, setUserStats] = useState({
+    points: 0,
+    rank: 0,
+    tasks_completed: 0,
+    invites_sent: 0
+  })
+  const [leaderboards, setLeaderboards] = useState({
+    points: [],
+    invites: []
+  })
+  const [isLoadingStats, setIsLoadingStats] = useState(true)
+  const [isLoadingTasks, setIsLoadingTasks] = useState(true)
+  const [session, setSession] = useState<Session | null>(null)
+  
+  const supabase = createClientComponentClient()
 
-  const userPoints = 485
-  const userRank = 8
-  const tasksCompleted = 12
-  const userInvites = 6
+  // Get session
+  useEffect(() => {
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setSession(session)
+    }
+    getSession()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [supabase])
+
+  // Fetch tasks from API
+  const fetchTasks = async () => {
+    if (!session?.user?.id) return
+    
+    try {
+      setIsLoadingTasks(true)
+      const response = await fetch(`/api/tasks?userId=${session.user.id}`)
+      
+      if (response.ok) {
+        const data = await response.json()
+        // Transform API data to match our Task interface
+        const transformedTasks = data.tasks.map((task: any) => ({
+          id: task.id.toString(),
+          title: task.title,
+          description: task.description,
+          category: task.category,
+          points: task.points,
+          difficulty: task.difficulty,
+          completed_by_user: task.completion_status === 'verified',
+          progress: task.completion_status === 'verified' ? 100 : task.completion_status === 'pending' ? 50 : 0,
+          icon: getCategoryIcon(task.category),
+          action_text: getSocialActionText(task.task_type, task.social_platform, task.requirements),
+          verification_required: task.verification_required,
+          action_url: task.external_url,
+          task_type: task.task_type,
+          verification_method: task.verification_method,
+          social_platform: task.social_platform,
+          blockchain_network: task.blockchain_network,
+          contract_address: task.contract_address,
+          requirements: task.requirements,
+          is_active: task.is_active,
+          completion_status: task.completion_status,
+          impact_score: task.impact_score,
+          estimated_time: task.estimated_time,
+          participants: Math.floor(Math.random() * 1000) + 100, // Mock data
+          deadline: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString() // Mock deadline
+        }))
+        setAllTasks(transformedTasks)
+      } else {
+        console.error('Failed to fetch tasks')
+        toast.error('Failed to load tasks')
+      }
+    } catch (error) {
+      console.error('Error fetching tasks:', error)
+      toast.error('Failed to load tasks')
+    } finally {
+      setIsLoadingTasks(false)
+    }
+  }
+
+  // Fetch user stats from API
+  const fetchUserStats = async () => {
+    if (!session?.user?.id) return
+    
+    try {
+      setIsLoadingStats(true)
+      const response = await fetch(`/api/users/stats?userId=${session.user.id}`)
+      
+      if (response.ok) {
+        const data = await response.json()
+        setUserStats({
+          points: data.user.points,
+          rank: data.user.rank,
+          tasks_completed: data.user.tasks_completed,
+          invites_sent: data.user.invites_sent
+        })
+        setLeaderboards({
+          points: data.leaderboards.points,
+          invites: data.leaderboards.invites
+        })
+      } else {
+        console.error('Failed to fetch user stats')
+        toast.error('Failed to load dashboard data')
+      }
+    } catch (error) {
+      console.error('Error fetching user stats:', error)
+      toast.error('Failed to load dashboard data')
+    } finally {
+      setIsLoadingStats(false)
+    }
+  }
+
+  // Fetch user profile and generate unique invite link
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (session?.user?.id) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('username, id')
+          .eq('id', session.user.id)
+          .single()
+        
+        if (!error && data) {
+          setProfile(data)
+          // Generate unique invite link using username or user ID
+          const uniqueCode = data.username || data.id.slice(0, 8)
+          setInviteLink(`https://beta.honua.green/invite/${uniqueCode}`)
+        } else {
+          // Fallback to user ID if profile not found
+          const uniqueCode = session.user.id.slice(0, 8)
+          setInviteLink(`https://beta.honua.green/invite/${uniqueCode}`)
+        }
+        
+        // Fetch user stats and tasks after profile is loaded
+        await fetchUserStats()
+        await fetchTasks()
+      }
+    }
+    
+    fetchUserProfile()
+  }, [session?.user?.id, supabase])
 
   const filteredTasks = allTasks.filter((task) => {
-    const matchesCategory = selectedCategory === "All" || task.category === selectedCategory
+    let matchesCategory = false
+    if (selectedCategory === "All Tasks" || selectedCategory === "All") {
+      matchesCategory = true
+    } else {
+      // Map category names to match the filter
+      const categoryMap: { [key: string]: string[] } = {
+        "Social": ["social"],
+        "Blockchain": ["blockchain"],
+        "Energy": ["energy"],
+        "Waste": ["waste"],
+        "Water": ["water"],
+        "Transport": ["transport"],
+        "Home": ["home"],
+        "Shopping": ["shopping"]
+      }
+      
+      const allowedCategories = categoryMap[selectedCategory] || [selectedCategory.toLowerCase()]
+      matchesCategory = allowedCategories.includes(task.category.toLowerCase())
+    }
+    
     if (activeTab === "available") return matchesCategory && !task.completed_by_user
     if (activeTab === "completed") return matchesCategory && task.completed_by_user
     if (activeTab === "in-progress") return matchesCategory && task.progress > 0 && task.progress < 100
@@ -352,12 +450,42 @@ export default function TasksPage() {
     toast.success("Task started! Complete the requirements to earn points.")
   }
 
-  const handleCompleteTask = (taskId: string) => {
+  const handleCompleteTask = async (taskId: string) => {
     const task = allTasks.find((t) => t.id === taskId)
-    setAllTasks((prev) =>
-      prev.map((task) => (task.id === taskId ? { ...task, completed_by_user: true, progress: 100 } : task)),
-    )
-    toast.success(`Task completed! You earned ${task?.points} points.`)
+    if (!task || !session?.user?.id) return
+
+    try {
+      // Call the tasks API to mark task as completed and award points
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          task_id: taskId,
+          user_id: session.user.id,
+          verification_status: 'verified' // Auto-verify for demo purposes
+        }),
+      })
+
+      if (response.ok) {
+        // Update local state
+        setAllTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? { ...t, completed_by_user: true, progress: 100 } : t)),
+        )
+        
+        // Refresh user stats to show updated points
+        await fetchUserStats()
+        
+        toast.success(`Task completed! You earned ${task.points} points.`)
+      } else {
+        const errorData = await response.json()
+        toast.error(errorData.error || 'Failed to complete task')
+      }
+    } catch (error) {
+      console.error('Error completing task:', error)
+      toast.error('Failed to complete task')
+    }
   }
 
   const handleExternalAction = (url: string, taskId: string) => {
@@ -372,7 +500,9 @@ export default function TasksPage() {
 
   const copyInviteLink = () => {
     navigator.clipboard.writeText(inviteLink)
+    setIsCopied(true)
     toast.success("Invite link copied to clipboard!")
+    setTimeout(() => setIsCopied(false), 2000)
   }
 
   return (
@@ -401,7 +531,7 @@ export default function TasksPage() {
                       <Award className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-green-700 dark:text-green-300">{userPoints}</p>
+                      <p className="text-2xl font-bold text-green-700 dark:text-green-300">{isLoadingStats ? '...' : userStats.points}</p>
                       <p className="text-sm text-green-600 dark:text-green-400">Total Points</p>
                     </div>
                   </div>
@@ -415,7 +545,7 @@ export default function TasksPage() {
                       <TrendingUp className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">#{userRank}</p>
+                      <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">#{isLoadingStats ? '...' : userStats.rank}</p>
                       <p className="text-sm text-blue-600 dark:text-blue-400">Global Rank</p>
                     </div>
                   </div>
@@ -429,7 +559,7 @@ export default function TasksPage() {
                       <Target className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{tasksCompleted}</p>
+                      <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{isLoadingStats ? '...' : userStats.tasks_completed}</p>
                       <p className="text-sm text-purple-600 dark:text-purple-400">Tasks Done</p>
                     </div>
                   </div>
@@ -443,7 +573,7 @@ export default function TasksPage() {
                       <UserPlus className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">{userInvites}</p>
+                      <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">{isLoadingStats ? '...' : userStats.invites_sent}</p>
                       <p className="text-sm text-orange-600 dark:text-orange-400">Invites Sent</p>
                     </div>
                   </div>
@@ -477,12 +607,35 @@ export default function TasksPage() {
                       className="bg-white/20 hover:bg-white/30 text-white border-white/20"
                     >
                       <Copy className="w-4 h-4 mr-2" />
-                      Copy
+                      {isCopied ? 'Copied!' : 'Copy'}
                     </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
+
+            {/* Category Filter Buttons */}
+            <div className="flex flex-wrap gap-2 mb-6">
+              {taskCategories.map((category) => {
+                const IconComponent = category.icon
+                return (
+                  <Button
+                    key={category.id}
+                    variant={selectedCategory === category.name ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedCategory(category.name)}
+                    className={`flex items-center space-x-2 ${
+                      selectedCategory === category.name
+                        ? "sustainability-gradient text-white"
+                        : "hover:bg-gray-100 dark:hover:bg-gray-800"
+                    }`}
+                  >
+                    <IconComponent className="w-4 h-4" />
+                    <span>{category.name}</span>
+                  </Button>
+                )
+              })}
+            </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
               <TabsList className="grid w-full grid-cols-3">
@@ -492,128 +645,145 @@ export default function TasksPage() {
               </TabsList>
 
               <TabsContent value={activeTab} className="space-y-4 mt-6">
-                {filteredTasks.map((task) => {
-                  const IconComponent = task.icon
-                  const isSocialFi = task.category === "SocialFi"
+                {isLoadingTasks ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-4"></div>
+                    <p className="text-gray-500">Loading tasks...</p>
+                  </div>
+                ) : (
+                  filteredTasks.map((task) => {
+                    const IconComponent = task.icon
+                    const isSocial = task.category.toLowerCase() === "social" || task.category.toLowerCase() === "blockchain"
 
-                  return (
-                    <Card
-                      key={task.id}
-                      className={`hover:shadow-lg transition-all duration-200 ${
-                        isSocialFi
-                          ? "bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/10 dark:to-cyan-900/10 border-blue-200 dark:border-blue-800"
-                          : "bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/10 dark:to-emerald-900/10 border-green-200 dark:border-green-800"
-                      }`}
-                    >
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex items-start space-x-4 flex-1">
-                            <div
-                              className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                                isSocialFi ? "bg-blue-500 text-white" : "bg-green-500 text-white"
-                              }`}
-                            >
-                              <IconComponent className="w-6 h-6" />
-                            </div>
-
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2 mb-2">
-                                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{task.title}</h3>
-                                <Badge className={getDifficultyColor(task.difficulty)}>{task.difficulty}</Badge>
-                                <Badge className={getCategoryColor(task.category)}>{task.category}</Badge>
+                    return (
+                      <Card
+                        key={task.id}
+                        className={`hover:shadow-lg transition-all duration-200 ${
+                          isSocial
+                            ? "bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/10 dark:to-cyan-900/10 border-blue-200 dark:border-blue-800"
+                            : "bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/10 dark:to-emerald-900/10 border-green-200 dark:border-green-800"
+                        }`}
+                      >
+                        <CardContent className="p-6">
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-start space-x-4 flex-1">
+                              <div
+                                className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                                  isSocial ? "bg-blue-500 text-white" : "bg-green-500 text-white"
+                                }`}
+                              >
+                                <IconComponent className="w-6 h-6" />
                               </div>
 
-                              <p className="text-gray-600 dark:text-gray-400 mb-3">{task.description}</p>
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-2 mb-2">
+                                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{task.title}</h3>
+                                  <Badge className={getDifficultyColor(task.difficulty)}>{task.difficulty}</Badge>
+                                  <Badge className={getCategoryBadgeColor(task.category)}>{task.category}</Badge>
+                                </div>
 
-                              {task.progress > 0 && task.progress < 100 && (
-                                <div className="mb-3">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className="text-sm text-gray-600 dark:text-gray-400">Progress</span>
-                                    <span className="text-sm font-medium">{task.progress}%</span>
+                                <p className="text-gray-600 dark:text-gray-400 mb-3">{task.description}</p>
+
+                                {task.progress > 0 && task.progress < 100 && (
+                                  <div className="mb-3">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-sm text-gray-600 dark:text-gray-400">Progress</span>
+                                      <span className="text-sm font-medium">{task.progress}%</span>
+                                    </div>
+                                    <Progress value={task.progress} className="h-2" />
                                   </div>
-                                  <Progress value={task.progress} className="h-2" />
-                                </div>
-                              )}
+                                )}
 
-                              <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                                <div className="flex items-center space-x-1">
-                                  <Award className="w-4 h-4" />
-                                  <span className="font-medium text-green-600 dark:text-green-400">
-                                    {task.points} points
-                                  </span>
-                                </div>
-                                <div className="flex items-center space-x-1">
-                                  <Users className="w-4 h-4" />
-                                  <span>{task.participants} participants</span>
-                                </div>
-                                <div className="flex items-center space-x-1">
-                                  <Calendar className="w-4 h-4" />
-                                  <span>{formatDeadline(task.deadline)}</span>
+                                <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                                  <div className="flex items-center space-x-1">
+                                    <Award className="w-4 h-4" />
+                                    <span className="font-medium text-green-600 dark:text-green-400">
+                                      {task.points} points
+                                    </span>
+                                  </div>
+                                  {task.participants && (
+                                    <div className="flex items-center space-x-1">
+                                      <Users className="w-4 h-4" />
+                                      <span>{task.participants} participants</span>
+                                    </div>
+                                  )}
+                                  {task.deadline && (
+                                    <div className="flex items-center space-x-1">
+                                      <Calendar className="w-4 h-4" />
+                                      <span>{formatDeadline(task.deadline)}</span>
+                                    </div>
+                                  )}
+                                  {task.estimated_time && (
+                                    <div className="flex items-center space-x-1">
+                                      <Clock className="w-4 h-4" />
+                                      <span>{task.estimated_time}</span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
-                          </div>
 
-                          <div className="ml-4 flex flex-col space-y-2">
-                            {task.completed_by_user ? (
-                              <Badge className="bg-green-500 text-white px-4 py-2">
-                                <CheckSquare className="w-4 h-4 mr-1" />
-                                Completed
-                              </Badge>
-                            ) : task.progress > 0 ? (
-                              <div className="space-y-2">
-                                <Button
-                                  size="sm"
-                                  className="sustainability-gradient"
-                                  onClick={() => handleCompleteTask(task.id)}
-                                >
-                                  <Upload className="w-4 h-4 mr-2" />
-                                  Submit
-                                </Button>
-                                {isSocialFi && task.action_url && (
+                            <div className="ml-4 flex flex-col space-y-2">
+                              {task.completed_by_user ? (
+                                <Badge className="bg-green-500 text-white px-4 py-2">
+                                  <CheckSquare className="w-4 h-4 mr-1" />
+                                  Completed
+                                </Badge>
+                              ) : task.progress > 0 ? (
+                                <div className="space-y-2">
                                   <Button
-                                    variant="outline"
                                     size="sm"
-                                    onClick={() => handleExternalAction(task.action_url!, task.id)}
+                                    className="sustainability-gradient"
+                                    onClick={() => handleCompleteTask(task.id)}
                                   >
-                                    <ExternalLink className="w-4 h-4 mr-2" />
-                                    {task.action_text}
+                                    <Upload className="w-4 h-4 mr-2" />
+                                    Submit
                                   </Button>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="space-y-2">
-                                <Button
-                                  size="sm"
-                                  className={
-                                    isSocialFi ? "bg-blue-500 hover:bg-blue-600 text-white" : "sustainability-gradient"
-                                  }
-                                  onClick={() =>
-                                    isSocialFi && task.action_url
-                                      ? handleExternalAction(task.action_url, task.id)
-                                      : handleStartTask(task.id)
-                                  }
-                                >
-                                  {isSocialFi && task.action_url ? (
-                                    <>
+                                  {isSocial && task.action_url && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleExternalAction(task.action_url!, task.id)}
+                                    >
                                       <ExternalLink className="w-4 h-4 mr-2" />
                                       {task.action_text}
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Star className="w-4 h-4 mr-2" />
-                                      Start Task
-                                    </>
+                                    </Button>
                                   )}
-                                </Button>
-                              </div>
-                            )}
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <Button
+                                    size="sm"
+                                    className={
+                                      isSocial ? "bg-blue-500 hover:bg-blue-600 text-white" : "sustainability-gradient"
+                                    }
+                                    onClick={() =>
+                                      isSocial && task.action_url
+                                        ? handleExternalAction(task.action_url, task.id)
+                                        : handleStartTask(task.id)
+                                    }
+                                  >
+                                    {isSocial && task.action_url ? (
+                                      <>
+                                        <ExternalLink className="w-4 h-4 mr-2" />
+                                        {task.action_text || 'Open Social Media'}
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Star className="w-4 h-4 mr-2" />
+                                        Start Task
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
+                        </CardContent>
+                      </Card>
+                    )
+                  })
+                )}
 
                 {filteredTasks.length === 0 && (
                   <Card className="text-center py-12">
@@ -629,24 +799,7 @@ export default function TasksPage() {
           </div>
 
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Categories</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {taskCategories.map((category) => (
-                  <Button
-                    key={category}
-                    variant={selectedCategory === category ? "default" : "ghost"}
-                    className="w-full justify-start"
-                    onClick={() => setSelectedCategory(category)}
-                  >
-                    <Leaf className="w-4 h-4 mr-2" />
-                    {category}
-                  </Button>
-                ))}
-              </CardContent>
-            </Card>
+
 
             <Card>
               <CardHeader>
@@ -663,69 +816,89 @@ export default function TasksPage() {
                   </TabsList>
 
                   <TabsContent value="points" className="space-y-4">
-                    {pointsLeaderboard.map((entry) => (
-                      <div key={entry.rank} className="flex items-center space-x-3">
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                            entry.rank === 1
-                              ? "bg-yellow-100 text-yellow-800"
-                              : entry.rank === 2
-                                ? "bg-gray-100 text-gray-800"
-                                : entry.rank === 3
-                                  ? "bg-orange-100 text-orange-800"
-                                  : "bg-gray-50 text-gray-600"
-                          }`}
-                        >
-                          {entry.rank}
-                        </div>
-                        <img
-                          src={entry.user.avatar_url || "/placeholder.svg"}
-                          alt={entry.user.full_name}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                            {entry.user.full_name}
-                          </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {entry.points} points • {entry.tasks_completed} tasks
-                          </p>
-                        </div>
+                    {isLoadingStats ? (
+                      <div className="text-center py-4">
+                        <p className="text-gray-500">Loading leaderboard...</p>
                       </div>
-                    ))}
+                    ) : leaderboards.points.length > 0 ? (
+                      leaderboards.points.map((entry: any) => (
+                        <div key={entry.rank} className="flex items-center space-x-3">
+                          <div
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                              entry.rank === 1
+                                ? "bg-yellow-100 text-yellow-800"
+                                : entry.rank === 2
+                                  ? "bg-gray-100 text-gray-800"
+                                  : entry.rank === 3
+                                    ? "bg-orange-100 text-orange-800"
+                                    : "bg-gray-50 text-gray-600"
+                            }`}
+                          >
+                            {entry.rank}
+                          </div>
+                          <img
+                            src={entry.user.avatar_url || "/placeholder.svg"}
+                            alt={entry.user.full_name}
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                              {entry.user.full_name}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {entry.points} points • {entry.tasks_completed} tasks
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4">
+                        <p className="text-gray-500">No leaderboard data available</p>
+                      </div>
+                    )}
                   </TabsContent>
 
                   <TabsContent value="invites" className="space-y-4">
-                    {inviteLeaderboard.map((entry) => (
-                      <div key={entry.rank} className="flex items-center space-x-3">
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                            entry.rank === 1
-                              ? "bg-yellow-100 text-yellow-800"
-                              : entry.rank === 2
-                                ? "bg-gray-100 text-gray-800"
-                                : entry.rank === 3
-                                  ? "bg-orange-100 text-orange-800"
-                                  : "bg-gray-50 text-gray-600"
-                          }`}
-                        >
-                          {entry.rank}
-                        </div>
-                        <img
-                          src={entry.user.avatar_url || "/placeholder.svg"}
-                          alt={entry.user.full_name}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                            {entry.user.full_name}
-                          </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {entry.invites} invites • {entry.points_earned} pts
-                          </p>
-                        </div>
+                    {isLoadingStats ? (
+                      <div className="text-center py-4">
+                        <p className="text-gray-500">Loading leaderboard...</p>
                       </div>
-                    ))}
+                    ) : leaderboards.invites.length > 0 ? (
+                      leaderboards.invites.map((entry: any) => (
+                        <div key={entry.rank} className="flex items-center space-x-3">
+                          <div
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                              entry.rank === 1
+                                ? "bg-yellow-100 text-yellow-800"
+                                : entry.rank === 2
+                                  ? "bg-gray-100 text-gray-800"
+                                  : entry.rank === 3
+                                    ? "bg-orange-100 text-orange-800"
+                                    : "bg-gray-50 text-gray-600"
+                            }`}
+                          >
+                            {entry.rank}
+                          </div>
+                          <img
+                            src={entry.user.avatar_url || "/placeholder.svg"}
+                            alt={entry.user.full_name}
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                              {entry.user.full_name}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {entry.invites} invites • {entry.points_earned} pts
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4">
+                        <p className="text-gray-500">No leaderboard data available</p>
+                      </div>
+                    )}
                   </TabsContent>
                 </Tabs>
               </CardContent>
@@ -741,12 +914,12 @@ export default function TasksPage() {
                   <span className="font-medium">{allTasks.filter((t) => !t.completed_by_user).length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">SocialFi Tasks</span>
-                  <span className="font-medium">{socialFiTasks.length}</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Social Tasks</span>
+                  <span className="font-medium">{allTasks.filter(t => t.category.toLowerCase() === 'social').length}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Sustainability Tasks</span>
-                  <span className="font-medium">{sustainabilityTasks.length}</span>
+                  <span className="font-medium">{allTasks.filter(t => !['social', 'blockchain'].includes(t.category.toLowerCase())).length}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Total Participants</span>

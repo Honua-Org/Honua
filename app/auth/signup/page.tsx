@@ -2,8 +2,8 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,7 +16,7 @@ import { Mail, Lock, User, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 
-export default function SignupPage() {
+function SignupPageContent() {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -28,9 +28,121 @@ export default function SignupPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [referralCode, setReferralCode] = useState<string | null>(null)
+  const [inviterProfile, setInviterProfile] = useState<any>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClientComponentClient()
   const { toast } = useToast()
+
+  // Check for referral code in URL parameters
+  useEffect(() => {
+    const ref = searchParams.get('ref')
+    if (ref) {
+      setReferralCode(ref)
+      // Fetch inviter profile for display
+      fetchInviterProfile(ref)
+    }
+  }, [searchParams])
+
+  const trackReferral = async (newUserId: string, referralCode: string) => {
+    try {
+      // Find the inviter by username or user ID
+      let inviterId = null
+      
+      // Try to find by username first
+      const { data: inviterByUsername } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', referralCode)
+        .single()
+      
+      if (inviterByUsername) {
+        inviterId = inviterByUsername.id
+      } else {
+        // Try to find by user ID (first 8 characters)
+        const { data: inviterById } = await supabase
+          .from('profiles')
+          .select('id')
+          .ilike('id', `${referralCode}%`)
+          .limit(1)
+        
+        if (inviterById && inviterById.length > 0) {
+          inviterId = inviterById[0].id
+        }
+      }
+      
+      if (inviterId) {
+        // Create referral record
+        const { error: referralError } = await supabase.from('referrals').insert({
+          inviter_id: inviterId,
+          invited_user_id: newUserId,
+          referral_code: referralCode,
+          status: 'completed',
+          points_awarded: 10,
+          created_at: new Date().toISOString(),
+          completed_at: new Date().toISOString()
+        })
+        
+        if (referralError) {
+          console.error('Error creating referral record:', referralError)
+          return
+        }
+        
+        // Award points to inviter using the reputation system
+        try {
+          const { error: pointsError } = await supabase.rpc('add_reputation_points', {
+            user_id: inviterId,
+            points: 10,
+            action_type: 'peer_recognition',
+            reference_id: newUserId,
+            reference_type: 'referral',
+            description: `Invited new user: ${referralCode}`
+          })
+          
+          if (pointsError) {
+            console.error('Error awarding referral points:', pointsError)
+          } else {
+            console.log(`Awarded 10 referral points to user ${inviterId} for inviting ${newUserId}`)
+          }
+        } catch (pointsError) {
+          console.error('Error calling add_reputation_points:', pointsError)
+        }
+      }
+    } catch (error) {
+      console.error('Error tracking referral:', error)
+    }
+  }
+
+  const fetchInviterProfile = async (code: string) => {
+    try {
+      // Try to find user by username first, then by user ID
+      let { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('username, full_name, avatar_url')
+        .eq('username', code)
+        .single()
+
+      // If not found by username, try by user ID (first 8 characters)
+      if (profileError || !profile) {
+        const { data: profiles, error: idError } = await supabase
+          .from('profiles')
+          .select('username, full_name, avatar_url')
+          .ilike('id', `${code}%`)
+          .limit(1)
+
+        if (!idError && profiles && profiles.length > 0) {
+          profile = profiles[0]
+        }
+      }
+
+      if (profile) {
+        setInviterProfile(profile)
+      }
+    } catch (err) {
+      console.error('Error fetching inviter profile:', err)
+    }
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -118,9 +230,14 @@ export default function SignupPage() {
                 variant: "destructive",
               })
             } else {
+              // Track referral if present
+              if (referralCode) {
+                await trackReferral(user.id, referralCode)
+              }
+              
               toast({
                 title: "Welcome to Honua!",
-                description: "Your account has been created successfully.",
+                description: referralCode ? "Your account has been created successfully! Your inviter will receive bonus points." : "Your account has been created successfully.",
               })
               router.push("/")
               return
@@ -131,6 +248,13 @@ export default function SignupPage() {
         }
         
         // For users requiring email verification
+        // Store referral code in user metadata for later processing
+        if (referralCode && user) {
+          await supabase.auth.updateUser({
+            data: { referral_code: referralCode }
+          })
+        }
+        
         toast({
           title: "Welcome to Honua!",
           description: "Please check your email to verify your account. Your profile will be created after verification.",
@@ -182,6 +306,14 @@ export default function SignupPage() {
             <CardDescription className="text-center">
               Join Honua and connect with like-minded sustainability advocates
             </CardDescription>
+            
+            {inviterProfile && (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <span className="font-medium">{inviterProfile.full_name}</span> invited you to join Honua!
+                </p>
+              </div>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             <form onSubmit={handleSignup} className="space-y-4">
@@ -357,5 +489,25 @@ export default function SignupPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-900 p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-4 shadow-lg">
+              <Image src="/images/honua-logo.svg" alt="Honua Logo" width={40} height={40} className="w-10 h-10" />
+            </div>
+            <h1 className="text-3xl font-bold text-green-800 dark:text-green-200">Honua</h1>
+            <p className="text-green-600 dark:text-green-400">Loading...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <SignupPageContent />
+    </Suspense>
   )
 }

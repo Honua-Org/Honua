@@ -46,6 +46,14 @@ export async function GET(
       return NextResponse.json({ error: 'Failed to fetch threads' }, { status: 500 })
     }
 
+    // Get moderator profile information (for now, just the creator/admin)
+    const moderators = forum.profiles ? [{
+      id: forum.profiles.id,
+      username: forum.profiles.username,
+      full_name: forum.profiles.full_name,
+      avatar_url: forum.profiles.avatar_url
+    }] : []
+
     // Format the response
     const formattedForum = {
       id: forum.id,
@@ -55,7 +63,7 @@ export async function GET(
       member_count: 0, // This would need a separate query or join to get actual member count
       thread_count: forum.thread_count?.[0]?.count || 0,
       latest_activity: forum.updated_at || forum.created_at,
-      moderators: [forum.profiles?.username],
+      moderators: moderators,
       is_private: forum.is_private || false,
       creator: forum.profiles?.username,
       admin_id: forum.admin_id,

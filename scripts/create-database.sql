@@ -132,6 +132,7 @@ CREATE TABLE IF NOT EXISTS forums (
   description TEXT,
   category TEXT,
   admin_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  is_private BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -337,6 +338,10 @@ CREATE POLICY "Users can delete their own follows" ON follows
 DROP POLICY IF EXISTS "Forums are viewable by everyone" ON forums;
 CREATE POLICY "Forums are viewable by everyone" ON forums
   FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Users can create forums" ON forums;
+CREATE POLICY "Users can create forums" ON forums
+  FOR INSERT WITH CHECK (auth.uid() = admin_id);
 
 DROP POLICY IF EXISTS "Admins can manage their forums" ON forums;
 CREATE POLICY "Admins can manage their forums" ON forums
