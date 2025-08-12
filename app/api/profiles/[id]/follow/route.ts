@@ -62,22 +62,23 @@ export async function POST(
       // Don't fail the follow operation if notification fails
     }
 
-    // Get updated follower count for the target user
-    const { data: followerCount } = await supabase
-      .from('follows')
-      .select('id', { count: 'exact' })
-      .eq('following_id', targetUserId)
+    // Get updated counts from the profiles table (automatically updated by triggers)
+    const { data: targetProfile } = await supabase
+      .from('profiles')
+      .select('followers_count')
+      .eq('id', targetUserId)
+      .single()
 
-    // Get updated following count for the current user
-    const { data: followingCount } = await supabase
-      .from('follows')
-      .select('id', { count: 'exact' })
-      .eq('follower_id', currentUserId)
+    const { data: currentProfile } = await supabase
+      .from('profiles')
+      .select('following_count')
+      .eq('id', currentUserId)
+      .single()
 
     return NextResponse.json({
       success: true,
-      follower_count: followerCount?.length || 0,
-      following_count: followingCount?.length || 0
+      follower_count: targetProfile?.followers_count || 0,
+      following_count: currentProfile?.following_count || 0
     })
   } catch (error) {
     console.error('Error in follow API:', error)
@@ -114,22 +115,23 @@ export async function DELETE(
       return NextResponse.json({ error: 'Failed to unfollow user' }, { status: 500 })
     }
 
-    // Get updated follower count for the target user
-    const { data: followerCount } = await supabase
-      .from('follows')
-      .select('id', { count: 'exact' })
-      .eq('following_id', targetUserId)
+    // Get updated counts from the profiles table (automatically updated by triggers)
+    const { data: targetProfile } = await supabase
+      .from('profiles')
+      .select('followers_count')
+      .eq('id', targetUserId)
+      .single()
 
-    // Get updated following count for the current user
-    const { data: followingCount } = await supabase
-      .from('follows')
-      .select('id', { count: 'exact' })
-      .eq('follower_id', currentUserId)
+    const { data: currentProfile } = await supabase
+      .from('profiles')
+      .select('following_count')
+      .eq('id', currentUserId)
+      .single()
 
     return NextResponse.json({
       success: true,
-      follower_count: followerCount?.length || 0,
-      following_count: followingCount?.length || 0
+      follower_count: targetProfile?.followers_count || 0,
+      following_count: currentProfile?.following_count || 0
     })
   } catch (error) {
     console.error('Error in unfollow API:', error)
