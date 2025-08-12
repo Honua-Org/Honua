@@ -45,99 +45,43 @@ function SignupPageContent() {
     }
   }, [searchParams])
 
-  const trackReferral = async (newUserId: string, referralCode: string) => {
+  const acceptInvite = async (newUserId: string, inviteCode: string) => {
     try {
-      // Find the inviter by username or user ID
-      let inviterId = null
+      // Use the invite acceptance API
+      const response = await fetch(`/api/invites/accept/${inviteCode}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
       
-      // Try to find by username first
-      const { data: inviterByUsername } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('username', referralCode)
-        .single()
+      const data = await response.json()
       
-      if (inviterByUsername) {
-        inviterId = inviterByUsername.id
-      } else {
-        // Try to find by user ID (first 8 characters)
-        const { data: inviterById } = await supabase
-          .from('profiles')
-          .select('id')
-          .ilike('id', `${referralCode}%`)
-          .limit(1)
-        
-        if (inviterById && inviterById.length > 0) {
-          inviterId = inviterById[0].id
-        }
+      if (!response.ok) {
+        console.error('Error accepting invite:', data.error)
+        return false
       }
       
-      if (inviterId) {
-        // Create referral record
-        const { error: referralError } = await supabase.from('referrals').insert({
-          inviter_id: inviterId,
-          invited_user_id: newUserId,
-          referral_code: referralCode,
-          status: 'completed',
-          points_awarded: 10,
-          created_at: new Date().toISOString(),
-          completed_at: new Date().toISOString()
-        })
-        
-        if (referralError) {
-          console.error('Error creating referral record:', referralError)
-          return
-        }
-        
-        // Award points to inviter using the reputation system
-        try {
-          const { error: pointsError } = await supabase.rpc('add_reputation_points', {
-            user_id: inviterId,
-            points: 10,
-            action_type: 'peer_recognition',
-            reference_id: newUserId,
-            reference_type: 'referral',
-            description: `Invited new user: ${referralCode}`
-          })
-          
-          if (pointsError) {
-            console.error('Error awarding referral points:', pointsError)
-          } else {
-            console.log(`Awarded 10 referral points to user ${inviterId} for inviting ${newUserId}`)
-          }
-        } catch (pointsError) {
-          console.error('Error calling add_reputation_points:', pointsError)
-        }
-      }
+      console.log('Invite accepted successfully:', data.message)
+      return true
     } catch (error) {
-      console.error('Error tracking referral:', error)
+      console.error('Error accepting invite:', error)
+      return false
     }
   }
 
   const fetchInviterProfile = async (code: string) => {
     try {
-      // Try to find user by username first, then by user ID
-      let { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('username, full_name, avatar_url')
-        .eq('username', code)
-        .single()
-
-      // If not found by username, try by user ID (first 8 characters)
-      if (profileError || !profile) {
-        const { data: profiles, error: idError } = await supabase
-          .from('profiles')
-          .select('username, full_name, avatar_url')
-          .ilike('id', `${code}%`)
-          .limit(1)
-
-        if (!idError && profiles && profiles.length > 0) {
-          profile = profiles[0]
-        }
-      }
-
-      if (profile) {
-        setInviterProfile(profile)
+      // Use the invite validation API to get inviter info
+      const response = await fetch(`/api/invites/validate/${code}`)
+      const data = await response.json()
+      
+      if (response.ok && !data.error && !data.is_used) {
+        setInviterProfile({
+          username: data.inviter_username,
+          full_name: data.inviter_name,
+          avatar_url: data.inviter_avatar
+        })
       }
     } catch (err) {
       console.error('Error fetching inviter profile:', err)
@@ -230,9 +174,9 @@ function SignupPageContent() {
                 variant: "destructive",
               })
             } else {
-              // Track referral if present
+              // Accept invite if present
               if (referralCode) {
-                await trackReferral(user.id, referralCode)
+                await acceptInvite(user.id, referralCode)
               }
               
               toast({
@@ -277,6 +221,9 @@ function SignupPageContent() {
       provider: "google",
       options: {
         redirectTo: `${location.origin}/auth/callback`,
+        queryParams: referralCode ? {
+          state: referralCode
+        } : undefined,
       },
     })
 

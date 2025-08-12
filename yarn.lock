@@ -1776,10 +1776,20 @@
     "object-assign" "^4.0.1"
     "thenify-all" "^1.0.0"
 
-"nanoid@^3.3.11", "nanoid@^3.3.6":
+"nanoid@^3.3.11":
   "integrity" "sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w=="
   "resolved" "https://registry.npmjs.org/nanoid/-/nanoid-3.3.11.tgz"
   "version" "3.3.11"
+
+"nanoid@^3.3.6":
+  "integrity" "sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w=="
+  "resolved" "https://registry.npmjs.org/nanoid/-/nanoid-3.3.11.tgz"
+  "version" "3.3.11"
+
+"nanoid@^5.1.5":
+  "integrity" "sha512-Ir/+ZpE9fDsNH0hQ3C68uyThDXzYcim2EqcZ8zn8Chtt1iylPT9xXJB0kPCnqzgcEGikO9RxSrh63MsmVCU7Fw=="
+  "resolved" "https://registry.npmjs.org/nanoid/-/nanoid-5.1.5.tgz"
+  "version" "5.1.5"
 
 "next-themes@latest":
   "integrity" "sha512-pZvgD5L0IEvX5/9GWyHMf3m8BKiVQwsCMHfoFosXtXBMnaS0ZnIJ9ST4b4NqLVKDEm8QBxoNNGNaBv2JNF6XNA=="
@@ -2194,7 +2204,7 @@
   dependencies:
     "is-arrayish" "^0.3.1"
 
-"sonner@^1.7.1":
+"sonner@^1.7.4":
   "integrity" "sha512-DIS8z4PfJRbIyfVFDVnK9rO3eYDtse4Omcm6bt0oEr5/jtLgysmjuBl1frJ9E/EQZrFmKx2A8m/s5s9CRXIzhw=="
   "resolved" "https://registry.npmjs.org/sonner/-/sonner-1.7.4.tgz"
   "version" "1.7.4"

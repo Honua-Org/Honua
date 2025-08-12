@@ -47,7 +47,7 @@ export default function InvitePage() {
   }, [supabase])
 
   useEffect(() => {
-    const fetchInviterProfile = async () => {
+    const validateInvite = async () => {
       if (!inviteCode) {
         setError("Invalid invite link")
         setLoading(false)
@@ -55,41 +55,40 @@ export default function InvitePage() {
       }
 
       try {
-        // Try to find user by username first, then by user ID
-        let { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('id, username, full_name, avatar_url, bio')
-          .eq('username', inviteCode)
-          .single()
+        // Use the invite validation API
+        const response = await fetch(`/api/invites/validate/${inviteCode}`)
+        const data = await response.json()
 
-        // If not found by username, try by user ID (first 8 characters)
-        if (profileError || !profile) {
-          const { data: profiles, error: idError } = await supabase
-            .from('profiles')
-            .select('id, username, full_name, avatar_url, bio')
-            .ilike('id', `${inviteCode}%`)
-            .limit(1)
-
-          if (!idError && profiles && profiles.length > 0) {
-            profile = profiles[0]
-          } else {
-            setError("Invite link not found or expired")
-            setLoading(false)
-            return
-          }
+        if (!response.ok || data.error) {
+          setError(data.error || "Invalid invite code")
+          setLoading(false)
+          return
         }
 
-        setInviterProfile(profile)
+        if (data.is_used) {
+          setError("This invite has already been used")
+          setLoading(false)
+          return
+        }
+
+        // Set the inviter profile from the validation response
+        setInviterProfile({
+          id: '', // We don't need the ID for display
+          username: data.inviter_username,
+          full_name: data.inviter_name,
+          avatar_url: data.inviter_avatar,
+          bio: null // Bio is not returned by the validation API
+        })
       } catch (err) {
-        console.error('Error fetching inviter profile:', err)
-        setError("Failed to load invite information")
+        console.error('Error validating invite:', err)
+        setError("Failed to validate invite")
       } finally {
         setLoading(false)
       }
     }
 
-    fetchInviterProfile()
-  }, [inviteCode, supabase])
+    validateInvite()
+  }, [inviteCode])
 
   // If user is already logged in, redirect to home
   useEffect(() => {
