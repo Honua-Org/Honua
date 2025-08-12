@@ -1435,6 +1435,11 @@
     "domelementtype" "^2.3.0"
     "domhandler" "^5.0.3"
 
+"dotenv@^17.2.1":
+  "integrity" "sha512-kQhDYKZecqnM0fCnzI5eIv5L4cAe/iRI+HqMbO/hbRdTAeXDG+M9FjipUxNfbARuEg4iHIbhnhs78BCHNbSxEQ=="
+  "resolved" "https://registry.npmjs.org/dotenv/-/dotenv-17.2.1.tgz"
+  "version" "17.2.1"
+
 "eastasianwidth@^0.2.0":
   "integrity" "sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA=="
   "resolved" "https://registry.npmjs.org/eastasianwidth/-/eastasianwidth-0.2.0.tgz"

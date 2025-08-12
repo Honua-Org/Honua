@@ -5,6 +5,7 @@ import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
 import SupabaseProvider from "@/components/supabase-provider"
+import { CommunityModal } from "@/components/community-modal"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -30,6 +31,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <SupabaseProvider>
             {children}
+            <CommunityModal />
             <Toaster />
           </SupabaseProvider>
         </ThemeProvider>
