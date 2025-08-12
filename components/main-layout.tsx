@@ -33,11 +33,13 @@ import {
   Sun,
   Moon,
   Shield,
+  UserPlus,
 } from "lucide-react"
 import Link from "next/link"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import Image from "next/image"
 import SearchModal from "@/components/search-modal"
+import InviteModal from "@/components/invite-modal"
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -53,6 +55,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const [unreadNotifications, setUnreadNotifications] = useState(0)
   const [unreadMessages, setUnreadMessages] = useState(0)
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
   const session = useSession()
   const router = useRouter()
   const pathname = usePathname()
@@ -336,6 +339,16 @@ export default function MainLayout({ children }: MainLayoutProps) {
         {/* Desktop Header */}
         <div className="hidden lg:flex items-center justify-end p-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-4">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setIsInviteModalOpen(true)}
+              className="text-green-600 border-green-600 hover:bg-green-50 dark:text-green-400 dark:border-green-400 dark:hover:bg-green-900/20"
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Invite Friends
+            </Button>
+            
             <Button variant="ghost" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
               {mounted && theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
@@ -428,6 +441,12 @@ export default function MainLayout({ children }: MainLayoutProps) {
       <SearchModal 
         isOpen={isSearchModalOpen} 
         onClose={() => setIsSearchModalOpen(false)} 
+      />
+      
+      {/* Invite Modal */}
+      <InviteModal 
+        isOpen={isInviteModalOpen} 
+        onClose={() => setIsInviteModalOpen(false)} 
       />
     </div>
   )

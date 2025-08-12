@@ -2,147 +2,159 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { type NextRequest, NextResponse } from "next/server"
 
-// Function to track referrals
-const trackReferral = async (newUserId: string, referralCode: string, supabase: any) => {
+// Function to accept invite
+const acceptInvite = async (newUserId: string, inviteCode: string, supabase: any) => {
   try {
-    // Find the inviter by username or user ID
-    let inviterId = null
-    
-    // Try to find by username first
-    const { data: inviterByUsername } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('username', referralCode)
+    // Find the invite
+    const { data: invite, error: inviteError } = await supabase
+      .from('invites')
+      .select('*')
+      .eq('invite_code', inviteCode)
+      .eq('is_active', true)
       .single()
-    
-    if (inviterByUsername) {
-      inviterId = inviterByUsername.id
-    } else {
-      // Try to find by user ID (first 8 characters)
-      const { data: inviterById } = await supabase
-        .from('profiles')
-        .select('id')
-        .ilike('id', `${referralCode}%`)
-        .limit(1)
-      
-      if (inviterById && inviterById.length > 0) {
-        inviterId = inviterById[0].id
-      }
+
+    if (inviteError || !invite) {
+      console.error('Invite not found:', inviteError)
+      return false
     }
-    
-    if (inviterId) {
-      // Create referral record
-      const { error: referralError } = await supabase.from('referrals').insert({
-        inviter_id: inviterId,
+
+    // Check if invite is already used
+    if (invite.is_used) {
+      console.error('Invite already used')
+      return false
+    }
+
+    // Check if user is trying to use their own invite
+    if (invite.inviter_id === newUserId) {
+      console.error('User cannot use their own invite')
+      return false
+    }
+
+    // Mark invite as used
+    const { error: updateError } = await supabase
+      .from('invites')
+      .update({
+        is_used: true,
         invited_user_id: newUserId,
-        referral_code: referralCode,
-        status: 'completed',
-        points_awarded: 10,
-        created_at: new Date().toISOString(),
-        completed_at: new Date().toISOString()
+        used_at: new Date().toISOString()
+      })
+      .eq('id', invite.id)
+
+    if (updateError) {
+      console.error('Error updating invite:', updateError)
+      return false
+    }
+
+    // Give bonus points to both users
+    try {
+      // Give points to the inviter
+      await supabase.rpc('add_user_points', {
+        user_id: invite.inviter_id,
+        points: 100,
+        description: 'Successful referral'
+      })
+
+      // Give points to the new user
+      await supabase.rpc('add_user_points', {
+        user_id: newUserId,
+        points: 50,
+        description: 'Welcome bonus'
       })
       
-      if (referralError) {
-        console.error('Error creating referral record:', referralError)
-        return
-      }
-      
-      // Award points to inviter using the reputation system
-      try {
-        const { error: pointsError } = await supabase.rpc('add_reputation_points', {
-          user_id: inviterId,
-          points: 10,
-          action_type: 'peer_recognition',
-          reference_id: newUserId,
-          reference_type: 'referral',
-          description: `Invited new user: ${referralCode}`
-        })
-        
-        if (pointsError) {
-          console.error('Error awarding referral points:', pointsError)
-        } else {
-          console.log(`Awarded 10 referral points to user ${inviterId} for inviting ${newUserId}`)
-        }
-      } catch (pointsError) {
-        console.error('Error calling add_reputation_points:', pointsError)
-      }
+      console.log(`Invite accepted successfully: ${inviteCode}`)
+      return true
+    } catch (pointsError) {
+      // Don't fail the invite acceptance if points fail
+      console.error('Error adding points:', pointsError)
+      return true
     }
   } catch (error) {
-    console.error('Error tracking referral:', error)
+    console.error('Error accepting invite:', error)
+    return false
   }
 }
 
 export async function GET(request: NextRequest) {
-  const requestUrl = new URL(request.url)
-  const code = requestUrl.searchParams.get("code")
+  const { searchParams, origin } = new URL(request.url)
+  const code = searchParams.get("code")
+  const refFromUrl = searchParams.get("ref") // Get referral code from URL
+  const stateFromUrl = searchParams.get("state") // Get referral code from OAuth state parameter
+  // if "next" is in param, use it as the redirect URL
+  const next = searchParams.get("next") ?? "/"
 
   if (code) {
     const supabase = createRouteHandlerClient({ cookies })
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     
-    // If authentication successful and user exists, ensure profile exists
     if (!error && data.user) {
-      try {
-        // Check if profile already exists
-        const { data: existingProfile } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('id', data.user.id)
-          .single()
+      // Check if this is a new user (first time login)
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', data.user.id)
+        .single()
+      
+      if (!existingProfile) {
+        // This is a new user, create their profile
+        const fullName = data.user.user_metadata?.full_name || data.user.user_metadata?.name || ''
+        const email = data.user.email || ''
         
-        // If no profile exists, create one
-        if (!existingProfile) {
-          const userData = data.user.user_metadata || {}
-          const email = data.user.email || ''
-          
-          // Generate username from email if not provided
-          let username = userData.username || userData.full_name?.toLowerCase().replace(/\s+/g, '') || email.split('@')[0]
-          
-          // Ensure username is unique
-          let uniqueUsername = username
-          let counter = 1
-          while (true) {
-            const { data: existingUser } = await supabase
-              .from('profiles')
-              .select('username')
-              .eq('username', uniqueUsername)
-              .single()
-            
-            if (!existingUser) break
-            uniqueUsername = `${username}${counter}`
-            counter++
-          }
-          
-          // Create profile
-          await supabase.from('profiles').insert({
-            id: data.user.id,
-            full_name: userData.full_name || userData.name || email.split('@')[0],
-            username: uniqueUsername,
-            avatar_url: userData.avatar_url || userData.picture || null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          
-          // Process referral if present in user metadata
-          const referralCode = userData.referral_code
-          if (referralCode) {
-            await trackReferral(data.user.id, referralCode, supabase)
-          }
-          
-          // Update user metadata with username
-          await supabase.auth.updateUser({
-            data: {
-              ...userData,
-              username: uniqueUsername,
-              full_name: userData.full_name || userData.name || email.split('@')[0]
-            }
-          })
+        // Generate a unique username
+        let username = ''
+        if (fullName) {
+          // Create username from full name
+          username = fullName.toLowerCase().replace(/[^a-z0-9]/g, '')
+        } else if (email) {
+          // Fallback to email prefix
+          username = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '')
+        } else {
+          // Last resort: use user ID prefix
+          username = `user${data.user.id.slice(0, 8)}`
         }
-      } catch (profileError) {
-        console.error('Error creating profile:', profileError)
+        
+        // Ensure username is unique
+        let finalUsername = username
+        let counter = 1
+        while (true) {
+          const { data: existingUser } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('username', finalUsername)
+            .single()
+          
+          if (!existingUser) break
+          finalUsername = `${username}${counter}`
+          counter++
+        }
+        
+        // Create the profile
+        const { error: profileError } = await supabase.from('profiles').insert({
+          id: data.user.id,
+          username: finalUsername,
+          full_name: fullName,
+          avatar_url: data.user.user_metadata?.avatar_url || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        
+        if (profileError) {
+          console.error('Error creating profile:', profileError)
+        }
+        
+        // Check for invite code from URL parameters or user metadata
+        const inviteCode = refFromUrl || stateFromUrl || data.user.user_metadata?.referral_code
+        console.log('Checking for invite code:', { refFromUrl, stateFromUrl, userMetadata: data.user.user_metadata?.referral_code, finalInviteCode: inviteCode })
+        if (inviteCode) {
+          console.log(`Attempting to accept invite with code: ${inviteCode} for user: ${data.user.id}`)
+          const inviteResult = await acceptInvite(data.user.id, inviteCode, supabase)
+          console.log('Invite acceptance result:', inviteResult)
+        }
       }
+      
+      return NextResponse.redirect(`${origin}${next}`)
     }
   }
 
-  return NextResponse.redirect(requestUrl.origin)
+  // return the user to an error page with instructions
+  return NextResponse.redirect(`${origin}/auth/auth-code-error`)
 }
