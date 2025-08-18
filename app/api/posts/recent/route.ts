@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
           verified
         ),
         ${currentUserId ? `
-          post_likes!left (user_id),
+          likes!left (user_id),
           bookmarks!left (user_id),
           reposts!left (user_id)
         ` : ''}
@@ -67,11 +67,11 @@ export async function GET(request: NextRequest) {
     // Transform posts to include user interaction status
     const transformedPosts = (posts || []).map((post: any) => ({
       ...post,
-      liked_by_user: currentUserId ? (post.post_likes || []).some((like: any) => like.user_id === currentUserId) : false,
+      liked_by_user: currentUserId ? (post.likes || []).some((like: any) => like.user_id === currentUserId) : false,
       bookmarked_by_user: currentUserId ? (post.bookmarks || []).some((bookmark: any) => bookmark.user_id === currentUserId) : false,
       reposted_by_user: currentUserId ? (post.reposts || []).some((repost: any) => repost.user_id === currentUserId) : false,
       shares_count: post.reposts_count || 0 // Alias for compatibility
-    })).map(({ post_likes, bookmarks, reposts, ...post }) => post) // Remove internal fields
+    })).map(({ likes, bookmarks, reposts, ...post }) => post) // Remove internal fields
 
     return NextResponse.json(transformedPosts)
   } catch (error) {

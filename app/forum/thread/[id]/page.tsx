@@ -352,112 +352,121 @@ export default function ThreadDetailPage() {
 
   return (
     <MainLayout>
-      <div className="max-w-4xl mx-auto p-4 pb-20 lg:pb-4">
+      <div className="max-w-4xl mx-auto p-3 sm:p-4 pb-20 lg:pb-4 overflow-hidden">
         {/* Back Navigation */}
-        <div className="mb-6">
-          <Button variant="ghost" asChild className="mb-4">
+        <div className="mb-4 sm:mb-6">
+          <Button variant="ghost" asChild className="mb-4 h-9 sm:h-10 text-sm sm:text-base px-2 sm:px-4">
             <Link href={`/forum/${thread.forum.id}`}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to {thread.forum.name}
+              <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="truncate max-w-[200px] sm:max-w-none">Back to {thread.forum.name}</span>
             </Link>
           </Button>
         </div>
 
         {/* Thread Header */}
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            <div className="flex items-start space-x-4">
-              <Avatar className="w-12 h-12">
+        <Card className="mb-4 sm:mb-6 overflow-hidden">
+          <CardContent className="p-3 sm:p-6">
+            <div className="flex items-start space-x-3 sm:space-x-4">
+              <Avatar className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0">
                 <AvatarImage src={thread.author.avatar_url || "/placeholder.svg"} />
-                <AvatarFallback>{thread.author.full_name.charAt(0)}</AvatarFallback>
+                <AvatarFallback className="text-sm">{thread.author.full_name.charAt(0)}</AvatarFallback>
               </Avatar>
 
-              <div className="flex-1">
-                <div className="flex items-center space-x-2 mb-2">
-                  {thread.is_pinned && <Pin className="w-4 h-4 text-green-600" />}
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{thread.title}</h1>
-                  {thread.is_locked && <Lock className="w-4 h-4 text-gray-500" />}
+              <div className="flex-1 min-w-0 overflow-hidden">
+                <div className="flex items-start space-x-2 mb-2">
+                  <div className="flex items-center space-x-1 flex-shrink-0">
+                    {thread.is_pinned && <Pin className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />}
+                    {thread.is_locked && <Lock className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />}
+                  </div>
+                  <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-gray-100 line-clamp-3 break-words">{thread.title}</h1>
                 </div>
 
-                <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  <div className="flex items-center space-x-2">
-                    <Link href={`/profile/${thread.author.username}`} className="font-medium hover:text-green-600">
+                <div className="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:items-center sm:space-x-4 text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  <div className="flex items-center space-x-2 min-w-0">
+                    <Link href={`/profile/${thread.author.username}`} className="font-medium hover:text-green-600 truncate max-w-[120px] sm:max-w-none">
                       {thread.author.full_name}
                     </Link>
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs flex-shrink-0">
                       {thread.author.reputation}
                     </Badge>
-                    {thread.author.badges?.map((badge) => (
-                      <Badge key={badge} variant="secondary" className="text-xs">
+                    {thread.author.badges?.slice(0, 1).map((badge) => (
+                      <Badge key={badge} variant="secondary" className="text-xs hidden sm:flex">
                         <Award className="w-3 h-3 mr-1" />
                         {badge}
                       </Badge>
                     ))}
                   </div>
-                  <div className="flex items-center space-x-1">
-                    <Clock className="w-4 h-4" />
-                    <span>{formatTimeAgo(thread.created_at)}</span>
+                  <div className="flex items-center space-x-3 sm:space-x-4 flex-shrink-0">
+                    <div className="flex items-center space-x-1">
+                      <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span className="whitespace-nowrap">{formatTimeAgo(thread.created_at)}</span>
+                    </div>
+                    <span className="whitespace-nowrap">{thread.views_count} views</span>
                   </div>
-                  <span>{thread.views_count} views</span>
                 </div>
 
-                <div className="prose dark:prose-invert max-w-none mb-4">
-                  <div className="whitespace-pre-wrap text-gray-900 dark:text-gray-100">{thread.content}</div>
+                <div className="prose dark:prose-invert max-w-none mb-4 overflow-hidden">
+                  <div className="whitespace-pre-wrap text-sm sm:text-base text-gray-900 dark:text-gray-100 break-words">{thread.content}</div>
                 </div>
 
                 {/* Tags */}
                 {thread.tags && thread.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {thread.tags.map((tag) => (
+                  <div className="flex flex-wrap gap-1 sm:gap-2 mb-4">
+                    {thread.tags.slice(0, 3).map((tag) => (
                       <Badge key={tag} variant="secondary" className="text-xs">
                         #{tag}
                       </Badge>
                     ))}
+                    {thread.tags.length > 3 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{thread.tags.length - 3}
+                      </Badge>
+                    )}
                   </div>
                 )}
 
                 {/* Thread Actions */}
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center space-x-4">
+                <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center space-x-2 sm:space-x-4 overflow-x-auto">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleVote("up")}
-                      className={`flex items-center space-x-2 ${
+                      className={`flex items-center space-x-1 sm:space-x-2 flex-shrink-0 h-8 px-2 sm:h-9 sm:px-3 ${
                         thread.user_vote === "up" ? "text-green-600" : "text-gray-500 hover:text-green-600"
                       }`}
                     >
-                      <ThumbsUp className={`w-4 h-4 ${thread.user_vote === "up" ? "fill-current" : ""}`} />
-                      <span>{thread.likes_count}</span>
+                      <ThumbsUp className={`w-3 h-3 sm:w-4 sm:h-4 ${thread.user_vote === "up" ? "fill-current" : ""}`} />
+                      <span className="text-xs sm:text-sm">{thread.likes_count}</span>
                     </Button>
 
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleVote("down")}
-                      className={`flex items-center space-x-2 ${
+                      className={`flex items-center space-x-1 sm:space-x-2 flex-shrink-0 h-8 px-2 sm:h-9 sm:px-3 ${
                         thread.user_vote === "down" ? "text-red-600" : "text-gray-500 hover:text-red-600"
                       }`}
                     >
-                      <ThumbsDown className={`w-4 h-4 ${thread.user_vote === "down" ? "fill-current" : ""}`} />
-                      <span>{thread.dislikes_count}</span>
+                      <ThumbsDown className={`w-3 h-3 sm:w-4 sm:h-4 ${thread.user_vote === "down" ? "fill-current" : ""}`} />
+                      <span className="text-xs sm:text-sm">{thread.dislikes_count}</span>
                     </Button>
 
-                    <div className="flex items-center space-x-2 text-gray-500">
-                      <MessageSquare className="w-4 h-4" />
-                      <span>{thread.replies_count} replies</span>
+                    <div className="flex items-center space-x-1 sm:space-x-2 text-gray-500 flex-shrink-0">
+                      <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span className="text-xs sm:text-sm">{thread.replies_count} replies</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2">
-                    <Button variant="ghost" size="sm" className="text-gray-500 hover:text-blue-500">
-                      <Share2 className="w-4 h-4" />
+                  <div className="flex items-center space-x-2 flex-shrink-0">
+                    <Button variant="ghost" size="sm" className="text-gray-500 hover:text-blue-500 h-8 px-2 sm:h-9 sm:px-3">
+                      <Share2 className="w-3 h-3 sm:w-4 sm:h-4" />
                     </Button>
 
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="w-4 h-4" />
+                        <Button variant="ghost" size="sm" className="h-8 px-2 sm:h-9 sm:px-3">
+                          <MoreHorizontal className="w-3 h-3 sm:w-4 sm:h-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
@@ -475,113 +484,133 @@ export default function ThreadDetailPage() {
         </Card>
 
         {/* Add Comment */}
-        <Card className="mb-6">
+        <Card className="mb-4 sm:mb-6 overflow-hidden">
           <CardHeader>
-            <CardTitle>Add a Comment</CardTitle>
+            <CardTitle className="text-base sm:text-lg">Add a Comment</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 sm:space-y-4">
             <Textarea
               placeholder="Share your thoughts, experiences, or ask questions..."
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
               rows={4}
+              className="text-sm sm:text-base resize-none w-full"
             />
-            <Button onClick={handleAddComment} disabled={!newComment.trim()}>
+            <Button 
+              onClick={handleAddComment} 
+              disabled={!newComment.trim()}
+              className="w-full sm:w-auto h-9 sm:h-10 text-sm sm:text-base"
+            >
               Post Comment
             </Button>
           </CardContent>
         </Card>
 
         {/* Comments */}
-        <div className="space-y-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Comments ({comments.length})</h2>
+        <div className="space-y-4 sm:space-y-6">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Comments ({comments.length})</h2>
 
           {comments.map((comment) => (
-            <Card key={comment.id}>
-              <CardContent className="p-6">
-                <div className="flex items-start space-x-4">
-                  <Avatar className="w-10 h-10">
+            <Card key={comment.id} className="border-l-4 border-l-green-500 overflow-hidden">
+              <CardContent className="p-3 sm:p-6">
+                <div className="flex items-start space-x-3 sm:space-x-4">
+                  <Avatar className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0">
                     <AvatarImage src={comment.author.avatar_url || "/placeholder.svg"} />
-                    <AvatarFallback>{comment.author.full_name.charAt(0)}</AvatarFallback>
+                    <AvatarFallback className="text-sm">{comment.author.full_name.charAt(0)}</AvatarFallback>
                   </Avatar>
 
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Link
-                        href={`/profile/${comment.author.username}`}
-                        className="font-medium text-gray-900 dark:text-gray-100 hover:text-green-600"
-                      >
-                        {comment.author.full_name}
-                      </Link>
-                      <Badge variant="outline" className="text-xs">
-                        {comment.author.reputation}
-                      </Badge>
-                      {comment.author.badges?.map((badge) => (
-                        <Badge key={badge} variant="secondary" className="text-xs">
-                          <Award className="w-3 h-3 mr-1" />
-                          {badge}
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <div className="flex flex-col space-y-1 sm:space-y-0 sm:flex-row sm:items-center sm:space-x-2 mb-2">
+                      <div className="flex items-center space-x-2">
+                        <Link
+                          href={`/profile/${comment.author.username}`}
+                          className="font-medium text-gray-900 dark:text-gray-100 hover:text-green-600 text-sm sm:text-base truncate max-w-[120px] sm:max-w-none"
+                        >
+                          {comment.author.full_name}
+                        </Link>
+                        <Badge variant="outline" className="text-xs flex-shrink-0">
+                          {comment.author.reputation}
                         </Badge>
-                      ))}
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        {comment.author.badges?.slice(0, 1).map((badge) => (
+                          <Badge key={badge} variant="secondary" className="text-xs hidden sm:flex">
+                            <Award className="w-3 h-3 mr-1" />
+                            {badge}
+                          </Badge>
+                        ))}
+                      </div>
+                      <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                         {formatTimeAgo(comment.created_at)}
                       </span>
                     </div>
 
-                    <div className="prose dark:prose-invert max-w-none mb-4">
-                      <div className="whitespace-pre-wrap text-gray-900 dark:text-gray-100">{comment.content}</div>
+                    <div className="prose dark:prose-invert max-w-none mb-3 sm:mb-4 overflow-hidden">
+                      <div className="whitespace-pre-wrap text-sm sm:text-base text-gray-900 dark:text-gray-100 break-words">{comment.content}</div>
                     </div>
 
                     {/* Comment Actions */}
-                    <div className="flex items-center space-x-4">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleVote("up", comment.id)}
-                        className={`flex items-center space-x-1 ${
-                          comment.user_vote === "up" ? "text-green-600" : "text-gray-500 hover:text-green-600"
-                        }`}
-                      >
-                        <ThumbsUp className={`w-3 h-3 ${comment.user_vote === "up" ? "fill-current" : ""}`} />
-                        <span>{comment.likes_count}</span>
-                      </Button>
+                    <div className="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center space-x-1 sm:space-x-2 overflow-x-auto">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleVote("up", comment.id)}
+                          className={`flex items-center space-x-1 h-7 px-2 sm:h-8 sm:px-3 flex-shrink-0 ${
+                            comment.user_vote === "up" ? "text-green-600" : "text-gray-500 hover:text-green-600"
+                          }`}
+                        >
+                          <ThumbsUp className={`w-3 h-3 sm:w-4 sm:h-4 ${comment.user_vote === "up" ? "fill-current" : ""}`} />
+                          <span className="text-xs sm:text-sm">{comment.likes_count}</span>
+                        </Button>
 
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleVote("down", comment.id)}
-                        className={`flex items-center space-x-1 ${
-                          comment.user_vote === "down" ? "text-red-600" : "text-gray-500 hover:text-red-600"
-                        }`}
-                      >
-                        <ThumbsDown className={`w-3 h-3 ${comment.user_vote === "down" ? "fill-current" : ""}`} />
-                        <span>{comment.dislikes_count}</span>
-                      </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleVote("down", comment.id)}
+                          className={`flex items-center space-x-1 h-7 px-2 sm:h-8 sm:px-3 flex-shrink-0 ${
+                            comment.user_vote === "down" ? "text-red-600" : "text-gray-500 hover:text-red-600"
+                          }`}
+                        >
+                          <ThumbsDown className={`w-3 h-3 sm:w-4 sm:h-4 ${comment.user_vote === "down" ? "fill-current" : ""}`} />
+                          <span className="text-xs sm:text-sm">{comment.dislikes_count}</span>
+                        </Button>
+                      </div>
 
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
-                        className="flex items-center space-x-1 text-gray-500 hover:text-blue-500"
+                        className="flex items-center space-x-1 h-7 px-2 sm:h-8 sm:px-3 text-gray-500 hover:text-blue-500 flex-shrink-0"
                       >
-                        <Reply className="w-3 h-3" />
-                        <span>Reply</span>
+                        <Reply className="w-3 h-3 sm:w-4 sm:h-4" />
+                        <span className="text-xs sm:text-sm">Reply</span>
                       </Button>
                     </div>
 
                     {/* Reply Form */}
                     {replyingTo === comment.id && (
-                      <div className="mt-4 space-y-3">
+                      <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-gray-50 dark:bg-gray-800 rounded-lg overflow-hidden">
                         <Textarea
                           placeholder="Write your reply..."
                           value={replyContent}
                           onChange={(e) => setReplyContent(e.target.value)}
+                          className="mb-3 text-sm sm:text-base resize-none w-full"
                           rows={3}
                         />
-                        <div className="flex space-x-2">
-                          <Button size="sm" onClick={() => handleAddReply(comment.id)} disabled={!replyContent.trim()}>
+                        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleAddReply(comment.id)}
+                            disabled={!replyContent.trim()}
+                            className="w-full sm:w-auto h-8 sm:h-9 text-xs sm:text-sm"
+                          >
                             Post Reply
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => setReplyingTo(null)}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setReplyingTo(null)}
+                            className="w-full sm:w-auto h-8 sm:h-9 text-xs sm:text-sm"
+                          >
                             Cancel
                           </Button>
                         </div>
@@ -590,40 +619,44 @@ export default function ThreadDetailPage() {
 
                     {/* Replies */}
                     {comment.replies && comment.replies.length > 0 && (
-                      <div className="mt-4 space-y-4 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
+                      <div className="mt-3 sm:mt-4 space-y-3 sm:space-y-4 border-l-2 border-gray-200 dark:border-gray-700 pl-3 sm:pl-4 overflow-hidden">
                         {comment.replies.map((reply) => (
-                          <div key={reply.id} className="flex items-start space-x-3">
-                            <Avatar className="w-8 h-8">
+                          <div key={reply.id} className="flex items-start space-x-2 sm:space-x-3">
+                            <Avatar className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0">
                               <AvatarImage src={reply.author.avatar_url || "/placeholder.svg"} />
-                              <AvatarFallback>{reply.author.full_name.charAt(0)}</AvatarFallback>
+                              <AvatarFallback className="text-xs">{reply.author.full_name.charAt(0)}</AvatarFallback>
                             </Avatar>
 
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2 mb-1">
-                                <Link
-                                  href={`/profile/${reply.author.username}`}
-                                  className="font-medium text-sm text-gray-900 dark:text-gray-100 hover:text-green-600"
-                                >
-                                  {reply.author.full_name}
-                                </Link>
-                                <Badge variant="outline" className="text-xs">
-                                  {reply.author.reputation}
-                                </Badge>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                            <div className="flex-1 min-w-0 overflow-hidden">
+                              <div className="flex flex-col space-y-1 sm:space-y-0 sm:flex-row sm:items-center sm:space-x-2 mb-1">
+                                <div className="flex items-center space-x-2 min-w-0">
+                                  <Link
+                                    href={`/profile/${reply.author.username}`}
+                                    className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 hover:text-green-600 truncate max-w-[80px] sm:max-w-none"
+                                  >
+                                    {reply.author.full_name}
+                                  </Link>
+                                  <Badge variant="outline" className="text-xs flex-shrink-0">
+                                    {reply.author.reputation}
+                                  </Badge>
+                                </div>
+                                <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
                                   {formatTimeAgo(reply.created_at)}
                                 </span>
                               </div>
 
-                              <p className="text-sm text-gray-900 dark:text-gray-100 mb-2">{reply.content}</p>
+                              <div className="prose dark:prose-invert max-w-none mb-2 overflow-hidden">
+                                <div className="text-xs sm:text-sm whitespace-pre-wrap text-gray-900 dark:text-gray-100 break-words">{reply.content}</div>
+                              </div>
 
                               <div className="flex items-center space-x-2">
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="flex items-center space-x-1 text-gray-500 hover:text-green-600 h-6 px-2"
+                                  className="flex items-center space-x-1 text-gray-500 hover:text-green-600 h-6 px-2 text-xs flex-shrink-0"
                                 >
                                   <ThumbsUp className="w-3 h-3" />
-                                  <span className="text-xs">{reply.likes_count}</span>
+                                  <span>{reply.likes_count}</span>
                                 </Button>
                               </div>
                             </div>

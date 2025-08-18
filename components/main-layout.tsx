@@ -265,7 +265,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="h-screen bg-gray-50 dark:bg-gray-900">
       {/* Desktop Sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex flex-col flex-grow bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
@@ -335,7 +335,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       </div>
 
       {/* Main Content */}
-      <div className="lg:pl-64">
+      <div className="lg:pl-64 h-full flex flex-col">
         {/* Desktop Header */}
         <div className="hidden lg:flex items-center justify-end p-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-4">
@@ -403,7 +403,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         </div>
 
         {/* Page Content */}
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 h-full overflow-auto">{children}</main>
       </div>
 
       {/* Mobile Bottom Navigation */}
@@ -415,7 +415,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-colors ${
+                className={`flex flex-col items-center sm:space-y-1 p-2 rounded-lg transition-colors ${
                   isActive ? "text-green-600 dark:text-green-400" : "text-gray-600 dark:text-gray-400"
                 }`}
               >
@@ -430,7 +430,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                     </Badge>
                   )}
                 </div>
-                <span className="text-xs font-medium">{item.label}</span>
+                <span className="text-xs font-medium hidden sm:block">{item.label}</span>
               </Link>
             )
           })}

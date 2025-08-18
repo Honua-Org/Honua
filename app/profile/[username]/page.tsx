@@ -380,76 +380,99 @@ export default function ProfilePage() {
               {isOwnProfile && (
                 <Button
                   onClick={() => setShowCoverEditModal(true)}
-                  className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity text-xs sm:text-sm"
                   size="sm"
                 >
-                  <Camera className="w-4 h-4 mr-2" />
-                  Edit Cover
+                  <Camera className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Edit Cover</span>
+                  <span className="sm:hidden">Edit</span>
                 </Button>
               )}
             </div>
 
         {/* Profile Header */}
-        <div className="relative px-4 pb-4">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between -mt-16 md:-mt-20">
-            <div className="flex flex-col md:flex-row md:items-end space-y-4 md:space-y-0 md:space-x-4">
-              <Avatar className="w-32 h-32 border-4 border-white shadow-lg">
+        <div className="relative px-2 sm:px-4 pb-4">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between -mt-12 sm:-mt-16 md:-mt-20">
+            {/* Mobile Layout: Avatar and Edit Button Side by Side */}
+            <div className="flex items-end justify-between md:justify-start space-x-4 md:space-x-4 w-full md:w-auto">
+              <Avatar className="w-24 h-24 sm:w-32 sm:h-32 border-4 border-white shadow-lg">
                 <AvatarImage src={user.avatar_url || "/placeholder.svg"} />
-                <AvatarFallback className="bg-green-500 text-white text-2xl">{user.full_name.charAt(0)}</AvatarFallback>
+                <AvatarFallback className="bg-green-500 text-white text-xl sm:text-2xl">{user.full_name.charAt(0)}</AvatarFallback>
               </Avatar>
+              
+              {/* Edit Profile Button - Mobile: Right of Avatar, Desktop: Moved to right side */}
+              {isOwnProfile && (
+                <div className="md:hidden">
+                  <Button variant="outline" size="sm" asChild className="text-xs px-2 py-1">
+                    <a href="/settings">
+                      <Settings className="w-3 h-3 mr-1" />
+                      <span>Edit</span>
+                    </a>
+                  </Button>
+                </div>
+              )}
             </div>
 
-            <div className="flex flex-col items-end space-y-2 mt-4 md:mt-0">
+            <div className="flex flex-col items-center md:items-end space-y-2 mt-4 md:mt-0 w-full md:w-auto">
                {!isOwnProfile ? (
                  <>
-                   <div className="flex items-center space-x-2">
+                   <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full md:w-auto">
                      {followsYou && (
-                       <div className="flex items-center space-x-1 text-sm text-gray-600 dark:text-gray-400">
+                       <div className="flex items-center space-x-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                          <span>Follows you</span>
                        </div>
                      )}
-                     <Button variant="outline" size="sm" onClick={handleMessage}>
-                       <MessageCircle className="w-4 h-4 mr-2" />
-                       Message
-                     </Button>
-                     <Button
-                       onClick={handleFollow}
-                       className={isFollowing ? "bg-gray-200 text-gray-800 hover:bg-gray-300" : "sustainability-gradient"}
-                     >
-                       {isFollowing ? (
-                         <>
-                           <UserMinus className="w-4 h-4 mr-2" />
-                           Unfollow
-                         </>
-                       ) : (
-                         <>
-                           <UserPlus className="w-4 h-4 mr-2" />
-                           {followsYou ? "Follow back" : "Follow"}
-                         </>
-                       )}
-                     </Button>
+                     <div className="flex space-x-2 w-full sm:w-auto">
+                       <Button variant="outline" size="sm" onClick={handleMessage} className="flex-1 sm:flex-none text-xs sm:text-sm">
+                         <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                         <span className="hidden sm:inline">Message</span>
+                         <span className="sm:hidden">Msg</span>
+                       </Button>
+                       <Button
+                         onClick={handleFollow}
+                         className={`flex-1 sm:flex-none text-xs sm:text-sm ${isFollowing ? "bg-gray-200 text-gray-800 hover:bg-gray-300" : "sustainability-gradient"}`}
+                       >
+                         {isFollowing ? (
+                           <>
+                             <UserMinus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                             <span className="hidden sm:inline">Unfollow</span>
+                             <span className="sm:hidden">Unfollow</span>
+                           </>
+                         ) : (
+                           <>
+                             <UserPlus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                             <span className="hidden sm:inline">{followsYou ? "Follow back" : "Follow"}</span>
+                             <span className="sm:hidden">Follow</span>
+                           </>
+                         )}
+                       </Button>
+                     </div>
                    </div>
                  </>
               ) : (
-                <Button variant="outline" size="sm" asChild>
-                  <a href="/settings">
-                    <Settings className="w-4 h-4 mr-2" />
-                    Edit Profile
-                  </a>
-                </Button>
+                // Edit Profile Button - Desktop: Right side
+                <div className="hidden md:block">
+                  <Button variant="outline" size="sm" asChild className="text-xs sm:text-sm">
+                    <a href="/settings">
+                      <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">Edit Profile</span>
+                      <span className="sm:hidden">Edit</span>
+                    </a>
+                  </Button>
+                </div>
               )}
             </div>
           </div>
 
           {/* Name and User Info */}
-          <div className="mt-6 space-y-4">
+          <div className="mt-4 sm:mt-6 space-y-3 sm:space-y-4 text-left">
             <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{user.full_name}</h1>
-                {user.verified && <CheckCircle className="w-6 h-6 text-blue-500" />}
+              <div className="flex items-center justify-start space-x-2">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{user.full_name}</h1>
+                {user.verified && <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500" />}
               </div>
-              <p className="text-gray-600 dark:text-gray-400">@{user.username}</p>
-              <div className="flex items-center space-x-2">
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">@{user.username}</p>
+              <div className="flex items-center justify-start space-x-2">
                 <ReputationBadge 
                   reputation={user.reputation || 0} 
                   size="md"
@@ -457,7 +480,7 @@ export default function ProfilePage() {
                 />
                 <Badge
                   variant="secondary"
-                  className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                  className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs sm:text-sm"
                 >
                   {user.role}
                 </Badge>
@@ -466,31 +489,31 @@ export default function ProfilePage() {
           </div>
 
           {/* Bio and Info */}
-          <div className="mt-6 space-y-4">
-            <p className="text-gray-900 dark:text-gray-100 leading-relaxed">{user.bio}</p>
+          <div className="mt-4 sm:mt-6 space-y-3 sm:space-y-4">
+            <p className="text-sm sm:text-base text-gray-900 dark:text-gray-100 leading-relaxed text-left">{user.bio}</p>
 
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap items-start justify-start gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               {user.location && (
                 <div className="flex items-center space-x-1">
-                  <MapPin className="w-4 h-4" />
+                  <MapPin className="w-3 h-3 sm:w-4 sm:h-4" />
                   <span>{user.location}</span>
                 </div>
               )}
               {user.website && (
                 <div className="flex items-center space-x-1">
-                  <LinkIcon className="w-4 h-4" />
+                  <LinkIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                   <a
                     href={user.website}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-green-600 hover:text-green-500"
+                    className="text-green-600 hover:text-green-500 break-all"
                   >
                     {user.website.replace("https://", "")}
                   </a>
                 </div>
               )}
               <div className="flex items-center space-x-1">
-                <Calendar className="w-4 h-4" />
+                <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span>
                   Joined {user.created_at ? new Date(user.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "Unknown"}
                 </span>
@@ -498,21 +521,21 @@ export default function ProfilePage() {
             </div>
 
             {/* Stats */}
-            <div className="flex items-center space-x-6 text-sm">
-              <div className="flex items-center space-x-1">
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
+            <div className="flex items-center justify-start space-x-4 sm:space-x-6 text-xs sm:text-sm">
+              <div className="flex flex-col sm:flex-row items-center sm:space-x-1">
+                <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base">
                   {(user.following_count || 0).toLocaleString()}
                 </span>
                 <span className="text-gray-600 dark:text-gray-400">Following</span>
               </div>
-              <div className="flex items-center space-x-1">
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
+              <div className="flex flex-col sm:flex-row items-center sm:space-x-1">
+                <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base">
                   {(user.followers_count || 0).toLocaleString()}
                 </span>
                 <span className="text-gray-600 dark:text-gray-400">Followers</span>
               </div>
-              <div className="flex items-center space-x-1">
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
+              <div className="flex flex-col sm:flex-row items-center sm:space-x-1">
+                <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base">
                   {(user.posts_count || 0).toLocaleString()}
                 </span>
                 <span className="text-gray-600 dark:text-gray-400">Posts</span>
@@ -520,12 +543,12 @@ export default function ProfilePage() {
             </div>
 
             {/* Sustainability Categories */}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap justify-start gap-2">
               {user.sustainability_categories?.map((category: string) => (
                 <Badge
                   key={category}
                   variant="secondary"
-                  className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                  className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs sm:text-sm"
                 >
                   <Leaf className="w-3 h-3 mr-1" />
                   {category}
@@ -536,31 +559,33 @@ export default function ProfilePage() {
         </div>
 
         {/* Content Tabs */}
-        <div className="px-4 mb-6">
+        <div className="px-2 sm:px-4 mb-4 sm:mb-6">
           <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
             <button
               onClick={() => setActiveTab("posts")}
-              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              className={`flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                 activeTab === "posts"
                   ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
                   : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
               }`}
             >
-              Posts ({user.posts_count || 0})
+              <span className="hidden sm:inline">Posts ({user.posts_count || 0})</span>
+              <span className="sm:hidden">Posts</span>
             </button>
             <button
               onClick={() => setActiveTab("reputation")}
-              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              className={`flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                 activeTab === "reputation"
                   ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
                   : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
               }`}
             >
-              Reputation & Achievements
+              <span className="hidden sm:inline">Reputation & Achievements</span>
+              <span className="sm:hidden">Rep</span>
             </button>
             <button
               onClick={() => setActiveTab("gallery")}
-              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              className={`flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                 activeTab === "gallery"
                   ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
                   : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
@@ -572,22 +597,22 @@ export default function ProfilePage() {
         </div>
 
         {/* Tab Content */}
-        <div className="px-4">
+        <div className="px-2 sm:px-4">
           {activeTab === "posts" && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {posts.length > 0 ? (
                 posts.map((post) => (
                   <PostCard key={post.id} post={post} onUpdate={handlePostUpdate} />
                 ))
               ) : (
-                <div className="text-center py-12">
+                <div className="text-center py-8 sm:py-12">
                   <div className="text-gray-400 mb-4">
-                    <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-12 h-12 sm:w-16 sm:h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No posts yet</h3>
-                  <p className="text-gray-600 dark:text-gray-400">
+                  <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No posts yet</h3>
+                  <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 px-4">
                     {isOwnProfile ? "Share your first sustainability post!" : `${user.full_name} hasn't posted anything yet.`}
                   </p>
                 </div>
@@ -596,24 +621,24 @@ export default function ProfilePage() {
           )}
 
           {activeTab === "reputation" && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <ReputationDashboard userId={user.id} username={user.username} />
               
               {/* Legacy Achievements Section */}
               {user.achievements && user.achievements.length > 0 && (
                 <Card>
-                  <CardContent className="p-6">
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Profile Achievements</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <CardContent className="p-4 sm:p-6">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 text-base sm:text-lg">Profile Achievements</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                       {user.achievements.map((achievement: any, index: number) => (
                         <div
                           key={index}
-                          className="flex items-center space-x-3 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
+                          className="flex items-center space-x-2 sm:space-x-3 p-3 sm:p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
                         >
-                          <span className="text-2xl">{achievement.icon}</span>
-                          <div>
-                            <p className="font-medium text-gray-900 dark:text-gray-100">{achievement.name}</p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">{achievement.description}</p>
+                          <span className="text-xl sm:text-2xl">{achievement.icon}</span>
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-900 dark:text-gray-100 text-sm sm:text-base">{achievement.name}</p>
+                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">{achievement.description}</p>
                           </div>
                         </div>
                       ))}
@@ -626,8 +651,8 @@ export default function ProfilePage() {
 
           {activeTab === "gallery" && (
             <Card>
-              <CardContent className="p-6">
-                <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Recent Photos</h3>
+              <CardContent className="p-4 sm:p-6">
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 text-base sm:text-lg">Recent Photos</h3>
                 {(() => {
                   // Extract all images from user's posts
                   const allImages: string[] = []
@@ -638,7 +663,7 @@ export default function ProfilePage() {
                   })
                   
                   return allImages.length > 0 ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
                       {allImages.map((src, index) => (
                         <div
                            key={index}
@@ -656,14 +681,14 @@ export default function ProfilePage() {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-12">
+                    <div className="text-center py-8 sm:py-12">
                       <div className="text-gray-400 mb-4">
-                        <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-12 h-12 sm:w-16 sm:h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                       </div>
-                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No photos yet</h3>
-                      <p className="text-gray-600 dark:text-gray-400">
+                      <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No photos yet</h3>
+                      <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 px-4">
                         {isOwnProfile ? "Share posts with photos to see them here!" : `${user.full_name} hasn't shared any photos yet.`}
                       </p>
                     </div>

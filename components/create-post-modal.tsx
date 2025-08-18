@@ -393,27 +393,27 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-sm sm:max-w-md md:max-w-lg lg:max-w-2xl max-h-[85vh] sm:max-h-[90vh] overflow-y-auto mx-4 sm:mx-6">
         <DialogHeader>
           <DialogTitle>Create Post</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="flex space-x-4">
-            <Avatar className="w-12 h-12">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex space-x-3 sm:space-x-4">
+            <Avatar className="w-10 h-10 sm:w-12 sm:h-12">
               <AvatarImage src={profile?.avatar_url || "/placeholder.svg"} />
               <AvatarFallback className="bg-green-500 text-white">
                 {(profile?.full_name || session?.user?.user_metadata?.full_name || session?.user?.email)?.charAt(0)?.toUpperCase() || "U"}
               </AvatarFallback>
             </Avatar>
 
-            <div className="flex-1 space-y-4">
+            <div className="flex-1 space-y-3 sm:space-y-4">
               <MentionTextarea
                 placeholder="What's your latest sustainability action? Share your impact..."
                 value={content}
                 onChange={handleContentChange}
-                className="border-none shadow-none text-lg placeholder:text-gray-500 focus-visible:ring-0"
-                minHeight="120px"
+                className="border-none shadow-none text-base sm:text-lg placeholder:text-gray-500 focus-visible:ring-0"
+                minHeight="100px"
               />
 
               {/* Link Preview */}
@@ -479,7 +479,7 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
 
               {/* Image Preview */}
               {selectedImages.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                   {selectedImages.map((image, index) => (
                     <div
                       key={index}
@@ -502,7 +502,7 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
@@ -558,8 +558,8 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-                <div className="flex items-center space-x-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-3 sm:pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3 sm:space-y-0">
+                <div className="flex items-center space-x-2 sm:space-x-4 overflow-x-auto">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -571,28 +571,28 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-green-600 hover:text-green-700"
+                    className="text-green-600 hover:text-green-700 flex-shrink-0"
                     onClick={handleImageUpload}
                     disabled={uploadingImages}
                   >
-                    <ImageIcon className="w-4 h-4 mr-2" />
-                    {uploadingImages ? "Uploading..." : "Media"}
+                    <ImageIcon className="w-4 h-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">{uploadingImages ? "Uploading..." : "Media"}</span>
                   </Button>
                   <EmojiPicker onEmojiSelect={handleEmojiSelect}>
-                    <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700">
-                      <Smile className="w-4 h-4 mr-2" />
-                      Emoji
+                    <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700 flex-shrink-0">
+                      <Smile className="w-4 h-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">Emoji</span>
                     </Button>
                   </EmojiPicker>
-                  <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Schedule
+                  <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700 flex-shrink-0">
+                    <Calendar className="w-4 h-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Schedule</span>
                   </Button>
                 </div>
 
                 <div className="flex items-center space-x-2">
                   <Select value={privacy} onValueChange={setPrivacy}>
-                    <SelectTrigger className="w-32">
+                    <SelectTrigger className="w-28 sm:w-32">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -638,16 +638,17 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
                 </div>
               )}
 
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-500">{content.length}/280 characters</div>
-                <div className="flex items-center space-x-2">
-                  <Button variant="ghost" onClick={handleCancel}>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+                <div className="text-sm text-gray-500 text-center sm:text-left">{content.length}/280 characters</div>
+                <div className="flex items-center justify-center sm:justify-end space-x-2">
+                  <Button variant="ghost" onClick={handleCancel} size="sm" className="flex-1 sm:flex-none">
                     Cancel
                   </Button>
                   <Button
                     onClick={handleSubmit}
                     disabled={!content.trim() || loading}
-                    className="sustainability-gradient"
+                    className="sustainability-gradient flex-1 sm:flex-none"
+                    size="sm"
                   >
                     {loading ? "Posting..." : "Post"}
                   </Button>

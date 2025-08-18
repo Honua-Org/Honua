@@ -366,35 +366,39 @@ export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProp
 
   return (
     <>
-      <Card className="bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-shadow">
-        <CardContent className="p-6">
-          <div className="flex space-x-4">
+      <Card className="w-full max-w-full bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+        <CardContent className="p-2 sm:p-4 md:p-6 max-w-full">
+          <div className="flex space-x-2 sm:space-x-3 md:space-x-4 max-w-full overflow-hidden">
             <Link href={`/profile/${post.user?.username || 'unknown'}`}>
-              <Avatar className="w-12 h-12 cursor-pointer">
+              <Avatar className="w-12 h-12 cursor-pointer flex-shrink-0">
                 <AvatarImage src={post.user?.avatar_url || "/placeholder.svg"} />
                 <AvatarFallback className="bg-green-500 text-white">{post.user?.full_name?.charAt(0) || 'U'}</AvatarFallback>
               </Avatar>
             </Link>
 
-            <div className="flex-1 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Link href={`/profile/${post.user?.username || 'unknown'}`} className="flex items-center space-x-2 hover:underline">
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">{post.user?.full_name || 'Unknown User'}</span>
-                    {post.user?.verified && <CheckCircle className="w-4 h-4 text-blue-500" />}
-                  </Link>
-                  <span className="text-gray-500 dark:text-gray-400">@{post.user?.username || 'unknown'}</span>
-                  <span className="text-gray-500 dark:text-gray-400">·</span>
-                  <span className="text-gray-500 dark:text-gray-400">{formatTimeAgo(post.created_at)}</span>
+            <div className="flex-1 min-w-0 space-y-1 sm:space-y-2 md:space-y-3 max-w-full overflow-hidden">
+              <div className="flex items-start justify-between gap-1 sm:gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 min-w-0 flex-1">
+                  <div className="flex items-center space-x-1 sm:space-x-2 min-w-0">
+                    <Link href={`/profile/${post.user?.username || 'unknown'}`} className="flex items-center space-x-1 hover:underline">
+                      <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base truncate">{post.user?.full_name || 'Unknown User'}</span>
+                      {post.user?.verified && <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 flex-shrink-0" />}
+                    </Link>
+                  </div>
+                  <div className="flex items-center space-x-1 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                    <span className="truncate">@{post.user?.username || 'unknown'}</span>
+                    <span className="hidden sm:inline">·</span>
+                    <span className="whitespace-nowrap">{formatTimeAgo(post.created_at)}</span>
+                  </div>
                 </div>
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
                       <MoreHorizontal className="w-4 h-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent align="end" className="w-48 max-w-[90vw]">
                     {post.user?.id === session?.user?.id ? (
                       <>
                         <DropdownMenuItem onClick={handleDelete} className="text-red-600 focus:text-red-600">
@@ -450,14 +454,14 @@ export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProp
                 </DropdownMenu>
               </div>
 
-              <div className="space-y-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 -m-2 p-2 rounded-lg transition-colors" onClick={() => router.push(`/post/${post.id}`)}>
-                <div className="text-gray-900 dark:text-gray-100 leading-relaxed" onClick={(e) => e.stopPropagation()}>
+              <div className="space-y-2 sm:space-y-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 -m-1 sm:-m-2 p-1 sm:p-2 rounded-lg transition-colors" onClick={() => router.push(`/post/${post.id}`)}>
+                <div className="text-gray-900 dark:text-gray-100 text-sm sm:text-base leading-relaxed break-words overflow-wrap-anywhere hyphens-auto max-w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
                   {renderContentWithLinksAndMentions(post.content)}
                 </div>
                   
                   {/* Link Preview */}
                   {post.link_preview_url && (
-                    <div className="mt-3 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                    <div className="mt-2 sm:mt-3 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden max-w-full">
                       <a 
                         href={post.link_preview_url} 
                         target="_blank" 
@@ -474,19 +478,19 @@ export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProp
                             />
                           </div>
                         )}
-                        <div className="p-3">
+                        <div className="p-2 sm:p-3">
                           {post.link_preview_title && (
-                            <h3 className="font-medium text-gray-900 dark:text-gray-100 line-clamp-2">
+                            <h3 className="font-medium text-gray-900 dark:text-gray-100 text-sm sm:text-base line-clamp-2 break-words">
                               {post.link_preview_title}
                             </h3>
                           )}
                           {post.link_preview_description && (
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2 break-words">
                               {post.link_preview_description}
                             </p>
                           )}
                           {post.link_preview_domain && (
-                            <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+                            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 sm:mt-2 truncate">
                               {post.link_preview_domain}
                             </p>
                           )}
@@ -497,12 +501,12 @@ export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProp
 
                   {post.media_urls && post.media_urls.length > 0 && (
                     <div
-                      className={`grid gap-2 rounded-lg overflow-hidden ${
+                      className={`grid gap-1 sm:gap-2 rounded-lg overflow-hidden max-w-full w-full ${
                         post.media_urls.length === 1
                           ? "grid-cols-1"
                           : post.media_urls.length === 2
-                            ? "grid-cols-2"
-                            : "grid-cols-2"
+                            ? "grid-cols-1 sm:grid-cols-2"
+                            : "grid-cols-1 sm:grid-cols-2"
                       }`}
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -511,17 +515,24 @@ export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProp
                         return (
                           <div 
                             key={index} 
-                            className="relative aspect-video bg-gray-100 dark:bg-gray-700 cursor-pointer"
+                            className="relative aspect-video bg-gray-100 dark:bg-gray-700 cursor-pointer w-full max-w-full overflow-hidden"
                             onClick={() => setSelectedMedia(url)}
                           >
                             {isVideo ? (
-                              <video src={url} className="object-cover w-full h-full" />
+                              <video 
+                                src={url} 
+                                className="object-cover w-full h-full rounded max-w-full" 
+                                controls={false}
+                                muted
+                                playsInline
+                              />
                             ) : (
                               <Image
                                 src={url || "/placeholder.svg"}
                                 alt={`Post media ${index + 1}`}
                                 fill
-                                className="object-cover"
+                                className="object-cover rounded max-w-full"
+                                sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
                               />
                             )}
                           </div>
@@ -530,58 +541,58 @@ export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProp
                     </div>
                   )}
 
-                  <div className="flex items-center flex-wrap gap-2">
+                  <div className="flex items-center flex-wrap gap-1 sm:gap-2 max-w-full overflow-hidden">
                     {post.sustainability_category && (
                       <Badge
                         variant="secondary"
-                        className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                        className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs sm:text-sm px-1 sm:px-2 py-1 flex-shrink-0"
                       >
-                        {post.sustainability_category}
+                        <span className="truncate max-w-[100px] sm:max-w-none">{post.sustainability_category}</span>
                       </Badge>
                     )}
 
                     {post.location && (
-                      <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                        <MapPin className="w-3 h-3 mr-1" />
-                        {post.location}
+                      <div className="flex items-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 min-w-0 flex-shrink-0">
+                        <MapPin className="w-3 h-3 mr-1 flex-shrink-0" />
+                        <span className="truncate max-w-[80px] sm:max-w-[120px] md:max-w-none">{post.location}</span>
                       </div>
                     )}
 
                     {post.impact_score && (
-                      <div className="flex items-center space-x-1">
-                        <TrendingUp className="w-3 h-3 text-green-600" />
-                        <span className="text-sm text-green-600 font-medium">Impact: {post.impact_score}</span>
-                        <div className={`w-2 h-2 rounded-full ${getImpactColor(post.impact_score)}`} />
+                      <div className="flex items-center space-x-1 flex-shrink-0">
+                        <TrendingUp className="w-3 h-3 text-green-600 flex-shrink-0" />
+                        <span className="text-xs sm:text-sm text-green-600 font-medium whitespace-nowrap">Impact: {post.impact_score}</span>
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${getImpactColor(post.impact_score)}`} />
                       </div>
                     )}
                   </div>
               </div>
 
               <div
-                className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700"
+                className="flex items-center justify-between pt-2 sm:pt-3 border-t border-gray-100 dark:border-gray-700"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex items-center space-x-6">
+                <div className="flex items-center space-x-2 sm:space-x-4 md:space-x-6">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleLike}
-                    className={`flex items-center space-x-2 ${
+                    className={`flex items-center space-x-1 sm:space-x-2 min-w-0 p-1 sm:p-2 ${
                       isLiked ? "text-red-500 hover:text-red-600" : "text-gray-500 hover:text-red-500"
                     }`}
                   >
-                    <Heart className={`w-4 h-4 ${isLiked ? "fill-current" : ""}`} />
-                    <span>{likesCount}</span>
+                    <Heart className={`w-4 h-4 flex-shrink-0 ${isLiked ? "fill-current" : ""}`} />
+                    <span className="text-xs sm:text-sm">{likesCount}</span>
                   </Button>
 
                   <Link href={`/post/${post.id}`}>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="flex items-center space-x-2 text-gray-500 hover:text-blue-500"
+                      className="flex items-center space-x-1 sm:space-x-2 min-w-0 p-1 sm:p-2 text-gray-500 hover:text-blue-500"
                     >
-                      <MessageCircle className="w-4 h-4" />
-                      <span>{post.comments_count}</span>
+                      <MessageCircle className="w-4 h-4 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm">{post.comments_count}</span>
                     </Button>
                   </Link>
 
@@ -589,29 +600,34 @@ export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProp
                     variant="ghost"
                     size="sm"
                     onClick={handleRepost}
-                    className={`flex items-center space-x-2 ${
+                    className={`flex items-center space-x-1 sm:space-x-2 min-w-0 p-1 sm:p-2 ${
                       post.reposted_by_user ? "text-green-500 hover:text-green-600" : "text-gray-500 hover:text-green-500"
                     }`}
                   >
-                    <Repeat2 className={`w-4 h-4 ${post.reposted_by_user ? "fill-current" : ""}`} />
-                    <span>{post.reposts_count}</span>
+                    <Repeat2 className={`w-4 h-4 flex-shrink-0 ${post.reposted_by_user ? "fill-current" : ""}`} />
+                    <span className="text-xs sm:text-sm">{post.reposts_count}</span>
                   </Button>
                 </div>
 
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1 sm:space-x-2">
                   <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleBookmarkClick}
-                  className={`${
-                    isBookmarked ? "text-yellow-500 hover:text-yellow-600" : "text-gray-500 hover:text-yellow-500"
-                  }`}
-                >
-                  <Bookmark className={`w-4 h-4 ${isBookmarked ? "fill-current" : ""}`} />
-                </Button>
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleBookmarkClick}
+                    className={`p-1 sm:p-2 min-w-0 ${
+                      isBookmarked ? "text-yellow-500 hover:text-yellow-600" : "text-gray-500 hover:text-yellow-500"
+                    }`}
+                  >
+                    <Bookmark className={`w-4 h-4 flex-shrink-0 ${isBookmarked ? "fill-current" : ""}`} />
+                  </Button>
 
-                  <Button variant="ghost" size="sm" onClick={handleShare} className="text-gray-500 hover:text-blue-500">
-                    <Share className="w-4 h-4" />
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleShare} 
+                    className="text-gray-500 hover:text-blue-500 p-1 sm:p-2 min-w-0"
+                  >
+                    <Share className="w-4 h-4 flex-shrink-0" />
                   </Button>
                 </div>
               </div>
@@ -630,9 +646,9 @@ export default function PostCard({ post, onPostDeleted, onUpdate }: PostCardProp
 
       {/* Collection Selection Dialog */}
       <Dialog open={isCollectionDialogOpen} onOpenChange={setIsCollectionDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Save to Collection</DialogTitle>
+            <DialogTitle className="text-sm sm:text-base">Save to Collection</DialogTitle>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh]">
             <RadioGroup value={selectedCollectionId || ''} onValueChange={setSelectedCollectionId}>

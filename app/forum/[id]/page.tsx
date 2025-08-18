@@ -58,7 +58,12 @@ type Forum = {
   member_count: number
   thread_count: number
   latest_activity: string
-  moderators: string[]
+  moderators: (string | {
+    id?: string
+    username?: string
+    full_name?: string
+    avatar_url?: string
+  })[]
   is_private: boolean
   creator: string
   admin_id: string
@@ -264,52 +269,52 @@ export default function ForumDetailPage() {
 
   return (
     <MainLayout>
-      <div className="max-w-6xl mx-auto p-4 pb-20 lg:pb-4">
+      <div className="max-w-6xl mx-auto p-2 sm:p-4 pb-20 lg:pb-4">
         {/* Back Navigation */}
-        <div className="mb-6">
-          <Button variant="ghost" asChild className="mb-4">
+        <div className="mb-4 sm:mb-6 relative z-10">
+          <Button variant="ghost" asChild className="mb-2 sm:mb-4 h-10 sm:h-auto px-2 sm:px-4">
             <Link href="/forum">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Forums
+              <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="text-sm sm:text-base">Back to Forums</span>
             </Link>
           </Button>
         </div>
 
         {/* Forum Header */}
-        <div className="relative mb-8">
+        <div className="relative mb-4 sm:mb-8 overflow-hidden">
           <div
-            className="h-48 bg-gradient-to-r from-green-400 to-blue-500 rounded-lg bg-cover bg-center"
+            className="h-32 sm:h-48 bg-gradient-to-r from-green-400 to-blue-500 rounded-lg bg-cover bg-center"
             style={{ backgroundImage: forum.cover_image ? `url(${forum.cover_image})` : undefined }}
           >
             <div className="absolute inset-0 bg-black bg-opacity-40 rounded-lg"></div>
           </div>
 
-          <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center space-x-2 mb-2">
-                  <h1 className="text-3xl font-bold">{forum.name}</h1>
-                  {forum.is_private && <Lock className="w-5 h-5" />}
+          <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-6 text-white">
+            <div className="flex flex-col space-y-3">
+              <div className="flex-1">
+                <div className="flex items-center space-x-2 mb-1 sm:mb-2">
+                  <h1 className="text-lg sm:text-3xl font-bold truncate pr-2">{forum.name}</h1>
+                  {forum.is_private && <Lock className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />}
                 </div>
-                <p className="text-lg opacity-90 mb-2">{forum.description}</p>
-                <div className="flex items-center space-x-4 text-sm">
+                <p className="text-xs sm:text-lg opacity-90 mb-2 line-clamp-2 pr-2">{forum.description}</p>
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm mb-3 sm:mb-0">
                   <div className="flex items-center space-x-1">
-                    <Users className="w-4 h-4" />
-                    <span>{(forum.member_count || 0).toLocaleString()} members</span>
+                    <Users className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="whitespace-nowrap">{(forum.member_count || 0).toLocaleString()} members</span>
                   </div>
                   <div className="flex items-center space-x-1">
-                    <MessageSquare className="w-4 h-4" />
-                    <span>{forum.thread_count || 0} threads</span>
+                    <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="whitespace-nowrap">{forum.thread_count || 0} threads</span>
                   </div>
-                  <Badge variant="secondary" className="bg-white/20 text-white">
+                  <Badge variant="secondary" className="bg-white/20 text-white text-xs px-2 py-1">
                     {forum.category}
                   </Badge>
                 </div>
               </div>
 
-              <div className="flex space-x-2">
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 sm:justify-end">
                 <Button 
-                  className="bg-green-600 hover:bg-green-700" 
+                  className="bg-green-600 hover:bg-green-700 h-9 sm:h-10 text-sm w-full sm:w-auto" 
                   onClick={() => {
                     if (!isLoggedIn()) {
                       toast({
@@ -322,12 +327,14 @@ export default function ForumDetailPage() {
                     setIsCreatingThread(true)
                   }}
                 >
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Thread
+                  <Plus className="w-4 h-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">New Thread</span>
+                  <span className="sm:hidden">New</span>
                 </Button>
                 {isLoggedIn() && (
-                  <Button variant="secondary" className="bg-white/20 hover:bg-white/30 text-white">
-                    Join Forum
+                  <Button variant="secondary" className="bg-white/20 hover:bg-white/30 text-white h-9 sm:h-10 text-sm w-full sm:w-auto">
+                    <span className="hidden sm:inline">Join Forum</span>
+                    <span className="sm:hidden">Join</span>
                   </Button>
                 )}
               </div>
@@ -335,18 +342,18 @@ export default function ForumDetailPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-6">
           <div className="lg:col-span-3">
             {/* Search and Filters */}
-            <div className="mb-6">
-              <div className="flex flex-col sm:flex-row gap-4">
+            <div className="mb-4 sm:mb-6">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
                     placeholder="Search threads..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 h-10 sm:h-auto text-sm sm:text-base"
                   />
                 </div>
               </div>
@@ -354,21 +361,23 @@ export default function ForumDetailPage() {
 
             {/* Create Thread Form */}
             {isCreatingThread && (
-              <Card className="mb-6">
-                <CardHeader>
-                  <CardTitle>Create New Thread</CardTitle>
+              <Card className="mb-4 sm:mb-6">
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="text-lg sm:text-xl">Create New Thread</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6">
                   <Input
                     placeholder="Thread title..."
                     value={newThreadTitle}
                     onChange={(e) => setNewThreadTitle(e.target.value)}
+                    className="h-10 sm:h-auto text-sm sm:text-base"
                   />
                   <Textarea
                     placeholder="What would you like to discuss?"
                     value={newThreadContent}
                     onChange={(e) => setNewThreadContent(e.target.value)}
                     rows={4}
+                    className="min-h-[100px] sm:min-h-[120px] text-sm sm:text-base resize-none"
                   />
                   
                   {/* Admin/Creator Options */}
@@ -381,7 +390,7 @@ export default function ForumDetailPage() {
                           id="pin-thread"
                           checked={isPinned}
                           onChange={(e) => setIsPinned(e.target.checked)}
-                          className="rounded text-green-600 focus:ring-green-600"
+                          className="rounded text-green-600 focus:ring-green-600 w-4 h-4"
                         />
                         <label htmlFor="pin-thread" className="text-sm">Pin Thread</label>
                       </div>
@@ -391,18 +400,18 @@ export default function ForumDetailPage() {
                           id="lock-thread"
                           checked={isLocked}
                           onChange={(e) => setIsLocked(e.target.checked)}
-                          className="rounded text-green-600 focus:ring-green-600"
+                          className="rounded text-green-600 focus:ring-green-600 w-4 h-4"
                         />
                         <label htmlFor="lock-thread" className="text-sm">Lock Thread</label>
                       </div>
                     </div>
                   )}
                   
-                  <div className="flex space-x-2">
-                    <Button onClick={handleCreateThread} className="bg-green-600 hover:bg-green-700">
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                    <Button onClick={handleCreateThread} className="bg-green-600 hover:bg-green-700 h-10 text-sm sm:text-base">
                       Create Thread
                     </Button>
-                    <Button variant="outline" onClick={() => setIsCreatingThread(false)}>
+                    <Button variant="outline" onClick={() => setIsCreatingThread(false)} className="h-10 text-sm sm:text-base">
                       Cancel
                     </Button>
                   </div>
@@ -411,11 +420,11 @@ export default function ForumDetailPage() {
             )}
 
             {/* Threads List */}
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {filteredThreads.length === 0 ? (
                 <Card>
-                  <CardContent className="p-6 text-center">
-                    <p className="text-gray-500 dark:text-gray-400 mb-4">No threads found</p>
+                  <CardContent className="p-4 sm:p-6 text-center">
+                    <p className="text-gray-500 dark:text-gray-400 mb-4 text-sm sm:text-base">No threads found</p>
                     <Button 
                       onClick={() => {
                         if (!isLoggedIn()) {
@@ -428,77 +437,79 @@ export default function ForumDetailPage() {
                         }
                         setIsCreatingThread(true)
                       }} 
-                      className="bg-green-600 hover:bg-green-700"
+                      className="bg-green-600 hover:bg-green-700 h-10 text-sm sm:text-base"
                     >
-                      <Plus className="w-4 h-4 mr-2" />
+                      <Plus className="w-4 h-4 mr-1 sm:mr-2" />
                       Create Thread
                     </Button>
                   </CardContent>
                 </Card>
               ) : (
                 filteredThreads.map((thread) => (
-                  <Card key={thread.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex items-start space-x-4">
-                        <Avatar className="w-12 h-12">
+                  <Card key={thread.id} className="hover:shadow-md transition-shadow overflow-hidden">
+                    <CardContent className="p-3 sm:p-6">
+                      <div className="flex items-start space-x-3 sm:space-x-4">
+                        <Avatar className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0">
                           <AvatarImage src={thread.author?.avatar_url || "/placeholder.svg"} />
-                          <AvatarFallback>{thread.author?.full_name?.charAt(0) || thread.author?.username?.charAt(0) || 'U'}</AvatarFallback>
+                          <AvatarFallback className="text-xs sm:text-sm">{thread.author?.full_name?.charAt(0) || thread.author?.username?.charAt(0) || 'U'}</AvatarFallback>
                         </Avatar>
 
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            {thread.is_pinned && <Pin className="w-4 h-4 text-green-600" />}
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <div className="flex items-start space-x-2 mb-2">
+                            <div className="flex items-center space-x-1 flex-shrink-0">
+                              {thread.is_pinned && <Pin className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />}
+                              {thread.is_locked && <Lock className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />}
+                            </div>
                             <Link
                               href={`/forum/thread/${thread.id}`}
-                              className="text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-green-600"
+                              className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-green-600 line-clamp-2 flex-1 break-words"
                             >
                               {thread.title}
                             </Link>
-                            {thread.is_locked && <Lock className="w-4 h-4 text-gray-500" />}
                           </div>
 
-                          <p className="text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">{thread.content}</p>
+                          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-3 line-clamp-2 break-words">{thread.content}</p>
 
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                              <div className="flex items-center space-x-1">
+                          <div className="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500 dark:text-gray-400 min-w-0">
+                              <div className="flex items-center space-x-1 min-w-0">
                                 <span>by</span>
                                 <Link
                                   href={`/profile/${thread.author?.username || 'unknown'}`}
-                                  className="font-medium hover:text-green-600"
+                                  className="font-medium hover:text-green-600 truncate max-w-[100px] sm:max-w-[150px]"
                                 >
                                   {thread.author?.full_name || thread.author?.username || 'Unknown User'}
                                 </Link>
                               </div>
-                            <div className="flex items-center space-x-1">
-                              <Clock className="w-4 h-4" />
-                              <span>{formatTimeAgo(thread.created_at)}</span>
+                              <div className="flex items-center space-x-1 flex-shrink-0">
+                                <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+                                <span className="whitespace-nowrap">{formatTimeAgo(thread.created_at)}</span>
+                              </div>
                             </div>
-                          </div>
 
-                          <div className="flex items-center space-x-4">
-                              <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                            <div className="flex items-center justify-between sm:justify-end flex-shrink-0">
+                              <div className="flex items-center space-x-3 sm:space-x-4 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                                 <div className="flex items-center space-x-1">
-                                  <MessageSquare className="w-4 h-4" />
+                                  <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4" />
                                   <span>{thread.replies_count || 0}</span>
                                 </div>
                                 <div className="flex items-center space-x-1">
-                                  <span>{thread.views_count || 0} views</span>
+                                  <span className="whitespace-nowrap">{thread.views_count || 0} views</span>
                                 </div>
                               </div>
 
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm">
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:p-2 ml-2">
                                     <MoreHorizontal className="w-4 h-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem>
+                                  <DropdownMenuItem className="text-sm">
                                     <Share2 className="w-4 h-4 mr-2" />
                                     Share
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem>
+                                  <DropdownMenuItem className="text-sm">
                                     <Flag className="w-4 h-4 mr-2" />
                                     Report
                                   </DropdownMenuItem>
@@ -516,17 +527,17 @@ export default function ForumDetailPage() {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {forum.rules && forum.rules.length > 0 && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Forum Rules</CardTitle>
+                <CardHeader className="pb-3 sm:pb-6">
+                  <CardTitle className="text-base sm:text-lg font-semibold">Forum Rules</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="space-y-2 pt-0">
                   {forum.rules.map((rule, index) => (
                     <div key={index} className="flex items-start space-x-2">
-                      <span className="text-green-600 font-bold text-sm">{index + 1}.</span>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{rule}</p>
+                      <span className="text-green-600 font-bold text-xs sm:text-sm">{index + 1}.</span>
+                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">{rule}</p>
                     </div>
                   ))}
                 </CardContent>
@@ -535,52 +546,58 @@ export default function ForumDetailPage() {
 
             {forum.moderators && forum.moderators.length > 0 && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Moderators</CardTitle>
+                <CardHeader className="pb-3 sm:pb-6">
+                  <CardTitle className="text-base sm:text-lg font-semibold">Moderators</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  {forum.moderators.map((moderator) => (
-                    <div key={moderator.id || moderator.username || moderator} className="flex items-center space-x-3">
-                      <Avatar className="w-8 h-8">
-                        <AvatarImage src={moderator.avatar_url || "/placeholder.svg"} />
-                        <AvatarFallback>
-                          {moderator.full_name?.charAt(0)?.toUpperCase() || 
-                           moderator.username?.charAt(0)?.toUpperCase() || 
-                           (typeof moderator === 'string' ? moderator.charAt(0).toUpperCase() : 'M')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="text-sm font-medium">
-                          @{moderator.username || moderator}
-                        </p>
-                        <p className="text-xs text-gray-500">Moderator</p>
+                <CardContent className="space-y-3 pt-0">
+                  {forum.moderators.map((moderator, index) => {
+                    const isString = typeof moderator === 'string'
+                    const modObj = isString ? null : moderator
+                    const displayName = isString ? moderator : (modObj?.username || modObj?.full_name || 'Unknown')
+                    const avatarUrl = isString ? "/placeholder.svg" : (modObj?.avatar_url || "/placeholder.svg")
+                    const initials = isString 
+                      ? moderator.charAt(0).toUpperCase() 
+                      : (modObj?.full_name?.charAt(0)?.toUpperCase() || modObj?.username?.charAt(0)?.toUpperCase() || 'M')
+                    
+                    return (
+                      <div key={modObj?.id || displayName || index} className="flex items-center space-x-3">
+                        <Avatar className="w-7 h-7 sm:w-8 sm:h-8">
+                          <AvatarImage src={avatarUrl} />
+                          <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm font-medium truncate">
+                            @{displayName}
+                          </p>
+                          <p className="text-xs text-gray-500">Moderator</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </CardContent>
               </Card>
             )}
 
             <Card>
-              <CardHeader>
-                <CardTitle>Forum Stats</CardTitle>
+              <CardHeader className="pb-3 sm:pb-6">
+                <CardTitle className="text-base sm:text-lg font-semibold">Forum Stats</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Total Threads</span>
-                  <span className="font-medium">{forum.thread_count || 0}</span>
+              <CardContent className="space-y-3 pt-0">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Total Threads</span>
+                  <span className="text-xs sm:text-sm font-medium">{forum.thread_count || 0}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Total Members</span>
-                  <span className="font-medium">{(forum.member_count || 0).toLocaleString()}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Total Members</span>
+                  <span className="text-xs sm:text-sm font-medium">{(forum.member_count || 0).toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Last Activity</span>
-                  <span className="font-medium">{forum.latest_activity ? formatTimeAgo(forum.latest_activity) : 'N/A'}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Last Activity</span>
+                  <span className="text-xs sm:text-sm font-medium truncate ml-2">{forum.latest_activity ? formatTimeAgo(forum.latest_activity) : 'N/A'}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Created By</span>
-                  <span className="font-medium">{forum.creator || 'Unknown'}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Created By</span>
+                  <span className="text-xs sm:text-sm font-medium truncate ml-2">{forum.creator || 'Unknown'}</span>
                 </div>
               </CardContent>
             </Card>

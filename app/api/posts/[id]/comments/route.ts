@@ -82,8 +82,7 @@ export async function POST(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: cookieStore });
+    const supabase = createRouteHandlerClient({ cookies });
     const params = await context.params;
     const { id: postId } = params;
 

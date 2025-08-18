@@ -23,8 +23,7 @@ export async function GET(request: NextRequest) {
         verified,
         bio,
         followers_count,
-        following_count,
-        posts_count
+        following_count
       `)
       .order('followers_count', { ascending: false })
       .limit(limit * 3) // Get more to filter out followed users

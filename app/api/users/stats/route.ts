@@ -1,14 +1,11 @@
-import { createClient } from '@supabase/supabase-js'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 // GET /api/users/stats - Get user statistics for dashboard
 export async function GET(request: NextRequest) {
   try {
+    const supabase = createRouteHandlerClient({ cookies })
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
 
@@ -130,14 +127,15 @@ export async function GET(request: NextRequest) {
       // Convert to leaderboard format
       transformedInvitesLeaderboard = Array.from(inviterCounts.entries())
         .map(([inviterId, count]) => {
-          const inviter = topInviters?.find(r => r.inviter_id === inviterId)?.profiles
+          const referral = topInviters?.find(r => r.inviter_id === inviterId)
+          const inviter = referral?.profiles as any
           return {
             rank: 0, // Will be set below
             user: {
-              id: inviter?.id || inviterId,
-              username: inviter?.username || 'Unknown',
-              full_name: inviter?.full_name || 'Unknown User',
-              avatar_url: inviter?.avatar_url || null
+              id: (inviter && typeof inviter === 'object' && !Array.isArray(inviter)) ? inviter.id : inviterId,
+              username: (inviter && typeof inviter === 'object' && !Array.isArray(inviter)) ? inviter.username || 'Unknown' : 'Unknown',
+              full_name: (inviter && typeof inviter === 'object' && !Array.isArray(inviter)) ? inviter.full_name || 'Unknown User' : 'Unknown User',
+              avatar_url: (inviter && typeof inviter === 'object' && !Array.isArray(inviter)) ? inviter.avatar_url || null : null
             },
             invites: count,
             points_earned: count * 10 // Assuming 10 points per invite

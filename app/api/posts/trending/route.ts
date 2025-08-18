@@ -4,8 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const supabase = createRouteHandlerClient({ cookies })
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '10')
     const category = searchParams.get('category')
@@ -44,7 +43,7 @@ export async function GET(request: NextRequest) {
           verified
         ),
         ${currentUserId ? `
-          post_likes!left (user_id),
+          likes!left (user_id),
           bookmarks!left (user_id),
           reposts!left (user_id)
         ` : ''}
@@ -76,7 +75,7 @@ export async function GET(request: NextRequest) {
       return {
         ...post,
         engagement_score: engagementScore,
-        liked_by_user: currentUserId ? (post.post_likes || []).some((like: any) => like.user_id === currentUserId) : false,
+        liked_by_user: currentUserId ? (post.likes || []).some((like: any) => like.user_id === currentUserId) : false,
         bookmarked_by_user: currentUserId ? (post.bookmarks || []).some((bookmark: any) => bookmark.user_id === currentUserId) : false,
         reposted_by_user: currentUserId ? (post.reposts || []).some((repost: any) => repost.user_id === currentUserId) : false,
         shares_count: post.reposts_count || 0 // Alias for compatibility
@@ -87,7 +86,7 @@ export async function GET(request: NextRequest) {
     const trendingPosts = postsWithEngagement
       .sort((a, b) => b.engagement_score - a.engagement_score)
       .slice(0, limit)
-      .map(({ engagement_score, post_likes, bookmarks, reposts, ...post }) => post) // Remove internal fields
+      .map(({ engagement_score, likes, bookmarks, reposts, ...post }) => post) // Remove internal fields
 
     return NextResponse.json(trendingPosts)
   } catch (error) {

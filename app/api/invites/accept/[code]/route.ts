@@ -4,8 +4,7 @@ import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ code: string }> }) {
   try {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: cookieStore })
+    const supabase = createRouteHandlerClient({ cookies })
     const { code } = await params
     
     // Get the current user

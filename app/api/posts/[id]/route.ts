@@ -8,8 +8,7 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: cookieStore });
+    const supabase = createRouteHandlerClient({ cookies });
     const params = await context.params;
     const { id } = params;
 
@@ -85,8 +84,7 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: cookieStore });
+    const supabase = createRouteHandlerClient({ cookies });
     const params = await context.params;
     const { id } = params;
 
