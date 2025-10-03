@@ -360,7 +360,9 @@ export function ChatInterface({
             </Button>
             {showEmojiPicker && (
               <div className="absolute bottom-12 left-0 z-50">
-                <EmojiPicker onEmojiSelect={handleEmojiSelect} />
+                <EmojiPicker onEmojiSelect={handleEmojiSelect}>
+                  <div />
+                </EmojiPicker>
               </div>
             )}
           </div>

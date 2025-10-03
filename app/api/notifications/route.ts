@@ -2,6 +2,13 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
+// Add CORS headers to prevent ERR_ABORTED errors
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+}
+
 interface Profile {
   id: string
   username: string
@@ -20,22 +27,44 @@ interface NotificationData {
   actor_profile: Profile | null
 }
 
+// OPTIONS handler for CORS preflight requests
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, { status: 200, headers: corsHeaders })
+}
+
 // GET /api/notifications - Fetch user's notifications
 export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url)
+    const countOnly = searchParams.get('count_only') === 'true'
+    
+    // If count_only is requested, return a simple count without authentication for now
+    if (countOnly) {
+      return NextResponse.json({ count: 0 }, { headers: corsHeaders })
+    }
+    
     const supabase = createRouteHandlerClient({ cookies })
     
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // Get user session first
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
     
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (sessionError || !session?.user) {
+      console.log('Authentication failed in notifications API:', sessionError?.message || 'No session')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders })
     }
+    
+    const user = session.user
 
-    const { searchParams } = new URL(request.url)
     const tab = searchParams.get('tab') || 'all'
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = parseInt(searchParams.get('offset') || '0')
+    const recipientId = searchParams.get('recipient_id')
+    const readFilter = searchParams.get('read')
 
+    // Use recipient_id from query params if provided, otherwise use authenticated user's id
+    const targetRecipientId = recipientId || user.id
+    
+    // If count_only is not requested, use a full query
     let query = supabase
       .from('notifications')
       .select(`
@@ -52,10 +81,18 @@ export async function GET(request: NextRequest) {
           media_urls
         )
       `)
-      .eq('recipient_id', user.id)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
+      .eq('recipient_id', targetRecipientId)
+    
+    if (!countOnly) {
+      query = query.order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1)
+    }
 
+    // Filter by read status if specified
+    if (readFilter !== null) {
+      query = query.eq('read', readFilter === 'true')
+    }
+    
     // Filter by tab
     if (tab === 'unread') {
       query = query.eq('read', false)
@@ -65,7 +102,7 @@ export async function GET(request: NextRequest) {
       query = query.eq('type', 'follow')
     }
 
-    const { data: notifications, error } = await query
+    const { data: notifications, error, count } = await query
 
     if (error) {
       console.error('Error fetching notifications:', error)
@@ -77,7 +114,7 @@ export async function GET(request: NextRequest) {
           error: 'Notifications table not found',
           message: 'The notifications table has not been set up yet. Please contact an administrator.',
           setupRequired: true
-        }, { status: 503 })
+        }, { status: 503, headers: corsHeaders })
       }
       
       // Check for permission errors
@@ -92,27 +129,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ 
         error: 'Failed to fetch notifications',
         details: error.message
-      }, { status: 500 })
+      }, { status: 500, headers: corsHeaders })
     }
 
+    // If count_only is requested, return just the count
+    if (countOnly) {
+      return NextResponse.json({ count: count || 0 }, { headers: corsHeaders })
+    }
+    
     // Transform the data to match frontend interface
     const transformedNotifications = (notifications || []).map(notification => ({
-      id: notification.id,
-      type: notification.type,
-      content: notification.content,
-      read: notification.read,
-      created_at: notification.created_at,
-      post_preview: notification.post?.content,
-      comment_preview: notification.comment_id ? notification.content : undefined,
+      id: (notification as any).id,
+      type: (notification as any).type,
+      content: (notification as any).content,
+      read: (notification as any).read,
+      created_at: (notification as any).created_at,
+      post_preview: (notification as any).post?.content,
+      comment_preview: (notification as any).comment_id ? (notification as any).content : undefined,
       user: {
-        id: notification.actor?.id,
-        username: notification.actor?.username,
-        full_name: notification.actor?.full_name,
-        avatar_url: notification.actor?.avatar_url
+        id: (notification as any).actor?.id,
+        username: (notification as any).actor?.username,
+        full_name: (notification as any).actor?.full_name,
+        avatar_url: (notification as any).actor?.avatar_url
       }
     }))
 
-    return NextResponse.json({ notifications: transformedNotifications })
+    return NextResponse.json({ notifications: transformedNotifications }, { headers: corsHeaders })
   } catch (error) {
     console.error('Error in notifications GET:', error)
     return NextResponse.json({ 
@@ -129,14 +171,14 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders })
     }
 
     const body = await request.json()
     const { recipient_id, type, content, post_id, comment_id } = body
 
     if (!recipient_id || !type) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400, headers: corsHeaders })
     }
 
     // Don't create notification for self
@@ -164,10 +206,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create notification' }, { status: 500 })
     }
 
-    return NextResponse.json({ notification_id: data.id })
+    return NextResponse.json({ notification_id: data.id }, { headers: corsHeaders })
   } catch (error) {
     console.error('Error in notifications POST:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: corsHeaders })
   }
 }
 
@@ -179,7 +221,7 @@ export async function PATCH(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders })
     }
 
     const body = await request.json()
@@ -217,10 +259,10 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ 
           error: 'Internal server error',
           message: error.message
-        }, { status: 500 })
+        }, { status: 500, headers: corsHeaders })
       }
 
-      return NextResponse.json({ success: true })
+      return NextResponse.json({ success: true }, { headers: corsHeaders })
     } else if (notificationId) {
       // Mark specific notification as read
       const { error } = await supabase
@@ -256,9 +298,9 @@ export async function PATCH(request: NextRequest) {
         }, { status: 500 })
       }
 
-      return NextResponse.json({ success: true })
+      return NextResponse.json({ success: true }, { headers: corsHeaders })
     } else {
-      return NextResponse.json({ error: 'Invalid request body. Provide either notificationId or markAllAsRead.' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid request body. Provide either notificationId or markAllAsRead.' }, { status: 400, headers: corsHeaders })
     }
   } catch (error) {
     console.error('Error in notifications PATCH:', error)

@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useSession } from 'next-auth/react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import type { User } from '@supabase/auth-helpers-nextjs'
 import { ArrowLeft, Phone, Video, MoreVertical, Send, Paperclip, Smile } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { ChatInterface } from '@/components/ChatInterface'
-import { MainLayout } from '@/components/main-layout'
+import MainLayout from '@/components/main-layout'
 import { useToast } from '@/hooks/use-toast'
 
 interface Conversation {
@@ -35,19 +35,18 @@ interface Message {
   sender_id: string
   content: string
   created_at: string
-  reply_to?: string
+  updated_at: string
+  reply_to_id?: string
   sender?: {
     id: string
     username: string
     full_name: string
     avatar_url: string
   }
-  reply_to_message?: {
+  reply_to?: {
     id: string
     content: string
     sender: {
-      id: string
-      username: string
       full_name: string
     }
   }
@@ -61,18 +60,19 @@ interface Message {
 export default function ConversationPage() {
   const params = useParams()
   const router = useRouter()
-  const { data: session } = useSession()
   const { toast } = useToast()
   const supabase = createClientComponentClient()
   
   const conversationId = params.conversationId as string
+  const [user, setUser] = useState<User | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
   
   const [conversation, setConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
   const [messageInput, setMessageInput] = useState('')
   const [sendingMessage, setSendingMessage] = useState(false)
-  const [replyingTo, setReplyingTo] = useState<string | null>(null)
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -105,7 +105,7 @@ export default function ConversationPage() {
   // Fetch messages for the conversation
   const fetchMessages = async () => {
     try {
-      const response = await fetch(`/api/messages?conversationId=${conversationId}`)
+      const response = await fetch(`/api/messages?conversation_id=${conversationId}`)
       if (response.ok) {
         const data = await response.json()
         setMessages(data)
@@ -129,16 +129,23 @@ export default function ConversationPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          conversationId: conversation.id,
+          conversation_id: conversation.id,
           content: messageInput.trim(),
-          replyToId: replyingTo
+          replyToId: replyingTo?.id
         }),
       })
 
       if (response.ok) {
         setMessageInput('')
         setReplyingTo(null)
-        // Message will be added via real-time subscription
+        // Refresh messages to show the new message
+        await fetchMessages()
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to send message",
+          variant: "destructive"
+        })
       }
     } catch (error) {
       console.error('Error sending message:', error)
@@ -158,17 +165,35 @@ export default function ConversationPage() {
     textareaRef.current?.focus()
   }
 
+  // Initialize authentication
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+      setAuthLoading(false)
+    }
+    
+    getUser()
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+      setAuthLoading(false)
+    })
+    
+    return () => subscription.unsubscribe()
+  }, [])
+
   // Load conversation and messages on mount
   useEffect(() => {
-    if (!session?.user?.id || !conversationId) return
+    if (!user?.id || !conversationId) return
     
     fetchConversation()
     fetchMessages()
-  }, [session, conversationId])
+  }, [user, conversationId])
 
   // Set up real-time subscriptions
   useEffect(() => {
-    if (!session?.user?.id || !conversationId) return
+    if (!user?.id || !conversationId) return
 
     const messageChannel = supabase
       .channel('messages')
@@ -212,14 +237,27 @@ export default function ConversationPage() {
     return () => {
       supabase.removeChannel(messageChannel)
     }
-  }, [session, conversationId])
+  }, [user, conversationId])
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  if (!session) {
+  if (authLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </div>
+      </MainLayout>
+    )
+  }
+
+  if (!user) {
     return (
       <MainLayout>
         <div className="flex items-center justify-center h-full">
@@ -323,16 +361,14 @@ export default function ConversationPage() {
           <ChatInterface
             conversation={conversation}
             messages={messages}
-            messageInput={messageInput}
-            setMessageInput={setMessageInput}
-            sendingMessage={sendingMessage}
-            replyingTo={replyingTo}
-            setReplyingTo={setReplyingTo}
+            loading={false}
+            currentUserId={user.id}
             onSendMessage={handleSendMessage}
-            onEmojiSelect={handleEmojiSelect}
-            textareaRef={textareaRef}
-            messagesEndRef={messagesEndRef}
-            currentUserId={session.user.id}
+            onDeleteMessage={() => {}}
+            onDeleteConversation={() => {}}
+            showMobileView={false}
+            replyingTo={replyingTo}
+            onCancelReply={() => setReplyingTo(null)}
           />
         </div>
 
@@ -349,7 +385,7 @@ export default function ConversationPage() {
               </div>
             ) : (
               messages.map((message) => {
-                const isOwn = message.sender_id === session?.user?.id
+                const isOwn = message.sender_id === user?.id
                 return (
                   <div
                     key={message.id}
@@ -357,13 +393,13 @@ export default function ConversationPage() {
                   >
                     <div className={`max-w-xs relative`}>
                       {/* Reply reference */}
-                      {message.reply_to_message && (
+                      {message.reply_to && (
                         <div className="mb-1 p-2 bg-gray-100 rounded-lg border-l-4 border-blue-500 text-sm">
                           <p className="font-medium text-gray-700">
-                            {message.reply_to_message.sender?.full_name || 'Unknown'}
+                            {message.reply_to.sender?.full_name || 'Unknown'}
                           </p>
                           <p className="text-gray-600 truncate">
-                            {message.reply_to_message.content}
+                            {message.reply_to.content}
                           </p>
                         </div>
                       )}

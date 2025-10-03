@@ -34,12 +34,14 @@ import {
   Moon,
   Shield,
   UserPlus,
+  ShoppingBag,
 } from "lucide-react"
 import Link from "next/link"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import Image from "next/image"
 import SearchModal from "@/components/search-modal"
 import InviteModal from "@/components/invite-modal"
+import { MarketplaceNotifications } from "@/components/marketplace/notifications"
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -66,6 +68,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const navigationItems = [
     { icon: Home, label: "Home", href: "/", badge: null },
     { icon: Compass, label: "Explore", href: "/explore", badge: null },
+    { icon: ShoppingBag, label: "Marketplace", href: "/marketplace", badge: null },
     { icon: Bookmark, label: "Bookmarks", href: "/bookmarks", badge: null },
     { icon: Bell, label: "Notifications", href: "/notifications", badge: unreadNotifications > 0 ? unreadNotifications : null },
     { icon: MessageCircle, label: "Messages", href: "/messages", badge: unreadMessages > 0 ? unreadMessages : null },
@@ -94,31 +97,101 @@ export default function MainLayout({ children }: MainLayoutProps) {
     fetchProfile()
   }, [session?.user?.id])
 
-  // Fetch unread notifications count
-  const fetchUnreadNotifications = async () => {
-    if (session?.user?.id) {
-      const { count, error } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('recipient_id', session.user.id)
-        .eq('read', false)
+  // Fetch unread notifications count with improved error handling
+  const fetchUnreadNotifications = async (retryCount = 0) => {
+    if (!session?.user?.id) return
+    
+    const maxRetries = 3
+    const retryDelay = 1000 * Math.pow(2, retryCount) // Exponential backoff
+    
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
       
-      if (!error) {
-        setUnreadNotifications(count || 0)
+      const response = await fetch(`/api/notifications?recipient_id=${session.user.id}&read=false&count_only=true`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        signal: controller.signal
+      })
+      
+      clearTimeout(timeoutId)
+      
+      if (response.ok) {
+        const data = await response.json()
+        setUnreadNotifications(data.count || 0)
+      } else if (response.status === 401) {
+        // Authentication error - redirect to login
+        console.warn('Authentication failed, redirecting to login')
+        await supabase.auth.signOut()
+        router.push('/auth/login')
+      } else if (response.status >= 500 && retryCount < maxRetries) {
+        // Server error - retry with exponential backoff
+        console.warn(`Server error (${response.status}), retrying in ${retryDelay}ms... (attempt ${retryCount + 1}/${maxRetries + 1})`)
+        setTimeout(() => fetchUnreadNotifications(retryCount + 1), retryDelay)
+      } else {
+        console.error('Failed to fetch unread notifications:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url
+        })
+        // Set to 0 to prevent showing stale data
+        setUnreadNotifications(0)
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          console.warn('Notification fetch request timed out')
+        } else if (error.message.includes('fetch')) {
+          // Network error - retry if we haven't exceeded max retries
+          if (retryCount < maxRetries) {
+            console.warn(`Network error fetching notifications, retrying in ${retryDelay}ms... (attempt ${retryCount + 1}/${maxRetries + 1})`)
+            setTimeout(() => fetchUnreadNotifications(retryCount + 1), retryDelay)
+          } else {
+            console.error('Max retries exceeded for notification fetch:', error.message)
+            setUnreadNotifications(0)
+          }
+        } else {
+          console.error('Unexpected error fetching notifications:', error.message)
+          setUnreadNotifications(0)
+        }
+      } else {
+        console.error('Unknown error fetching notifications:', error)
+        setUnreadNotifications(0)
       }
     }
   }
 
-  // Fetch unread messages count
-  const fetchUnreadMessages = async () => {
-    if (session?.user?.id) {
+  // Fetch unread messages count with improved error handling
+  const fetchUnreadMessages = async (retryCount = 0) => {
+    if (!session?.user?.id) return
+    
+    const maxRetries = 3
+    const retryDelay = 1000 * Math.pow(2, retryCount) // Exponential backoff
+    
+    try {
       // Get conversations where user is a participant
       const { data: conversations, error: convError } = await supabase
         .from('conversations')
         .select('id, updated_at')
         .or(`participant_one_id.eq.${session.user.id},participant_two_id.eq.${session.user.id}`)
       
-      if (!convError && conversations) {
+      if (convError) {
+        if (convError.code === 'PGRST116' && retryCount < maxRetries) {
+          // Table doesn't exist or permission denied - retry
+          console.warn(`Error fetching conversations (${convError.code}), retrying in ${retryDelay}ms... (attempt ${retryCount + 1}/${maxRetries + 1})`)
+          setTimeout(() => fetchUnreadMessages(retryCount + 1), retryDelay)
+          return
+        } else {
+          console.error('Error fetching conversations:', convError)
+          setUnreadMessages(0)
+          return
+        }
+      }
+      
+      if (conversations) {
         // For now, just count conversations that have been updated recently
         // In a real app, you'd track last_read_at per user per conversation
         const recentConversations = conversations.filter(conv => {
@@ -128,6 +201,16 @@ export default function MainLayout({ children }: MainLayoutProps) {
         })
         
         setUnreadMessages(recentConversations.length)
+      } else {
+        setUnreadMessages(0)
+      }
+    } catch (error) {
+      if (retryCount < maxRetries) {
+        console.warn(`Unexpected error fetching messages, retrying in ${retryDelay}ms... (attempt ${retryCount + 1}/${maxRetries + 1})`, error)
+        setTimeout(() => fetchUnreadMessages(retryCount + 1), retryDelay)
+      } else {
+        console.error('Max retries exceeded for message fetch:', error)
+        setUnreadMessages(0)
       }
     }
   }
@@ -348,6 +431,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
               <UserPlus className="w-4 h-4 mr-2" />
               Invite Friends
             </Button>
+            
+            {session?.user?.id && (
+              <MarketplaceNotifications userId={session.user.id} />
+            )}
             
             <Button variant="ghost" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
               {mounted && theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}

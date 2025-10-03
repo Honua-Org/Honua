@@ -13,15 +13,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Username is required' }, { status: 400 })
     }
     
+    console.log('Fetching profile for username:', username)
+    
     // Get user profile by username
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('username', username)
-      .single()
+      .maybeSingle()
     
     if (error) {
       console.error('Error fetching profile:', error)
+      return NextResponse.json({ error: 'Database error occurred' }, { status: 500 })
+    }
+    
+    if (!profile) {
+      console.log('Profile not found for username:', username)
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
     }
     

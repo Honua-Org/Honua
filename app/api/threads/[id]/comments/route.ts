@@ -35,7 +35,7 @@ export async function GET(
 
     // Get comments for the thread
     // Try thread_id first, fallback to post_id if thread_id column doesn't exist
-    let commentsQuery = supabase
+    const commentsQuery = supabase
       .from('comments')
       .select(`
         id,

@@ -233,7 +233,7 @@ async function checkAndAwardAchievements(userId: string) {
         case 'Community Helper':
           // Check if user has 50+ comment likes
           const { data: commentLikes } = await supabase
-            .from('post_likes')
+            .from('likes')
             .select('post_id')
             .eq('user_id', userId)
           // This is simplified - in a real app, you'd track comment likes separately

@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
-import { useSession } from "@supabase/auth-helpers-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { User } from "@supabase/auth-helpers-nextjs"
 import ConversationList from "@/components/ConversationList"
 import { ChatInterface } from "@/components/ChatInterface"
 import MainLayout from "@/components/main-layout"
@@ -38,7 +38,14 @@ interface Message {
   sender_id: string
   content: string
   created_at: string
-  reply_to?: string
+  updated_at: string
+  reply_to?: {
+    id: string
+    content: string
+    sender: {
+      full_name: string
+    }
+  }
   sender?: {
     id: string
     username: string
@@ -67,54 +74,144 @@ function MessagesPageContent() {
   const [messages, setMessages] = useState<Message[]>([])
   const [messageInput, setMessageInput] = useState('')
   const [sendingMessage, setSendingMessage] = useState(false)
-  const [replyingTo, setReplyingTo] = useState<string | null>(null)
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const [loading, setLoading] = useState(true)
   const [messagesLoading, setMessagesLoading] = useState(false)
-  const session = useSession()
+  const [user, setUser] = useState<User | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
   const { toast } = useToast()
   const supabase = createClientComponentClient()
   const searchParams = useSearchParams()
 
+  // Get current user
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser()
+        if (error) {
+          console.error('Error getting user:', error)
+        } else {
+          setUser(user)
+        }
+      } catch (error) {
+        console.error('Error in getUser:', error)
+      } finally {
+        setAuthLoading(false)
+      }
+    }
+
+    getUser()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null)
+      setAuthLoading(false)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
   // Fetch conversations
   const fetchConversations = async () => {
-    if (!session?.user?.id) return
+    if (!user?.id) return
 
     try {
       const { data, error } = await supabase
         .from('conversations')
         .select(`
           *,
-          participant_1:profiles!participant_one_id(*),
-          participant_2:profiles!participant_two_id(*),
-          latest_message:messages(
-            content,
-            created_at,
-            sender_id
+          participant_one:profiles!participant_one_id (
+            id,
+            username,
+            full_name,
+            avatar_url
+          ),
+          participant_two:profiles!participant_two_id (
+            id,
+            username,
+            full_name,
+            avatar_url
           )
         `)
-        .or(`participant_one_id.eq.${session.user.id},participant_two_id.eq.${session.user.id}`)
+        .or(`participant_one_id.eq.${user?.id},participant_two_id.eq.${user?.id}`)
         .order('updated_at', { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.error('Supabase error details:', error)
+        throw error
+      }
 
-      const conversationsWithOtherParticipant = data.map(conv => {
-        const otherParticipant = conv.participant_1.id === session.user.id 
-          ? conv.participant_2 
-          : conv.participant_1
+      if (!data) {
+        console.warn('No conversation data returned')
+        setConversations([])
+        return
+      }
+
+      // Filter out conversations where both participants are missing
+      const conversationsWithParticipants = data.filter(conversation => {
+        return conversation.participant_one || conversation.participant_two
+      }).map(conversation => {
+        const otherParticipant = conversation.participant_one?.id === user?.id 
+          ? conversation.participant_two 
+          : conversation.participant_one
         
         return {
-          ...conv,
-          otherParticipant,
-          latestMessage: conv.latest_message?.[0] || null
+          id: conversation.id,
+          participant_one_id: conversation.participant_one_id,
+          participant_two_id: conversation.participant_two_id,
+          otherParticipant: otherParticipant ? {
+            ...otherParticipant,
+            is_online: false // Default to false, will be updated by real-time subscriptions
+          } : undefined,
+          updated_at: conversation.updated_at,
+          created_at: conversation.created_at
         }
       })
 
-      setConversations(conversationsWithOtherParticipant)
-    } catch (error) {
-      console.error('Error fetching conversations:', error)
+      // Fetch latest messages for all conversations
+      const conversationsWithMessages = await Promise.all(
+        conversationsWithParticipants.map(async conversation => {
+          const { data: latestMessages } = await supabase
+            .from('messages')
+            .select('id, content, created_at, sender_id')
+            .eq('conversation_id', conversation.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+          
+          const latestMessage = latestMessages && latestMessages.length > 0 ? latestMessages[0] : null
+
+          return {
+            ...conversation,
+            latestMessage
+          }
+        })
+      )
+
+      const transformedConversations = conversationsWithMessages.map(conv => ({
+        id: conv.id,
+        participant_one_id: conv.participant_one_id,
+        participant_two_id: conv.participant_two_id,
+        otherParticipant: conv.otherParticipant,
+        latestMessage: conv.latestMessage ? {
+          content: conv.latestMessage.content,
+          created_at: conv.latestMessage.created_at,
+          sender_id: conv.latestMessage.sender_id
+        } : undefined,
+        updated_at: conv.updated_at,
+        created_at: conv.created_at
+      }))
+
+      setConversations(transformedConversations)
+    } catch (error: any) {
+      console.error('Error fetching conversations:', {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code
+      })
       toast({
         title: "Error",
-        description: "Failed to load conversations",
+        description: `Failed to load conversations: ${error?.message || 'Unknown error'}`,
         variant: "destructive"
       })
     } finally {
@@ -126,13 +223,25 @@ function MessagesPageContent() {
   const fetchMessages = async (conversationId: string) => {
     setMessagesLoading(true)
     try {
-      const response = await fetch(`/api/messages?conversationId=${conversationId}`)
+      const response = await fetch(`/api/messages?conversation_id=${conversationId}`)
       if (response.ok) {
         const data = await response.json()
         setMessages(data)
+      } else {
+        console.error('Failed to fetch messages:', response.status, response.statusText)
+        toast({
+          title: "Error",
+          description: "Failed to load messages",
+          variant: "destructive"
+        })
       }
     } catch (error) {
       console.error('Error fetching messages:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load messages",
+        variant: "destructive"
+      })
     } finally {
       setMessagesLoading(false)
     }
@@ -157,16 +266,31 @@ function MessagesPageContent() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          conversationId: selectedConversation.id,
+          conversation_id: selectedConversation.id,
           content: messageInput.trim(),
-          replyToId: replyingTo
+          reply_to_id: replyingTo
         }),
       })
 
       if (response.ok) {
         setMessageInput('')
         setReplyingTo(null)
-        // Message will be added via real-time subscription
+        // Refresh messages to show the new message
+        await fetchMessages(selectedConversation.id)
+        // Also refresh conversations to update latest message
+        fetchConversations()
+        toast({
+          title: "Success",
+          description: "Message sent successfully"
+        })
+      } else {
+        console.error('Failed to send message:', response.status, response.statusText)
+        const errorData = await response.json().catch(() => ({}))
+        toast({
+          title: "Error",
+          description: errorData.error || "Failed to send message",
+          variant: "destructive"
+        })
       }
     } catch (error) {
       console.error('Error sending message:', error)
@@ -221,8 +345,13 @@ function MessagesPageContent() {
         // Create conversation object for UI
         const newConversation = {
           id: conversation.id,
-          otherParticipant: profile,
-          latestMessage: null,
+          participant_one_id: conversation.participant_one_id,
+          participant_two_id: conversation.participant_two_id,
+          otherParticipant: {
+            ...profile,
+            is_online: false // Default to false, will be updated by real-time subscriptions
+          },
+          latestMessage: undefined,
           updated_at: conversation.updated_at,
           created_at: conversation.created_at
         }
@@ -253,14 +382,14 @@ function MessagesPageContent() {
 
   // Load conversations on mount
   useEffect(() => {
-    if (session?.user?.id) {
+    if (user?.id && !authLoading) {
       fetchConversations()
     }
-  }, [session])
+  }, [user, authLoading])
 
   // Set up real-time subscriptions
   useEffect(() => {
-    if (!session?.user?.id) return
+    if (!user?.id) return
 
     const conversationChannel = supabase
       .channel('conversations')
@@ -270,7 +399,7 @@ function MessagesPageContent() {
           event: '*',
           schema: 'public',
           table: 'conversations',
-          filter: `or(participant_one_id.eq.${session.user.id},participant_two_id.eq.${session.user.id})`,
+          filter: `or(participant_one_id.eq.${user?.id},participant_two_id.eq.${user?.id})`,
         },
         () => {
           fetchConversations()
@@ -326,7 +455,7 @@ function MessagesPageContent() {
       supabase.removeChannel(conversationChannel)
       supabase.removeChannel(messageChannel)
     }
-  }, [session, selectedConversation])
+  }, [user, selectedConversation])
 
   // Load messages when conversation changes and set up real-time subscription
   useEffect(() => {
@@ -364,7 +493,7 @@ function MessagesPageContent() {
               // Add is_own property to determine message alignment
               const messageWithOwnership = {
                 ...newMessage,
-                is_own: newMessage.sender_id === session?.user?.id
+                is_own: newMessage.sender_id === user?.id
               }
               
               setMessages(prev => {
@@ -391,12 +520,12 @@ function MessagesPageContent() {
         supabase.removeChannel(channel)
       }
     }
-  }, [selectedConversation, session])
+  }, [selectedConversation, user])
 
   // Handle user parameter from URL to start a conversation
   useEffect(() => {
     const userParam = searchParams.get('user')
-    if (userParam && session && conversations.length >= 0) {
+    if (userParam && user && conversations.length >= 0) {
       // Check if conversation with this user already exists
       const existingConversation = conversations.find(
         conv => conv.otherParticipant && conv.otherParticipant.username === userParam
@@ -410,9 +539,23 @@ function MessagesPageContent() {
         createConversation(userParam)
       }
     }
-  }, [searchParams, session, conversations])
+  }, [searchParams, user, conversations])
 
-  if (!session?.user) {
+  if (authLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-green-600 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2 text-foreground">Loading...</h2>
+            <p className="text-muted-foreground">Please wait while we load your messages</p>
+          </div>
+        </div>
+      </MainLayout>
+    )
+  }
+
+  if (!user) {
     return (
       <MainLayout>
         <div className="flex items-center justify-center h-full">
@@ -460,15 +603,14 @@ function MessagesPageContent() {
               <ChatInterface
                 conversation={selectedConversation}
                 messages={messages}
-                messageInput={messageInput}
-                setMessageInput={setMessageInput}
-                sendingMessage={sendingMessage}
-                replyingTo={replyingTo}
-                setReplyingTo={setReplyingTo}
-                onSendMessage={handleSendMessage}
-                onEmojiSelect={handleEmojiSelect}
-                currentUserId={session?.user?.id || ''}
                 loading={messagesLoading}
+                currentUserId={user?.id || ''}
+                onSendMessage={handleSendMessage}
+                onDeleteMessage={() => {}}
+                onDeleteConversation={() => {}}
+                showMobileView={false}
+                replyingTo={replyingTo}
+                onCancelReply={() => setReplyingTo(null)}
               />
             ) : (
               <div className="flex items-center justify-center h-full bg-muted/30">

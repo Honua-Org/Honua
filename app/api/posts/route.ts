@@ -19,37 +19,34 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const offset = (page - 1) * limit
 
-    // Get current user
+    // Get current user (optional - posts should be accessible to everyone)
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     
+    // Don't return error for auth issues - just log and continue without user context
     if (authError) {
-      console.error('Supabase auth error:', authError)
-      return NextResponse.json({ 
-        error: 'Authentication error: ' + authError.message 
-      }, { status: 401 })
+      console.log('No authenticated user, showing public posts:', authError.message)
     }
 
-    // Fetch posts with user data, likes, comments, and reposts
+    // Fetch posts with user information and engagement data
     const { data: posts, error } = await supabase
       .from('posts')
       .select(`
         *,
-        profiles!posts_user_id_fkey (
+        profiles:user_id (
           id,
           username,
           full_name,
-          avatar_url,
-          bio,
-          website,
-          location,
-          verified
+          avatar_url
         ),
-        likes:likes(count),
-        comments:comments(count),
-        reposts:reposts(count)
+        likes!left (
+          id,
+          user_id
+        ),
+        comments!left (
+          id
+        )
       `)
       .order('created_at', { ascending: false })
-      .limit(limit)
       .range(offset, offset + limit - 1)
 
     if (error) {
@@ -65,53 +62,17 @@ export async function GET(request: NextRequest) {
       }, { status: 500 })
     }
 
-    // Transform the data to include interaction counts and user interaction status
-    const transformedPosts = await Promise.all(
-      posts.map(async (post) => {
-        // Get user's interactions with this post
-        let userLiked = false
-        let userBookmarked = false
-        let userReposted = false
-
-        if (user) {
-           const [likeResult, bookmarkResult, repostResult] = await Promise.all([
-             supabase
-               .from('likes')
-               .select('id')
-               .eq('post_id', post.id)
-               .eq('user_id', user.id)
-               .single(),
-             supabase
-               .from('bookmarks')
-               .select('id')
-               .eq('post_id', post.id)
-               .eq('user_id', user.id)
-               .single(),
-             supabase
-               .from('reposts')
-               .select('id')
-               .eq('post_id', post.id)
-               .eq('user_id', user.id)
-               .single()
-           ])
-
-          userLiked = !likeResult.error
-          userBookmarked = !bookmarkResult.error
-          userReposted = !repostResult.error
-        }
-
-        return {
-          ...post,
-          user: post.profiles,
-          likes_count: post.likes?.[0]?.count || 0,
-          comments_count: post.comments?.[0]?.count || 0,
-          reposts_count: post.reposts?.[0]?.count || 0,
-          liked_by_user: userLiked,
-          bookmarked_by_user: userBookmarked,
-          reposted_by_user: userReposted
-        }
-      })
-    )
+    // Transform posts to include engagement metrics
+    const transformedPosts = posts.map(post => ({
+      ...post,
+      user: post.profiles,
+      author: post.profiles,
+      likes_count: post.likes?.length || 0,
+      comments_count: post.comments?.length || 0,
+      liked_by_user: user?.id ? (post.likes?.some((like: any) => like.user_id === user.id) || false) : false,
+      created_at: post.created_at,
+      updated_at: post.updated_at
+    }))
 
     return NextResponse.json(transformedPosts)
   } catch (error) {
@@ -279,6 +240,7 @@ export async function POST(request: NextRequest) {
     // Return the created post with default interaction counts
     const transformedPost = {
       ...post,
+      user: post.profiles,
       likes_count: 0,
       comments_count: 0,
       reposts_count: 0,

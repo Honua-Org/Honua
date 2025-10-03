@@ -35,7 +35,7 @@ import {
   MoreHorizontal,
   X
 } from "lucide-react"
-import EmojiPicker from "@/components/EmojiPicker"
+import EmojiPicker from "@/components/emoji-picker"
 
 interface Message {
   id: string
@@ -100,7 +100,6 @@ export default function ChatInterface({
   className = ""
 }: ChatInterfaceProps) {
   const [messageInput, setMessageInput] = useState("")
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -129,13 +128,11 @@ export default function ChatInterface({
       onSendMessage(messageInput.trim(), replyingTo?.id)
       setMessageInput("")
       setReplyingTo(null)
-      setShowEmojiPicker(false)
     }
   }
 
   const handleEmojiSelect = (emoji: string) => {
     setMessageInput(prev => prev + emoji)
-    setShowEmojiPicker(false)
     textareaRef.current?.focus()
   }
 
@@ -390,16 +387,11 @@ export default function ChatInterface({
             />
             
             <div className="absolute right-2 bottom-2">
-              <DropdownMenu open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="p-1">
-                    <Smile className="w-5 h-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="p-0">
-                  <EmojiPicker onEmojiSelect={handleEmojiSelect} />
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <EmojiPicker onEmojiSelect={handleEmojiSelect}>
+                <Button variant="ghost" size="sm" className="p-1">
+                  <Smile className="w-5 h-5" />
+                </Button>
+              </EmojiPicker>
             </div>
           </div>
           

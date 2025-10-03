@@ -16,7 +16,7 @@ export async function GET(
     const { data: { session } } = await supabase.auth.getSession()
 
     // Fetch specific post with user data and interaction counts
-    let query = supabase
+    const query = supabase
       .from('posts')
       .select(`
         *,
