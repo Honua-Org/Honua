@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     const hashtagCounts = new Map<string, number>()
     const hashtagRegex = /#([a-zA-Z0-9_]+)/g
 
-    posts?.forEach(post => {
+    posts?.forEach((post: { content: string }) => {
       let match
       while ((match = hashtagRegex.exec(post.content)) !== null) {
         const hashtag = match[1].toLowerCase()

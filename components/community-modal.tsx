@@ -20,9 +20,12 @@ export function CommunityModal() {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
       
-      // Show modal if user is logged in
+      // Only show modal if user is logged in AND hasn't dismissed it before
       if (user) {
-        setIsOpen(true)
+        const hasJoinedCommunity = localStorage.getItem(`community-modal-dismissed-${user.id}`)
+        if (!hasJoinedCommunity) {
+          setIsOpen(true)
+        }
       }
     }
 
@@ -32,7 +35,11 @@ export function CommunityModal() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         setUser(session.user)
-        setIsOpen(true)
+        // Check if this user has already dismissed the modal
+        const hasJoinedCommunity = localStorage.getItem(`community-modal-dismissed-${session.user.id}`)
+        if (!hasJoinedCommunity) {
+          setIsOpen(true)
+        }
       } else if (event === 'SIGNED_OUT') {
         setUser(null)
         setIsOpen(false)
@@ -44,14 +51,28 @@ export function CommunityModal() {
 
   const handleClose = () => {
     setIsOpen(false)
+    // Mark as dismissed for this user so it doesn't show again
+    if (user) {
+      localStorage.setItem(`community-modal-dismissed-${user.id}`, 'true')
+    }
   }
 
   const handleDiscordClick = () => {
     window.open('https://discord.gg/ZBHuHEX3cE', '_blank')
+    // Mark as joined when user clicks Discord link
+    if (user) {
+      localStorage.setItem(`community-modal-dismissed-${user.id}`, 'true')
+    }
+    setIsOpen(false)
   }
 
   const handleTwitterClick = () => {
     window.open('https://x.com/HonuaEcosystem', '_blank')
+    // Mark as joined when user clicks Twitter link
+    if (user) {
+      localStorage.setItem(`community-modal-dismissed-${user.id}`, 'true')
+    }
+    setIsOpen(false)
   }
 
   // Don't render if user is not logged in

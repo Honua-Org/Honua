@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
@@ -6,7 +7,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '10')
 
-    const supabase = createClient()
+    const supabase = createRouteHandlerClient({ cookies })
 
     // Get recent posts to extract hashtags from
     const { data: posts, error } = await supabase
@@ -24,17 +25,19 @@ export async function GET(request: NextRequest) {
     const hashtagCounts = new Map<string, number>()
     const hashtagRegex = /#([a-zA-Z0-9_]+)/g
 
-    posts?.forEach(post => {
-      if (post.content) {
-        const matches = post.content.match(hashtagRegex)
-        if (matches) {
-          matches.forEach(match => {
-            const hashtag = match.toLowerCase() // Normalize to lowercase
-            hashtagCounts.set(hashtag, (hashtagCounts.get(hashtag) || 0) + 1)
-          })
+    if (posts) {
+      posts.forEach(post => {
+        if (post.content) {
+          const matches = post.content.match(hashtagRegex)
+          if (matches) {
+            matches.forEach((match: string) => {
+              const hashtag = match.toLowerCase() // Normalize to lowercase
+              hashtagCounts.set(hashtag, (hashtagCounts.get(hashtag) || 0) + 1)
+            })
+          }
         }
-      }
-    })
+      })
+    }
 
     // Convert to array and sort by count
     const trendingHashtags = Array.from(hashtagCounts.entries())

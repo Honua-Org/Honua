@@ -1,19 +1,23 @@
+"use client"
+
 import ComingSoon from '@/components/coming-soon'
-import { Button } from '@/components/ui/button'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 
 export default function ComingSoonDemo() {
+  const router = useRouter()
+
   return (
     <div className="relative">
-      {/* Back Button */}
+      {/* Back Link */}
       <div className="absolute top-4 left-4 z-10">
-        <Link href="/">
-          <Button variant="outline" size="sm" className="bg-white/80 backdrop-blur-sm">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
-          </Button>
-        </Link>
+        <button 
+          onClick={() => router.back()}
+          className="flex items-center text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Home
+        </button>
       </div>
 
       {/* Coming Soon Component */}
@@ -23,9 +27,4 @@ export default function ComingSoonDemo() {
       />
     </div>
   )
-}
-
-export const metadata = {
-  title: 'Coming Soon - Honua Social',
-  description: 'Something amazing is coming to Honua Social. Stay tuned!',
 }

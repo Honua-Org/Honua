@@ -35,7 +35,7 @@ export async function GET(
 
     // Get comments for the thread
     // Try thread_id first, fallback to post_id if thread_id column doesn't exist
-    let commentsQuery = supabase
+    const commentsQuery = supabase
       .from('comments')
       .select(`
         id,
@@ -103,9 +103,9 @@ export async function GET(
           id: comment.id,
           content: comment.content,
           author: {
-            username: comment.profiles?.username || 'Unknown',
-            full_name: comment.profiles?.full_name || 'Unknown User',
-            avatar_url: comment.profiles?.avatar_url || '/placeholder.svg',
+            username: (comment.profiles as any)?.username || 'Unknown',
+            full_name: (comment.profiles as any)?.full_name || 'Unknown User',
+            avatar_url: (comment.profiles as any)?.avatar_url || '/placeholder.svg',
             reputation: 0, // Would need separate reputation system
             badges: [] // Would need separate badge system
           },
@@ -117,9 +117,9 @@ export async function GET(
             id: reply.id,
             content: reply.content,
             author: {
-              username: reply.profiles?.username || 'Unknown',
-              full_name: reply.profiles?.full_name || 'Unknown User',
-              avatar_url: reply.profiles?.avatar_url || '/placeholder.svg',
+              username: (reply.profiles as any)?.username || 'Unknown',
+              full_name: (reply.profiles as any)?.full_name || 'Unknown User',
+              avatar_url: (reply.profiles as any)?.avatar_url || '/placeholder.svg',
               reputation: 0
             },
             likes_count: 0, // Will be implemented with proper vote system
@@ -258,7 +258,7 @@ export async function POST(
       commentError = fallbackResult.error
     }
 
-    if (commentError) {
+    if (commentError || !comment) {
       console.error('Error creating comment:', commentError)
       return NextResponse.json(
         { error: 'Failed to create comment' },
@@ -271,9 +271,9 @@ export async function POST(
       id: comment.id,
       content: comment.content,
       author: {
-        username: comment.profiles?.username || 'Unknown',
-        full_name: comment.profiles?.full_name || 'Unknown User',
-        avatar_url: comment.profiles?.avatar_url || '/placeholder.svg',
+        username: (comment.profiles as any)?.username || 'Unknown',
+        full_name: (comment.profiles as any)?.full_name || 'Unknown User',
+        avatar_url: (comment.profiles as any)?.avatar_url || '/placeholder.svg',
         reputation: 0,
         badges: []
       },

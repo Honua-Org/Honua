@@ -5,7 +5,9 @@ import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
 import SupabaseProvider from "@/components/supabase-provider"
+import StripeProvider from "@/components/stripe-provider"
 import { CommunityModal } from "@/components/community-modal"
+import ErrorBoundary from "@/components/error-boundary"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -30,9 +32,13 @@ export default function RootLayout({
       <body className={inter.className} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <SupabaseProvider>
-            {children}
-            <CommunityModal />
-            <Toaster />
+            <StripeProvider>
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
+              <CommunityModal />
+              <Toaster />
+            </StripeProvider>
           </SupabaseProvider>
         </ThemeProvider>
       </body>
