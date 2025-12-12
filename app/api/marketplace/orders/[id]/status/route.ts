@@ -1,10 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServerClientWithUrl } from '@supabase/supabase-js'
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    let supabase = await createClient()
+    let { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    // Support Bearer token auth for more reliable server authentication
+    const authHeader = request.headers.get('authorization')
+    if ((!user || authError) && authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.substring(7)
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+      const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      const client = createServerClientWithUrl(url, anon, {
+        auth: { autoRefreshToken: false, persistSession: false },
+        global: { headers: { Authorization: `Bearer ${token}` } }
+      })
+      const { data: { user: bearerUser } } = await client.auth.getUser(token)
+      if (bearerUser) {
+        supabase = client as any
+        user = bearerUser
+        authError = null as any
+      }
+    }
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -46,7 +65,13 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       .eq('id', orderId)
       .single()
 
-    if (orderError || !order) {
+    if (orderError) {
+      // Surface permission issues clearly
+      const msg = (orderError as any)?.message || 'Unknown error'
+      const status = msg.includes('permission') ? 403 : 404
+      return NextResponse.json({ error: status === 403 ? 'Permission denied' : 'Order not found', details: msg }, { status })
+    }
+    if (!order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
 
@@ -110,7 +135,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     if (emailType) {
       try {
-        const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/emails/order`, {
+        const origin = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin
+        const emailResponse = await fetch(`${origin}/api/emails/order`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -145,6 +171,35 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       } catch (error) {
         console.error(`Error sending ${emailType} emails:`, error)
         // Don't fail the status update for email errors, just log
+      }
+    }
+
+    // Create in-app notifications when order is confirmed
+    if (status === 'confirmed') {
+      try {
+        const origin = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin
+        await Promise.all([
+          fetch(`${origin}/api/notifications`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              recipient_id: updatedOrder.buyer.id,
+              type: 'order_update',
+              content: `Your order for ${updatedOrder.product.title} has been confirmed and will be sent out soon.`,
+            })
+          }),
+          fetch(`${origin}/api/notifications`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              recipient_id: updatedOrder.seller.id,
+              type: 'order_update',
+              content: `You confirmed the order for ${updatedOrder.product.title}. Prepare for shipment.`,
+            })
+          })
+        ])
+      } catch (notifError) {
+        console.error('Error creating notifications for order confirmation:', notifError)
       }
     }
 

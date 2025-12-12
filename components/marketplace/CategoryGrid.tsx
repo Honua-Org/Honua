@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { ChevronRight, ChevronLeft, Package, Laptop, Wrench, Leaf, TrendingUp } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Package, Laptop, Wrench, Leaf, TrendingUp, Search } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,7 @@ interface CategoryGridProps {
   showAll?: boolean
   maxItems?: number
   className?: string
+  layout?: 'carousel' | 'grid'
 }
 
 const UNSPLASH_IMAGES = {
@@ -86,12 +87,36 @@ export function CategoryGrid({
   categories, 
   showAll = false, 
   maxItems = 8,
-  className 
+  className,
+  layout = 'carousel'
 }: CategoryGridProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const carouselRef = useRef<HTMLDivElement>(null)
   
-  const itemsPerView = 4 // Show 4 categories at once
+  // Responsive items per view: 2 on mobile, 3 on tablet, 4 on desktop
+  const [itemsPerView, setItemsPerView] = useState(4)
+  const [isMobile, setIsMobile] = useState(false)
+  
+  useEffect(() => {
+    const updateLayout = () => {
+      const width = window.innerWidth
+      if (width < 640) {
+        setItemsPerView(2)
+        setIsMobile(true)
+      } else if (width < 1024) {
+        setItemsPerView(3)
+        setIsMobile(false)
+      } else {
+        setItemsPerView(4)
+        setIsMobile(false)
+      }
+    }
+    
+    updateLayout()
+    window.addEventListener('resize', updateLayout)
+    return () => window.removeEventListener('resize', updateLayout)
+  }, [])
+  
   const maxIndex = Math.max(0, categories.length - itemsPerView)
   
   const nextSlide = () => {
@@ -106,6 +131,77 @@ export function CategoryGrid({
     setCurrentIndex(Math.min(index, maxIndex))
   }
 
+  // Mobile Grid Layout
+  if (layout === 'grid' && isMobile) {
+    return (
+      <div className={cn('space-y-3', className)}>
+        <div className="grid grid-cols-2 gap-2">
+          {categories.slice(0, showAll ? categories.length : maxItems).map((category) => {
+            const backgroundImage = getImageForCategory(category.name)
+            
+            return (
+              <Link key={category.id} href={`/marketplace?category=${category.slug}`}>
+                <Card className="group hover:shadow-md transition-all duration-200 hover:scale-105 cursor-pointer border-0 overflow-hidden h-20">
+                  <div 
+                    className="relative w-full h-full bg-cover bg-center"
+                    style={{ backgroundImage: `url(${backgroundImage})` }}
+                  >
+                    {/* Overlay */}
+                    <div className="absolute inset-0 bg-black/50 group-hover:bg-black/40 transition-colors duration-200" />
+                    
+                    {/* Content */}
+                    <div className="relative h-full flex flex-col justify-end p-2 text-white">
+                      {/* Badges - More compact */}
+                      <div className="absolute top-1 right-1 flex gap-1">
+                        {category.trending && (
+                          <div className="bg-red-500/90 text-white text-xs px-1 py-0.5 rounded backdrop-blur-sm">
+                            <TrendingUp className="w-2 h-2" />
+                          </div>
+                        )}
+                        
+                        {category.sustainability_focused && (
+                          <div className="bg-green-500/90 text-white text-xs px-1 py-0.5 rounded backdrop-blur-sm">
+                            <Leaf className="w-2 h-2" />
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Category Info - More compact */}
+                      <div className="space-y-0.5">
+                        <h3 className="font-semibold text-xs group-hover:text-blue-200 transition-colors line-clamp-1">
+                          {category.name}
+                        </h3>
+                        
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-200">
+                            {category.product_count}
+                          </span>
+                          
+                          <ChevronRight className="w-3 h-3 text-gray-300 group-hover:text-blue-200 transition-colors" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </Link>
+            )
+          })}
+        </div>
+        
+        {!showAll && categories.length > maxItems && (
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => {}}
+            className="w-full justify-center text-xs h-8"
+          >
+            +{categories.length - maxItems} More
+          </Button>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className={cn('space-y-4', className)}>
       {/* Carousel Container */}
@@ -115,22 +211,26 @@ export function CategoryGrid({
           <>
             <Button
               variant="outline"
-              size="icon"
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-gray-900/80 backdrop-blur-sm shadow-lg hover:bg-gray-900 text-white border-gray-700 hover:border-gray-600"
+              size={isMobile ? "sm" : "icon"}
+              className={`absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-gray-900/80 backdrop-blur-sm shadow-lg hover:bg-gray-900 text-white border-gray-700 hover:border-gray-600 ${
+                isMobile ? 'w-10 h-10 rounded-full' : ''
+              }`}
               onClick={prevSlide}
               disabled={currentIndex === 0}
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className={isMobile ? 'w-5 h-5' : 'w-4 h-4'} />
             </Button>
             
             <Button
               variant="outline"
-              size="icon"
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-gray-900/80 backdrop-blur-sm shadow-lg hover:bg-gray-900 text-white border-gray-700 hover:border-gray-600"
+              size={isMobile ? "sm" : "icon"}
+              className={`absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-gray-900/80 backdrop-blur-sm shadow-lg hover:bg-gray-900 text-white border-gray-700 hover:border-gray-600 ${
+                isMobile ? 'w-10 h-10 rounded-full' : ''
+              }`}
               onClick={nextSlide}
               disabled={currentIndex >= maxIndex}
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className={isMobile ? 'w-5 h-5' : 'w-4 h-4'} />
             </Button>
           </>
         )}
@@ -146,9 +246,11 @@ export function CategoryGrid({
               const backgroundImage = getImageForCategory(category.name)
               
               return (
-                <div key={category.id} className="w-1/4 flex-shrink-0 px-2">
+                <div key={category.id} className={`flex-shrink-0 px-2 ${isMobile ? 'w-1/2' : 'w-1/4'}`}>
                   <Link href={`/marketplace?category=${category.slug}`}>
-                    <Card className="group hover:shadow-xl transition-all duration-300 hover:scale-105 cursor-pointer border-0 overflow-hidden h-48">
+                    <Card className={`group hover:shadow-xl transition-all duration-300 hover:scale-105 cursor-pointer border-0 overflow-hidden ${
+                      isMobile ? 'h-32' : 'h-48'
+                    }`}>
                       <div 
                         className="relative w-full h-full bg-cover bg-center"
                         style={{ backgroundImage: `url(${backgroundImage})` }}
@@ -157,43 +259,55 @@ export function CategoryGrid({
                         <div className="absolute inset-0 bg-black/40 group-hover:bg-black/30 transition-colors duration-300" />
                         
                         {/* Content */}
-                        <div className="relative h-full flex flex-col justify-end p-4 text-white">
+                        <div className="relative h-full flex flex-col justify-end p-3 text-white">
                           {/* Badges */}
-                          <div className="absolute top-3 right-3 flex gap-1">
+                          <div className={`absolute right-2 flex gap-1 ${isMobile ? 'top-2' : 'top-3'}`}>
                             {category.trending && (
-                              <Badge className="bg-red-500/90 text-white text-xs px-2 py-1 backdrop-blur-sm">
-                                <TrendingUp className="w-3 h-3 mr-1" />
-                                Hot
+                              <Badge className={`bg-red-500/90 text-white backdrop-blur-sm ${
+                                isMobile ? 'text-xs px-1.5 py-0.5' : 'text-xs px-2 py-1'
+                              }`}>
+                                <TrendingUp className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3 h-3'} mr-1`} />
+                                {!isMobile && 'Hot'}
                               </Badge>
                             )}
                             
                             {category.sustainability_focused && (
-                              <Badge className="bg-green-500/90 text-white text-xs px-2 py-1 backdrop-blur-sm">
-                                <Leaf className="w-3 h-3 mr-1" />
-                                Eco
+                              <Badge className={`bg-green-500/90 text-white backdrop-blur-sm ${
+                                isMobile ? 'text-xs px-1.5 py-0.5' : 'text-xs px-2 py-1'
+                              }`}>
+                                <Leaf className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3 h-3'} mr-1`} />
+                                {!isMobile && 'Eco'}
                               </Badge>
                             )}
                           </div>
                           
                           {/* Category Info */}
-                          <div className="space-y-2">
-                            <h3 className="font-bold text-lg group-hover:text-blue-200 transition-colors line-clamp-2">
+                          <div className="space-y-1">
+                            <h3 className={`font-bold group-hover:text-blue-200 transition-colors line-clamp-2 ${
+                              isMobile ? 'text-base' : 'text-lg'
+                            }`}>
                               {category.name}
                             </h3>
                             
-                            {category.description && (
+                            {category.description && !isMobile && (
                               <p className="text-sm text-gray-200 line-clamp-2 opacity-90">
                                 {category.description}
                               </p>
                             )}
                             
                             <div className="flex items-center justify-between">
-                              <Badge variant="secondary" className="bg-white/20 text-white border-white/30 backdrop-blur-sm">
-                                {category.product_count} items
+                              <Badge variant="secondary" className={`bg-white/20 text-white border-white/30 backdrop-blur-sm ${
+                                isMobile ? 'text-xs px-2 py-0.5' : ''
+                              }`}>
+                                {category.product_count} {isMobile ? '' : 'items'}
                               </Badge>
                               
-                              <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/30 transition-colors">
-                                <ChevronRight className="w-4 h-4" />
+                              <div className={`rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/30 transition-colors ${
+                                isMobile ? 'w-6 h-6' : 'w-8 h-8'
+                              }`}>
+                                <ChevronRight className={`text-gray-300 group-hover:text-blue-200 transition-colors ${
+                                  isMobile ? 'w-3 h-3' : 'w-4 h-4'
+                                }`} />
                               </div>
                             </div>
                           </div>
@@ -209,15 +323,19 @@ export function CategoryGrid({
         
         {/* Dots Indicator */}
         {categories.length > itemsPerView && (
-          <div className="flex justify-center mt-4 gap-2">
+          <div className={`flex justify-center gap-2 ${isMobile ? 'mt-3' : 'mt-4'}`}>
             {Array.from({ length: maxIndex + 1 }).map((_, index) => (
               <button
                 key={index}
                 className={cn(
-                  'w-2 h-2 rounded-full transition-colors duration-200',
-                  currentIndex === index ? 'bg-blue-600' : 'bg-gray-300 hover:bg-gray-400'
+                  'rounded-full transition-colors duration-200',
+                  currentIndex === index 
+                    ? 'bg-blue-600' 
+                    : 'bg-gray-300 hover:bg-gray-400',
+                  isMobile ? 'w-2.5 h-2.5' : 'w-2 h-2'
                 )}
                 onClick={() => goToSlide(index)}
+                aria-label={`Go to slide ${index + 1}`}
               />
             ))}
           </div>
@@ -231,7 +349,7 @@ export function CategoryGrid({
             <Package className="w-8 h-8 text-gray-400" />
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            No Categories Found
+            No Categories Available
           </h3>
           <p className="text-gray-500 max-w-md mx-auto">
             Categories will appear here once products are added to the marketplace.

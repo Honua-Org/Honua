@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { toast } from 'sonner'
 import { RealtimeChannel } from '@supabase/supabase-js'
@@ -28,9 +28,11 @@ export function useMarketplaceNotifications(userId?: string) {
   const BASE_RETRY_DELAY = 1000 // 1 second
   const MAX_RETRY_DELAY = 30000 // 30 seconds
   const supabase = createClientComponentClient()
+  const initializedRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!userId) return
+    if (initializedRef.current === userId) return
 
     let orderChannel: RealtimeChannel | null = null
     let messageChannel: RealtimeChannel | null = null
@@ -116,6 +118,7 @@ export function useMarketplaceNotifications(userId?: string) {
               setIsConnecting(false)
               setRetryCount(0) // Reset retry count on successful connection
               setLastRetryTime(0)
+              initializedRef.current = userId
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
               console.warn('Order subscription connection issue:', status, '- will attempt reconnection')
               setIsConnected(false)

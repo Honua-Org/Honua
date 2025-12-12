@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ hashtags: [] })
     }
 
-    const supabase = createClient()
+    const supabase = await createClient()
 
     // Search for hashtags in posts content
     const { data: posts, error } = await supabase

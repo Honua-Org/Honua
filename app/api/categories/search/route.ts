@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ categories: [] })
     }
 
-    const supabase = createClient()
+    const supabase = await createClient()
 
     // Search for categories by name or description
     const { data: categories, error } = await supabase

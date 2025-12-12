@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, Suspense } from "react"
+import { useMediaQuery } from "@/hooks/use-media-query"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import MainLayout from "@/components/main-layout"
@@ -29,7 +30,10 @@ import {
 import Link from "next/link"
 import Image from "next/image"
 import { toast } from "sonner"
+import { Toaster } from "@/components/ui/sonner"
 import { CategoryGrid } from "@/components/marketplace/CategoryGrid"
+import { MobileFilters } from "@/components/marketplace/MobileFilters"
+import { useCart } from "@/hooks/use-cart"
 
 type Product = {
   id: string
@@ -69,14 +73,48 @@ function MarketplaceContent() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<{products: Product[], categories: Category[]}>({products: [], categories: []})
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedType, setSelectedType] = useState("all")
   const [sortBy, setSortBy] = useState("newest")
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>("grid")
   const [priceRange, setPriceRange] = useState("all")
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { items } = useCart()
   const supabase = createClientComponentClient()
+  const isMobile = useMediaQuery('(max-width: 640px)')
+
+  // Enhanced search function
+  const handleSearch = (query: string) => {
+    setSearchQuery(query)
+    
+    if (!query.trim()) {
+      setSearchResults({products: [], categories: []})
+      return
+    }
+    
+    const lowerQuery = query.toLowerCase()
+    
+    // Search in products
+    const matchingProducts = products.filter(product => 
+      product.title.toLowerCase().includes(lowerQuery) ||
+      product.description.toLowerCase().includes(lowerQuery) ||
+      product.category.toLowerCase().includes(lowerQuery) ||
+      product.seller.full_name.toLowerCase().includes(lowerQuery)
+    )
+    
+    // Search in categories
+    const matchingCategories = categories.filter(category => 
+      category.name.toLowerCase().includes(lowerQuery) ||
+      category.icon.toLowerCase().includes(lowerQuery)
+    )
+    
+    setSearchResults({
+      products: matchingProducts,
+      categories: matchingCategories
+    })
+  }
 
   // Mock data for demonstration
   const mockProducts: Product[] = [
@@ -308,87 +346,184 @@ function MarketplaceContent() {
     }
   })
 
-  const ProductCard = ({ product }: { product: Product }) => (
-    <Card className="group hover:shadow-lg transition-all duration-200 cursor-pointer" onClick={() => router.push(`/marketplace/product/${product.id}`)}>
-      <div className="relative">
-        <div className="aspect-video relative overflow-hidden rounded-t-lg">
-          <Image
-            src={product.images[0] || "/api/placeholder/400/300"}
-            alt={product.title}
-            fill
-            className="object-cover group-hover:scale-105 transition-transform duration-200"
-          />
-          {product.is_featured && (
-            <Badge className="absolute top-2 left-2 bg-yellow-500 text-yellow-900">
-              Featured
-            </Badge>
-          )}
-          {product.sustainability_score && product.sustainability_score > 90 && (
-            <Badge className="absolute top-2 right-2 bg-green-500 text-white">
-              <Leaf className="w-3 h-3 mr-1" />
-              Eco+
-            </Badge>
-          )}
-        </div>
-      </div>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <h3 className="font-semibold text-lg line-clamp-2 group-hover:text-green-600 transition-colors">
-            {product.title}
-          </h3>
-          <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
-            <Heart className="w-4 h-4" />
-          </Button>
-        </div>
+  const ProductCard = ({ product }: { product: Product }) => {
+    const { addItem } = useCart()
+    
+    console.log('Rendering product card for:', product.title, 'in view mode:', viewMode)
+    
+    const handleAddToCart = (e: React.MouseEvent) => {
+      e.stopPropagation() // Prevent card click navigation
+      
+      try {
+        const cartItem = {
+          productId: product.id,
+          title: product.title,
+          price: product.price,
+          currency: product.currency,
+          image: product.images[0],
+          sellerId: product.seller_id,
+          quantity: 1
+        }
         
-        <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
-          {product.description}
-        </p>
-        
-        <div className="flex items-center space-x-2 mb-3">
-          <Avatar className="w-6 h-6">
-            <AvatarImage src={product.seller.avatar_url} />
-            <AvatarFallback className="text-xs">
-              {product.seller.full_name.charAt(0)}
-            </AvatarFallback>
-          </Avatar>
-          <span className="text-sm text-gray-600 dark:text-gray-400">
-            {product.seller.full_name}
-          </span>
-          {product.seller.verified && (
-            <Badge variant="secondary" className="text-xs">
-              ✓
-            </Badge>
-          )}
-        </div>
-        
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <div className="font-bold text-lg">
-              ${product.price}
-            </div>
-            {product.green_points_price && (
-              <div className="text-sm text-green-600 dark:text-green-400">
-                {product.green_points_price} GP
+        addItem(cartItem)
+        toast.success(`Added ${product.title} to cart`)
+      } catch (error) {
+        console.error('Error adding item to cart:', error)
+        toast.error('Failed to add item to cart')
+      }
+    }
+    
+    // Mobile List View - Compact horizontal layout
+    if (viewMode === 'list') {
+      return (
+        <Card className="group hover:shadow-lg transition-all duration-200 cursor-pointer" onClick={() => router.push(`/marketplace/product/${product.id}`)}>
+          <CardContent className="p-3">
+            <div className="flex gap-3">
+              {/* Product Image - Larger for mobile */}
+              <div className="relative w-24 h-24 flex-shrink-0">
+                <Image
+                  src={product.images[0] || "/api/placeholder/400/300"}
+                  alt={product.title}
+                  fill
+                  className="object-cover rounded-md"
+                />
+                {product.is_featured && (
+                  <Badge className="absolute -top-1 -left-1 bg-yellow-500 text-yellow-900 text-xs px-1 py-0">
+                    ★
+                  </Badge>
+                )}
               </div>
+              
+              {/* Product Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-semibold text-sm line-clamp-2 flex-1 leading-tight">
+                    {product.title}
+                  </h3>
+                  <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-6 w-6 flex-shrink-0">
+                    <Heart className="w-3 h-3" />
+                  </Button>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <div className="font-bold text-sm">
+                      ${product.price}
+                    </div>
+                    {product.green_points_price && (
+                      <div className="text-xs text-green-600 dark:text-green-400">
+                        {product.green_points_price} GP
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Badge variant={product.type === 'physical' ? 'default' : product.type === 'digital' ? 'secondary' : 'outline'} className="text-xs">
+                      {product.type}
+                    </Badge>
+                    <Button 
+                      onClick={handleAddToCart}
+                      className="bg-green-600 hover:bg-green-700 text-white h-7 px-2 text-xs"
+                      size="sm"
+                    >
+                      <ShoppingBag className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )
+    }
+    
+    // Grid View - Optimized for mobile
+    return (
+      <Card className="group hover:shadow-lg transition-all duration-200 cursor-pointer" onClick={() => router.push(`/marketplace/product/${product.id}`)}>
+        <div className="relative">
+          <div className="aspect-square relative overflow-hidden rounded-t-lg">
+            <Image
+              src={product.images[0] || "/api/placeholder/400/300"}
+              alt={product.title}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-200"
+            />
+            {product.is_featured && (
+              <Badge className="absolute top-1 left-1 bg-yellow-500 text-yellow-900 text-xs">
+                ★
+              </Badge>
+            )}
+            {product.sustainability_score && product.sustainability_score > 90 && (
+              <Badge className="absolute top-1 right-1 bg-green-500 text-white text-xs">
+                <Leaf className="w-2.5 h-2.5" />
+              </Badge>
+            )}
+          </div>
+        </div>
+        <CardContent className="p-3">
+          <div className="flex items-start justify-between mb-2">
+            <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-green-600 transition-colors flex-1 mr-1 leading-tight">
+              {product.title}
+            </h3>
+            <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-6 w-6 flex-shrink-0">
+              <Heart className="w-3 h-3" />
+            </Button>
+          </div>
+          
+          <div className="flex items-center space-x-1 mb-2">
+            <Avatar className="w-5 h-5">
+              <AvatarImage src={product.seller.avatar_url} />
+              <AvatarFallback className="text-xs">
+                {product.seller.full_name.charAt(0)}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-xs text-gray-600 dark:text-gray-400 truncate">
+              {product.seller.full_name}
+            </span>
+            {product.seller.verified && (
+              <Badge variant="secondary" className="text-xs px-1">
+                ✓
+              </Badge>
             )}
           </div>
           
-          <div className="flex flex-col items-end space-y-1">
-            <Badge variant={product.type === 'physical' ? 'default' : product.type === 'digital' ? 'secondary' : 'outline'}>
-              {product.type}
-            </Badge>
-            {product.location && (
-              <div className="flex items-center text-xs text-gray-500">
-                <MapPin className="w-3 h-3 mr-1" />
-                {product.location}
+          <div className="flex items-center justify-between mb-2">
+            <div className="space-y-0.5">
+              <div className="font-bold text-base">
+                ${product.price}
               </div>
-            )}
+              {product.green_points_price && (
+                <div className="text-xs text-green-600 dark:text-green-400 font-medium">
+                  {product.green_points_price} GP
+                </div>
+              )}
+            </div>
+            
+            <div className="flex flex-col items-end space-y-1">
+              <Badge variant={product.type === 'physical' ? 'default' : product.type === 'digital' ? 'secondary' : 'outline'} className="text-xs px-1.5 py-0">
+                {product.type}
+              </Badge>
+              {product.location && (
+                <div className="flex items-center text-xs text-gray-500 max-w-20 truncate">
+                  <MapPin className="w-2.5 h-2.5 mr-0.5 flex-shrink-0" />
+                  <span className="truncate">{product.location}</span>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
+          
+          <Button 
+            onClick={handleAddToCart}
+            className="w-full bg-green-600 hover:bg-green-700 text-white h-8"
+            size="sm"
+          >
+            <ShoppingBag className="w-3 h-3 mr-1" />
+            Add to Cart
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
 
   if (loading) {
     return (
@@ -406,23 +541,23 @@ function MarketplaceContent() {
     <MainLayout>
       <div className="max-w-7xl mx-auto p-4 pb-20 lg:pb-4">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 space-y-4 lg:space-y-0">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
               Green Marketplace
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-gray-600 dark:text-gray-400 text-sm lg:text-base">
               Discover sustainable products and services from our community
             </p>
           </div>
-          <div className="flex gap-2 mt-4 sm:mt-0">
-            <Button variant="outline" asChild>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" asChild className="w-full sm:w-auto">
               <Link href="/marketplace/dashboard">
                 <ShoppingBag className="w-4 h-4 mr-2" />
                 Dashboard
               </Link>
             </Button>
-            <Button asChild>
+            <Button asChild className="w-full sm:w-auto">
               <Link href="/marketplace/sell">
                 <Plus className="w-4 h-4 mr-2" />
                 Sell Product
@@ -431,27 +566,58 @@ function MarketplaceContent() {
           </div>
         </div>
 
-        {/* Search and Filters */}
+        {/* Mobile Filters */}
+        <MobileFilters
+          categories={categories}
+          selectedCategory={selectedCategory}
+          selectedType={selectedType}
+          sortBy={sortBy}
+          viewMode={viewMode}
+          onCategoryChange={setSelectedCategory}
+          onTypeChange={setSelectedType}
+          onSortChange={setSortBy}
+          onViewModeChange={setViewMode}
+          onClearFilters={() => {
+            setSelectedCategory("all")
+            setSelectedType("all")
+            setSortBy("newest")
+          }}
+          activeFilterCount={
+            (selectedCategory !== "all" ? 1 : 0) +
+            (selectedType !== "all" ? 1 : 0) +
+            (sortBy !== "newest" ? 1 : 0)
+          }
+        />
+
+        {/* Global Search Bar */}
         <Card className="mb-6">
           <CardContent className="p-4">
-            <div className="flex flex-col lg:flex-row gap-4">
-              {/* Search */}
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Search products and services..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+            <div className="flex flex-col gap-4">
+              {/* Main Search */}
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Input
+                  placeholder="Search products, categories, services..."
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="pl-12 pr-4 py-3 text-base w-full rounded-lg border-2 border-gray-200 dark:border-gray-700 focus:border-green-500 focus:ring-green-500"
+                />
+                {searchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleSearch('')}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-7 px-2"
+                  >
+                    ×
+                  </Button>
+                )}
               </div>
               
-              {/* Filters */}
-              <div className="flex flex-wrap gap-2">
+              {/* Desktop Filters */}
+              <div className="hidden lg:flex flex-wrap gap-2 justify-center">
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="w-full sm:w-40">
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -465,7 +631,7 @@ function MarketplaceContent() {
                 </Select>
                 
                 <Select value={selectedType} onValueChange={setSelectedType}>
-                  <SelectTrigger className="w-32">
+                  <SelectTrigger className="w-full sm:w-32">
                     <SelectValue placeholder="Type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -477,7 +643,7 @@ function MarketplaceContent() {
                 </Select>
                 
                 <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="w-full sm:w-40">
                     <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
                   <SelectContent>
@@ -521,8 +687,34 @@ function MarketplaceContent() {
               trending: cat.id === 'electronics' || cat.id === 'home',
               sustainability_focused: cat.id === 'food' || cat.id === 'consulting'
             }))}
+            layout={isMobile ? 'grid' : 'carousel'}
+            maxItems={isMobile ? 6 : 8}
           />
         </div>
+
+        {/* Search Results */}
+        {searchQuery && (
+          <div className="mb-6">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                  Search Results for "{searchQuery}"
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleSearch('')}
+                  className="text-blue-600 dark:text-blue-400"
+                >
+                  Clear Search
+                </Button>
+              </div>
+              <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
+                {searchResults.products.length} products • {searchResults.categories.length} categories found
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Products Grid */}
         <div className="mb-6">
@@ -553,9 +745,9 @@ function MarketplaceContent() {
               </CardContent>
             </Card>
           ) : (
-            <div className={`grid gap-4 ${
+            <div className={`grid gap-3 sm:gap-4 ${
               viewMode === 'grid' 
-                ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
+                ? 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
                 : 'grid-cols-1'
             }`}>
               {sortedProducts.map(product => (
@@ -564,7 +756,22 @@ function MarketplaceContent() {
             </div>
           )}
         </div>
+
+        {/* Floating Cart Button */}
+        {items.length > 0 && (
+          <Link href="/marketplace/cart">
+            <div className="fixed bottom-16 sm:bottom-6 right-4 sm:right-6 bg-green-600 hover:bg-green-700 text-white rounded-full p-3 sm:p-4 shadow-lg transition-all duration-200 hover:scale-110 cursor-pointer z-50">
+              <div className="relative">
+                <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
+                <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 bg-red-500 text-white text-xs rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center">
+                  {items.length}
+                </div>
+              </div>
+            </div>
+          </Link>
+        )}
       </div>
+      <Toaster />
     </MainLayout>
   )
 }

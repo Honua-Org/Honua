@@ -6,6 +6,7 @@
 # next.js
 /.next/
 /out/
+.turbo
 
 # production
 /build
@@ -15,12 +16,25 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
 
 # env files
 .env*
+!.env.example
 
 # vercel
 .vercel
+
+# editor and os files
+.vscode/
+.idea/
+.DS_Store
+
+# Trae IDE context
+.trae/
+
+# coverage
+coverage/
 
 # typescript
 *.tsbuildinfo

@@ -77,11 +77,14 @@ export function SellerDashboard() {
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive' | 'draft'>('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null)
+  const [orders, setOrders] = useState<any[]>([])
+  const [revSummary, setRevSummary] = useState<{confirmed:number,pending:number,available:number,net:number} | null>(null)
 
   useEffect(() => {
     if (user?.id) {
       fetchProducts()
       fetchStats()
+      fetchOrders()
     }
   }, [user?.id])
 
@@ -157,6 +160,56 @@ export function SellerDashboard() {
       toast.error('Failed to load dashboard statistics')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchOrders = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('marketplace_orders')
+        .select(`id, product_id, quantity, total_price, currency, order_status, payment_status, created_at, product:marketplace_products(id,title,images,type)`) 
+        .eq('seller_id', user?.id)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      const list = data || []
+      setOrders(list)
+      // Revenue summary
+      const confirmed = list.filter(o => o.order_status === 'confirmed').reduce((s,o)=> s + (o.total_price||0), 0)
+      const pending = list.filter(o => o.order_status !== 'confirmed').reduce((s,o)=> s + (o.total_price||0), 0)
+      const available = list.filter(o => o.order_status === 'confirmed' && o.payment_status === 'completed').reduce((s,o)=> s + (o.total_price||0), 0)
+      const SALE_FEE = 0.05
+      const WITHDRAWAL_FEE = 0.02
+      const net = available * (1 - SALE_FEE) * (1 - WITHDRAWAL_FEE)
+      setRevSummary({ confirmed, pending, available, net })
+    } catch (err) {
+      console.error('Error fetching orders:', err)
+      toast.error('Failed to load orders')
+    }
+  }
+
+  const confirmOrder = async (orderId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`/api/marketplace/orders/${orderId}/status`, {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
+        },
+        body: JSON.stringify({ status: 'confirmed' })
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        const msg = data?.error || data?.details || `HTTP ${res.status}`
+        throw new Error(`Failed to confirm order: ${msg}`)
+      }
+      toast.success('Order confirmed')
+      // Refresh orders and stats
+      await fetchOrders()
+      await fetchStats()
+    } catch (error) {
+      console.error('Confirm order error:', error)
+      toast.error((error as Error).message)
     }
   }
 
@@ -311,10 +364,11 @@ export function SellerDashboard() {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="products" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="products">My Products</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
+          <TabsTrigger value="orders">Orders & Revenue</TabsTrigger>
         </TabsList>
 
         <TabsContent value="products">
@@ -532,6 +586,77 @@ export function SellerDashboard() {
                 <PurchaseHistory sellerId={user?.id || ''} />
               </TabsContent>
             </Tabs>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="orders">
+          <div className="space-y-6">
+            {/* Revenue Summary */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Revenue Summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="p-4 rounded bg-green-50 dark:bg-green-900/20">
+                    <div className="text-sm text-muted-foreground">Confirmed Revenue</div>
+                    <div className="text-xl font-bold">${(revSummary?.confirmed || 0).toFixed(2)}</div>
+                  </div>
+                  <div className="p-4 rounded bg-yellow-50 dark:bg-yellow-900/20">
+                    <div className="text-sm text-muted-foreground">Pending Revenue</div>
+                    <div className="text-xl font-bold">${(revSummary?.pending || 0).toFixed(2)}</div>
+                  </div>
+                  <div className="p-4 rounded bg-blue-50 dark:bg-blue-900/20">
+                    <div className="text-sm text-muted-foreground">Available Balance</div>
+                    <div className="text-xl font-bold">${(revSummary?.available || 0).toFixed(2)}</div>
+                  </div>
+                  <div className="p-4 rounded bg-indigo-50 dark:bg-indigo-900/20">
+                    <div className="text-sm text-muted-foreground">Estimated Net (fees applied)</div>
+                    <div className="text-xl font-bold">${(revSummary?.net || 0).toFixed(2)}</div>
+                  </div>
+                </div>
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => toast.info('Withdrawals will deduct fees and require payout setup. Coming soon.')}
+                  >
+                    Request Withdrawal
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Orders List */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Orders</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {orders.length === 0 ? (
+                    <div className="text-center text-muted-foreground">No orders yet</div>
+                  ) : (
+                    orders.map((o) => (
+                      <div key={o.id} className="flex items-center justify-between p-3 border rounded">
+                        <div className="flex items-center gap-3">
+                          <Package className="w-4 h-4" />
+                          <div>
+                            <div className="font-medium">{o.product?.title || o.product_id}</div>
+                            <div className="text-sm text-muted-foreground">Qty: {o.quantity} • ${o.total_price} • {o.order_status}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {o.order_status !== 'confirmed' && (
+                            <Button size="sm" onClick={() => confirmOrder(o.id)}>Confirm</Button>
+                          )}
+                          <Badge variant="outline">{o.payment_status}</Badge>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
       </Tabs>

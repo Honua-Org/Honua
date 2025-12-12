@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const supabase = createClient()
+    const supabase = await createClient()
     const results: any = {}
 
     // Search users
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
 
       if (!postsError && posts) {
         // Get counts for each post
-        const postIds = posts.map(post => post.id)
+        const postIds = posts.map((post: { id: string }) => post.id)
         
         // Get likes count
         const { data: likesData } = await supabase
@@ -87,22 +87,22 @@ export async function GET(request: NextRequest) {
           .in('post_id', postIds)
         
         // Count occurrences
-        const likesCount = likesData?.reduce((acc, like) => {
+        const likesCount = likesData?.reduce((acc: Record<string, number>, like: { post_id: string }) => {
           acc[like.post_id] = (acc[like.post_id] || 0) + 1
           return acc
         }, {} as Record<string, number>) || {}
         
-        const commentsCount = commentsData?.reduce((acc, comment) => {
+        const commentsCount = commentsData?.reduce((acc: Record<string, number>, comment: { post_id: string }) => {
           acc[comment.post_id] = (acc[comment.post_id] || 0) + 1
           return acc
         }, {} as Record<string, number>) || {}
         
-        const repostsCount = repostsData?.reduce((acc, repost) => {
+        const repostsCount = repostsData?.reduce((acc: Record<string, number>, repost: { post_id: string }) => {
           acc[repost.post_id] = (acc[repost.post_id] || 0) + 1
           return acc
         }, {} as Record<string, number>) || {}
         
-        results.posts = posts.map(post => ({
+        results.posts = posts.map((post: any) => ({
           id: post.id,
           content: post.content,
           media_urls: post.media_urls,
@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
         const hashtagCounts = new Map<string, number>()
         const hashtagRegex = /#([a-zA-Z0-9_]+)/g
 
-        hashtagPosts?.forEach(post => {
+        hashtagPosts?.forEach((post: { content: string }) => {
           let match
           while ((match = hashtagRegex.exec(post.content)) !== null) {
             const hashtag = match[1].toLowerCase()
