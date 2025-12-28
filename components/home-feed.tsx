@@ -156,8 +156,14 @@ export default function HomeFeed() {
       }
       
       const data = await response.json()
-      // Use real data from API, or empty array if no posts
-      setPosts(data || [])
+      // Ensure we only set an array to avoid render errors
+      if (Array.isArray(data)) {
+        setPosts(data)
+      } else {
+        console.warn('Posts API returned non-array payload:', data)
+        setPosts([])
+        setError('Failed to load posts. Please try again later.')
+      }
     } catch (error) {
       console.error('Error fetching posts:', error)
       setError('Failed to load posts. Please try again later.')

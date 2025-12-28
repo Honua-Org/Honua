@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
-    "@next/swc-win32-x64-msvc": "^15.2.4",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
     "@radix-ui/react-aspect-ratio": "1.1.1",
@@ -58,10 +57,10 @@
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
     "nanoid": "^5.1.5",
-    "next": "15.2.4",
+    "next": "15.5.9",
     "next-auth": "^4.24.11",
     "next-themes": "latest",
-    "nodemailer": "^7.0.6",
+    "nodemailer": "^6.10.1",
     "react": "^18.3.1",
     "react-day-picker": "8.10.1",
     "react-dom": "^18.3.1",
@@ -76,14 +75,14 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@next/swc-wasm-nodejs": "^15.2.4",
-    "@next/swc-wasm-web": "^15.2.4",
+    "@next/swc-wasm-nodejs": "^15.5.6",
+    "@next/swc-wasm-web": "^15.5.6",
     "@types/cheerio": "^1.0.0",
     "@types/node": "^22",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "eslint": "^9",
-    "eslint-config-next": "15.2.4",
+    "eslint-config-next": "15.5.8",
     "postcss": "^8.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
