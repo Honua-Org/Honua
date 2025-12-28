@@ -59,6 +59,7 @@ type Product = {
   updated_at: string
   is_featured: boolean
   status: 'active' | 'sold' | 'inactive'
+  available_quantity?: number
 }
 
 type Category = {
@@ -88,33 +89,29 @@ function MarketplaceContent() {
   // Enhanced search function
   const handleSearch = (query: string) => {
     setSearchQuery(query)
-    
-    if (!query.trim()) {
-      setSearchResults({products: [], categories: []})
-      return
-    }
-    
-    const lowerQuery = query.toLowerCase()
-    
-    // Search in products
-    const matchingProducts = products.filter(product => 
-      product.title.toLowerCase().includes(lowerQuery) ||
-      product.description.toLowerCase().includes(lowerQuery) ||
-      product.category.toLowerCase().includes(lowerQuery) ||
-      product.seller.full_name.toLowerCase().includes(lowerQuery)
-    )
-    
-    // Search in categories
-    const matchingCategories = categories.filter(category => 
-      category.name.toLowerCase().includes(lowerQuery) ||
-      category.icon.toLowerCase().includes(lowerQuery)
-    )
-    
-    setSearchResults({
-      products: matchingProducts,
-      categories: matchingCategories
-    })
   }
+  useEffect(() => {
+    const q = searchQuery.trim()
+    const timer = setTimeout(() => {
+      if (!q) {
+        setSearchResults({products: [], categories: []})
+        return
+      }
+      const lowerQuery = q.toLowerCase()
+      const matchingProducts = products.filter(product => 
+        product.title.toLowerCase().includes(lowerQuery) ||
+        product.description.toLowerCase().includes(lowerQuery) ||
+        product.category.toLowerCase().includes(lowerQuery) ||
+        product.seller.full_name.toLowerCase().includes(lowerQuery)
+      )
+      const matchingCategories = categories.filter(category => 
+        category.name.toLowerCase().includes(lowerQuery) ||
+        category.icon.toLowerCase().includes(lowerQuery)
+      )
+      setSearchResults({ products: matchingProducts, categories: matchingCategories })
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [searchQuery, products, categories])
 
   // Mock data for demonstration
   const mockProducts: Product[] = [
@@ -220,6 +217,9 @@ function MarketplaceContent() {
             username,
             full_name,
             avatar_url
+          ),
+          marketplace_inventory (
+            available_quantity
           )
         `)
         .eq('status', 'active')
@@ -254,7 +254,10 @@ function MarketplaceContent() {
         created_at: product.created_at,
         updated_at: product.updated_at,
         is_featured: product.is_featured || false,
-        status: product.status
+        status: product.status,
+        available_quantity: Array.isArray(product.marketplace_inventory) && product.marketplace_inventory[0]?.available_quantity != null
+          ? product.marketplace_inventory[0].available_quantity
+          : undefined
       })) || []
 
       setProducts(formattedProducts)
@@ -265,6 +268,21 @@ function MarketplaceContent() {
       setLoading(false)
     }
   }
+  
+  useEffect(() => {
+    const channel = supabase
+      .channel('inventory-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'marketplace_inventory' }, (payload) => {
+        const productId = (payload.new as any)?.product_id
+        const available = (payload.new as any)?.available_quantity
+        if (!productId || available == null) return
+        setProducts(prev => prev.map(p => p.id === productId ? { ...p, available_quantity: available } : p))
+      })
+      .subscribe()
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase])
 
   const fetchCategories = async () => {
     try {
@@ -351,10 +369,27 @@ function MarketplaceContent() {
     
     console.log('Rendering product card for:', product.title, 'in view mode:', viewMode)
     
-    const handleAddToCart = (e: React.MouseEvent) => {
+    const handleAddToCart = async (e: React.MouseEvent) => {
       e.stopPropagation() // Prevent card click navigation
       
       try {
+        const { data: stockAvailable, error: stockError } = await supabase
+          .rpc('check_stock_availability', {
+            p_product_id: product.id,
+            p_quantity: 1
+          })
+
+        if (stockError) {
+          console.error('Stock check error:', stockError)
+          toast.error('Failed to check stock')
+          return
+        }
+
+        if (!stockAvailable) {
+          toast.error('Insufficient stock available')
+          return
+        }
+
         const cartItem = {
           productId: product.id,
           title: product.title,
@@ -487,14 +522,19 @@ function MarketplaceContent() {
             )}
           </div>
           
-          <div className="flex items-center justify-between mb-2">
-            <div className="space-y-0.5">
-              <div className="font-bold text-base">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <div className="font-bold text-sm">
                 ${product.price}
               </div>
               {product.green_points_price && (
                 <div className="text-xs text-green-600 dark:text-green-400 font-medium">
                   {product.green_points_price} GP
+                </div>
+              )}
+              {product.available_quantity != null && product.type === 'physical' && (
+                <div className="text-xs text-gray-500">
+                  In stock: {product.available_quantity}
                 </div>
               )}
             </div>

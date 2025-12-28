@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useCart } from '@/hooks/use-cart'
 import { useWishlist } from '@/hooks/use-wishlist'
 import { toast } from 'sonner'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 export default function CartWishlistControls({
   productId,
@@ -26,10 +27,34 @@ export default function CartWishlistControls({
   const { addItem } = useCart()
   const { has, toggle } = useWishlist()
   const liked = has(productId)
+  const supabase = createClientComponentClient()
 
-  const addToCart = () => {
-    addItem({ productId, title, price, currency, image, sellerId, quantity: Math.max(1, quantity) })
-    toast.success('Added to cart')
+  const addToCart = async () => {
+    try {
+      const requestedQty = Math.max(1, quantity)
+      const { data: stockAvailable, error: stockError } = await supabase
+        .rpc('check_stock_availability', {
+          p_product_id: productId,
+          p_quantity: requestedQty
+        })
+
+      if (stockError) {
+        console.error('Stock check error:', stockError)
+        toast.error('Failed to check stock')
+        return
+      }
+
+      if (!stockAvailable) {
+        toast.error('Insufficient stock available')
+        return
+      }
+
+      addItem({ productId, title, price, currency, image, sellerId, quantity: requestedQty })
+      toast.success('Added to cart')
+    } catch (error) {
+      console.error('Error adding to cart:', error)
+      toast.error('Failed to add to cart')
+    }
   }
 
   const toggleWishlist = () => {

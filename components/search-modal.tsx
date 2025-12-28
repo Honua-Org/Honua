@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -167,6 +167,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden p-0">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle className="sr-only">Search</DialogTitle>
+          <DialogDescription className="sr-only">Search for users, posts, and hashtags</DialogDescription>
           <form onSubmit={handleSearch} className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input

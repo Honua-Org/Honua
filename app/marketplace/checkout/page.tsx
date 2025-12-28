@@ -10,6 +10,8 @@ import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useRouter } from "next/navigation"
+import { useInventoryManagement } from "@/hooks/use-inventory-management"
+import crypto from "crypto"
 
 type ShippingForm = {
   full_name: string
@@ -35,6 +37,7 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false)
   const supabase = createClientComponentClient()
   const router = useRouter()
+  const { reserveStock, releaseReservedStock } = useInventoryManagement()
 
   useEffect(() => {
     // Only redirect if cart is loaded and empty
@@ -50,6 +53,7 @@ export default function CheckoutPage() {
     }
     setSubmitting(true)
     
+    const reservationId = crypto.randomUUID()
     const orderResults = []
     let hasErrors = false
     
@@ -75,6 +79,18 @@ export default function CheckoutPage() {
       for (const item of items) {
         try {
           console.log(`Processing order for ${item.title}...`)
+          
+          const reserved = await reserveStock(item.productId, item.quantity, reservationId)
+          if (!reserved) {
+            orderResults.push({
+              item: item.title,
+              success: false,
+              error: 'Insufficient stock available',
+              details: 'Reservation failed'
+            })
+            hasErrors = true
+            continue
+          }
           const requestBody = {
             product_id: item.productId,
             quantity: item.quantity,
@@ -102,6 +118,7 @@ export default function CheckoutPage() {
             console.error(`Failed to parse JSON response for ${item.title}:`, jsonError)
             const textResponse = await res.text()
             console.error(`Raw response for ${item.title}:`, textResponse)
+            await releaseReservedStock(item.productId, item.quantity, reservationId)
             orderResults.push({
               item: item.title,
               success: false,
@@ -120,6 +137,7 @@ export default function CheckoutPage() {
               message: result?.message ?? null,
               details: result?.details ?? null
             })
+            await releaseReservedStock(item.productId, item.quantity, reservationId)
             orderResults.push({
               item: item.title,
               success: false,
@@ -136,6 +154,7 @@ export default function CheckoutPage() {
           }
         } catch (itemError) {
           console.error(`Exception processing ${item.title}:`, itemError)
+          await releaseReservedStock(item.productId, item.quantity, reservationId)
           orderResults.push({
             item: item.title,
             success: false,

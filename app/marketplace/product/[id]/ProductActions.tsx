@@ -7,6 +7,7 @@ import { Heart, ShoppingCart } from "lucide-react"
 import { toast } from "sonner"
 import { useState } from "react"
 import Link from "next/link"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 type ProductActionsProps = {
   product: {
@@ -28,9 +29,28 @@ export function ProductActions({ product, quantity, isLiked, onToggleWishlist }:
   const { addItem } = useCart()
   const { has, toggle } = useWishlist()
   const [justAdded, setJustAdded] = useState(false)
+  const supabase = createClientComponentClient()
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     try {
+      const requestedQty = Math.max(1, quantity)
+      const { data: stockAvailable, error: stockError } = await supabase
+        .rpc('check_stock_availability', {
+          p_product_id: product.id,
+          p_quantity: requestedQty
+        })
+
+      if (stockError) {
+        console.error('Stock check error:', stockError)
+        toast.error('Failed to check stock')
+        return
+      }
+
+      if (!stockAvailable) {
+        toast.error('Insufficient stock available')
+        return
+      }
+
       addItem({
         productId: product.id,
         title: product.title,
@@ -38,7 +58,7 @@ export function ProductActions({ product, quantity, isLiked, onToggleWishlist }:
         currency: product.currency,
         image: product.images?.[0],
         sellerId: product.seller.id,
-        quantity: Math.max(1, quantity)
+        quantity: requestedQty
       })
       setJustAdded(true)
       toast.success("Added to cart")
