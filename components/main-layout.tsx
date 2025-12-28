@@ -358,17 +358,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
             </p>
           </div>
         </div>
-        <div className="mt-4 flex items-center justify-center">
-          <a href="https://www.f6s.com/honua.green" target="_blank" rel="noopener noreferrer" aria-label="Honua on F6S">
-            <Image
-              src="/images/F6S_Top_Company_Climate Tech_13.png"
-              alt="F6S Top Company Climate Tech"
-              width={140}
-              height={42}
-              className="h-10 w-auto"
-            />
-          </a>
-        </div>
       </div>
     </div>
   )
