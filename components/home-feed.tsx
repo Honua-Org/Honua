@@ -133,6 +133,7 @@ const mockPosts = [
 export default function HomeFeed() {
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("for-you")
   const [createPostOpen, setCreatePostOpen] = useState(false)
   const session = useSession()
@@ -141,7 +142,12 @@ export default function HomeFeed() {
   const fetchPosts = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/posts')
+      const response = await fetch('/api/posts', {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
       
       if (!response.ok) {
         const errorText = await response.text()
@@ -150,13 +156,17 @@ export default function HomeFeed() {
       }
       
       const data = await response.json()
-      // Use real data from API, or empty array if no posts
-      setPosts(data || [])
+      // Ensure we only set an array to avoid render errors
+      if (Array.isArray(data)) {
+        setPosts(data)
+      } else {
+        console.warn('Posts API returned non-array payload:', data)
+        setPosts([])
+        setError('Failed to load posts. Please try again later.')
+      }
     } catch (error) {
       console.error('Error fetching posts:', error)
-      console.error('This error is likely due to missing Supabase configuration.')
-      console.error('Please check your .env.local file and ensure Supabase environment variables are set.')
-      setPosts([])
+      setError('Failed to load posts. Please try again later.')
     } finally {
       setLoading(false)
     }
@@ -180,7 +190,13 @@ export default function HomeFeed() {
     if ('liked_by_user' in updates) {
       try {
         const method = updates.liked_by_user ? 'POST' : 'DELETE'
-        const response = await fetch(`/api/posts/${postId}/like`, { method })
+        const response = await fetch(`/api/posts/${postId}/like`, { 
+          method,
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
         
         if (!response.ok) {
           // Revert the optimistic update if API call fails

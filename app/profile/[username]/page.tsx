@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
+import Link from "next/link"
 import { useSession } from "@supabase/auth-helpers-react"
 import { createClient } from "@/lib/supabase/client"
 import { uploadCoverImage } from "@/lib/storage"
@@ -124,6 +125,7 @@ export default function ProfilePage() {
   const [selectedCoverImage, setSelectedCoverImage] = useState<string | null>(null)
   const [uploadingCoverImage, setUploadingCoverImage] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [userNotFound, setUserNotFound] = useState(false)
   const [activeReputationTab, setActiveReputationTab] = useState('overview')
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<string | null>(null)
 
@@ -135,12 +137,35 @@ export default function ProfilePage() {
     const fetchUserProfile = async () => {
       setLoading(true)
       try {
+        console.log('Fetching profile for username:', username)
+        
         // Fetch user profile
         const profileResponse = await fetch(`/api/profiles?username=${username}`)
+        
         if (!profileResponse.ok) {
-          throw new Error('Failed to fetch profile')
+          const errorData = await profileResponse.json().catch(() => ({ error: 'Unknown error' }))
+          
+          if (profileResponse.status === 404) {
+            console.log('Profile not found for username:', username)
+            setUserNotFound(true)
+            toast({
+              title: 'Profile Not Found',
+              description: `The user "${username}" does not exist or has been removed.`,
+              variant: 'destructive',
+            })
+            return
+          }
+          
+          throw new Error(errorData.error || `HTTP ${profileResponse.status}: ${profileResponse.statusText}`)
         }
+        
         const profileData = await profileResponse.json()
+        
+        if (!profileData.profile) {
+          throw new Error('Profile data is missing from response')
+        }
+        
+        console.log('Profile fetched successfully:', profileData.profile.username)
         setUser(profileData.profile)
         
         // Check follow status if not own profile and user is logged in
@@ -158,32 +183,50 @@ export default function ProfilePage() {
         }
         
         // Fetch user posts and calculate post count
-        const postsResponse = await fetch("/api/posts?limit=100&page=1");
-        let postsData = [];
-        if (postsResponse.ok) {
-          postsData = await postsResponse.json();
-        } else {
-          const errorObj = await postsResponse.json();
-          throw new Error("Error fetching posts: " + (errorObj.error || postsResponse.statusText));
+        try {
+          const postsResponse = await fetch("/api/posts?limit=100&page=1");
+          let postsData = [];
+          
+          if (postsResponse.ok) {
+            postsData = await postsResponse.json();
+            const userPosts = (postsData || []).filter((post: any) => post.profiles?.username === username);
+            setPosts(userPosts.map((post: any) => ({ ...post, user: post.profiles })));
+            
+            // Update user with actual post count
+            setUser((prev: any) => ({
+              ...prev,
+              posts_count: userPosts.length
+            }));
+          } else {
+            console.warn('Failed to fetch posts, using empty array');
+            setPosts([]);
+            setUser((prev: any) => ({
+              ...prev,
+              posts_count: 0
+            }));
+          }
+        } catch (postsError) {
+          console.error('Error fetching posts:', postsError);
+          setPosts([]);
+          setUser((prev: any) => ({
+            ...prev,
+            posts_count: 0
+          }));
         }
-        const userPosts = (postsData || []).filter((post: any) => post.profiles?.username === username);
-        setPosts(userPosts.map((post: any) => ({ ...post, user: post.profiles })));
-        
-        // Update user with actual post count
-        setUser((prev: any) => ({
-          ...prev,
-          posts_count: userPosts.length
-        }));
       } catch (error) {
-        console.error('Error fetching profile data:', error)
-        toast({
-          title: 'Error',
-          description: 'Failed to load profile data',
-          variant: 'destructive',
-        })
-      } finally {
-        setLoading(false)
-      }
+          console.error('Error fetching profile data:', error)
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+          
+          toast({
+            title: 'Error Loading Profile',
+            description: errorMessage.includes('Failed to fetch') 
+              ? 'Network error. Please check your connection and try again.'
+              : errorMessage,
+            variant: 'destructive',
+          })
+        } finally {
+          setLoading(false)
+        }
     }
     
     if (username) {
@@ -365,6 +408,35 @@ export default function ProfilePage() {
               <p className="text-gray-600 dark:text-gray-400">Loading profile...</p>
             </div>
           </div>
+        ) : userNotFound ? (
+          <div className="flex items-center justify-center h-screen">
+            <div className="text-center max-w-md mx-auto px-4">
+              <div className="w-16 h-16 mx-auto mb-4 text-gray-400">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">User Not Found</h2>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                The user "@{username}" doesn't exist or may have been removed.
+              </p>
+              <div className="space-y-3">
+                <Button 
+                  onClick={() => window.history.back()}
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                >
+                  Go Back
+                </Button>
+                <Button 
+                  onClick={() => window.location.href = '/'}
+                  className="w-full sm:w-auto sustainability-gradient"
+                >
+                  Go to Home
+                </Button>
+              </div>
+            </div>
+          </div>
         ) : user ? (
           <>
             {/* Cover Image */}
@@ -380,187 +452,305 @@ export default function ProfilePage() {
               {isOwnProfile && (
                 <Button
                   onClick={() => setShowCoverEditModal(true)}
-                  className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity text-xs sm:text-sm"
                   size="sm"
                 >
-                  <Camera className="w-4 h-4 mr-2" />
-                  Edit Cover
+                  <Camera className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Edit Cover</span>
+                  <span className="sm:hidden">Edit</span>
                 </Button>
               )}
             </div>
 
         {/* Profile Header */}
-        <div className="relative px-4 pb-4">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between -mt-16 md:-mt-20">
-            <div className="flex flex-col md:flex-row md:items-end space-y-4 md:space-y-0 md:space-x-4">
-              <Avatar className="w-32 h-32 border-4 border-white shadow-lg">
-                <AvatarImage src={user.avatar_url || "/placeholder.svg"} />
-                <AvatarFallback className="bg-green-500 text-white text-2xl">{user.full_name.charAt(0)}</AvatarFallback>
-              </Avatar>
-            </div>
-
-            <div className="flex flex-col items-end space-y-2 mt-4 md:mt-0">
-               {!isOwnProfile ? (
-                 <>
-                   <div className="flex items-center space-x-2">
-                     {followsYou && (
-                       <div className="flex items-center space-x-1 text-sm text-gray-600 dark:text-gray-400">
-                         <span>Follows you</span>
-                       </div>
-                     )}
-                     <Button variant="outline" size="sm" onClick={handleMessage}>
-                       <MessageCircle className="w-4 h-4 mr-2" />
-                       Message
-                     </Button>
-                     <Button
-                       onClick={handleFollow}
-                       className={isFollowing ? "bg-gray-200 text-gray-800 hover:bg-gray-300" : "sustainability-gradient"}
-                     >
-                       {isFollowing ? (
-                         <>
-                           <UserMinus className="w-4 h-4 mr-2" />
-                           Unfollow
-                         </>
-                       ) : (
-                         <>
-                           <UserPlus className="w-4 h-4 mr-2" />
-                           {followsYou ? "Follow back" : "Follow"}
-                         </>
-                       )}
-                     </Button>
-                   </div>
-                 </>
-              ) : (
-                <Button variant="outline" size="sm" asChild>
-                  <a href="/settings">
-                    <Settings className="w-4 h-4 mr-2" />
-                    Edit Profile
-                  </a>
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Name and User Info */}
-          <div className="mt-6 space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{user.full_name}</h1>
-                {user.verified && <CheckCircle className="w-6 h-6 text-blue-500" />}
+        <div className="relative px-2 sm:px-4 pb-4">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between -mt-12 sm:-mt-16 lg:-mt-20">
+            {/* Left Column: Avatar and User Info */}
+            <div className="flex-1 lg:max-w-2xl">
+              {/* Avatar and Mobile Edit Button */}
+              <div className="flex items-end justify-between lg:justify-start space-x-4 w-full lg:w-auto">
+                <Avatar className="w-24 h-24 sm:w-32 sm:h-32 border-4 border-white shadow-lg">
+                  <AvatarImage src={user.avatar_url || "/placeholder.svg"} />
+                  <AvatarFallback className="bg-green-500 text-white text-xl sm:text-2xl">{user.full_name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                
+                {/* Edit Profile Button - Mobile: Right of Avatar */}
+                {isOwnProfile && (
+                  <div className="lg:hidden">
+                    <Button variant="outline" size="sm" asChild className="text-xs px-2 py-1">
+                      <a href="/settings">
+                        <Settings className="w-3 h-3 mr-1" />
+                        <span>Edit</span>
+                      </a>
+                    </Button>
+                  </div>
+                )}
               </div>
-              <p className="text-gray-600 dark:text-gray-400">@{user.username}</p>
-              <div className="flex items-center space-x-2">
-                <ReputationBadge 
-                  reputation={user.reputation || 0} 
-                  size="md"
-                  showTooltip={true}
-                />
-                <Badge
-                  variant="secondary"
-                  className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                >
-                  {user.role}
-                </Badge>
-              </div>
-            </div>
-          </div>
 
-          {/* Bio and Info */}
-          <div className="mt-6 space-y-4">
-            <p className="text-gray-900 dark:text-gray-100 leading-relaxed">{user.bio}</p>
-
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-              {user.location && (
-                <div className="flex items-center space-x-1">
-                  <MapPin className="w-4 h-4" />
-                  <span>{user.location}</span>
+              {/* Name and User Info - Mobile and Tablet Layout */}
+              <div className="mt-3 sm:mt-6 space-y-2 sm:space-y-3 text-left lg:hidden">
+                {/* Name, Username, and Badges - Compact Header */}
+                <div className="space-y-1 sm:space-y-2">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2">
+                        <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-gray-100 truncate">{user.full_name}</h1>
+                        {user.verified && <CheckCircle className="w-4 h-4 sm:w-6 sm:h-6 text-blue-500 flex-shrink-0" />}
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 truncate">@{user.username}</p>
+                    </div>
+                  </div>
                 </div>
-              )}
-              {user.website && (
-                <div className="flex items-center space-x-1">
-                  <LinkIcon className="w-4 h-4" />
-                  <a
-                    href={user.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-green-600 hover:text-green-500"
-                  >
-                    {user.website.replace("https://", "")}
-                  </a>
+
+                {/* Bio - Compact */}
+                {user.bio && (
+                  <p className="text-sm sm:text-base text-gray-900 dark:text-gray-100 leading-snug text-left line-clamp-3">{user.bio}</p>
+                )}
+
+                {/* Stats - Mobile/Tablet Only */}
+                <div className="flex items-center justify-start space-x-4 sm:space-x-6 py-2">
+                  <Link href={`/profile/${user.username}/following`} className="text-center cursor-pointer hover:opacity-80 transition-opacity">
+                    <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base">
+                      {(user.following_count || 0).toLocaleString()}
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">Following</div>
+                  </Link>
+                  <Link href={`/profile/${user.username}/followers`} className="text-center cursor-pointer hover:opacity-80 transition-opacity">
+                    <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base">
+                      {(user.followers_count || 0).toLocaleString()}
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">Followers</div>
+                  </Link>
+                  <div className="text-center">
+                    <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base">
+                      {(user.posts_count || 0).toLocaleString()}
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">Posts</div>
+                  </div>
                 </div>
-              )}
-              <div className="flex items-center space-x-1">
-                <Calendar className="w-4 h-4" />
-                <span>
-                  Joined {user.created_at ? new Date(user.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "Unknown"}
-                </span>
+
+                {/* Metadata - Compact Single Row */}
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-gray-600 dark:text-gray-400">
+                  {user.location && (
+                    <div className="flex items-center space-x-1">
+                      <MapPin className="w-3 h-3" />
+                      <span className="truncate max-w-24 sm:max-w-none">{user.location}</span>
+                    </div>
+                  )}
+                  {user.website && (
+                    <div className="flex items-center space-x-1">
+                      <LinkIcon className="w-3 h-3" />
+                      <a
+                        href={user.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-green-600 hover:text-green-500 truncate max-w-20 sm:max-w-none"
+                      >
+                        {user.website.replace("https://", "").replace("www.", "")}
+                      </a>
+                    </div>
+                  )}
+                  <div className="flex items-center space-x-1">
+                    <Calendar className="w-3 h-3" />
+                    <span className="whitespace-nowrap">
+                      {user.created_at ? new Date(user.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "Unknown"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Sustainability Categories - Compact */}
+                {user.sustainability_categories && user.sustainability_categories.length > 0 && (
+                  <div className="flex flex-wrap gap-1 sm:gap-2">
+                    {user.sustainability_categories.slice(0, 3).map((category: string) => (
+                      <Badge
+                        key={category}
+                        variant="secondary"
+                        className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs px-2 py-1"
+                      >
+                        <Leaf className="w-2 h-2 mr-1" />
+                        {category}
+                      </Badge>
+                    ))}
+                    {user.sustainability_categories.length > 3 && (
+                      <Badge
+                        variant="secondary"
+                        className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 text-xs px-2 py-1"
+                      >
+                        +{user.sustainability_categories.length - 3}
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Desktop User Info Layout */}
+              <div className="hidden lg:block mt-6 space-y-4">
+                {/* Name, Username, and Badges */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-3">
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{user.full_name}</h1>
+                    {user.verified && <CheckCircle className="w-6 h-6 text-blue-500" />}
+                  </div>
+                  <p className="text-lg text-gray-600 dark:text-gray-400">@{user.username}</p>
+                </div>
+
+                {/* Bio */}
+                {user.bio && (
+                  <p className="text-base text-gray-900 dark:text-gray-100 leading-relaxed max-w-2xl">{user.bio}</p>
+                )}
+
+                {/* Metadata */}
+                <div className="flex flex-wrap items-center gap-6 text-sm text-gray-600 dark:text-gray-400">
+                  {user.location && (
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="w-4 h-4" />
+                      <span>{user.location}</span>
+                    </div>
+                  )}
+                  {user.website && (
+                    <div className="flex items-center space-x-2">
+                      <LinkIcon className="w-4 h-4" />
+                      <a
+                        href={user.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-green-600 hover:text-green-500"
+                      >
+                        {user.website.replace("https://", "").replace("www.", "")}
+                      </a>
+                    </div>
+                  )}
+                  <div className="flex items-center space-x-2">
+                    <Calendar className="w-4 h-4" />
+                    <span>
+                      Joined {user.created_at ? new Date(user.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "Unknown"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Sustainability Categories */}
+                {user.sustainability_categories && user.sustainability_categories.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {user.sustainability_categories.slice(0, 5).map((category: string) => (
+                      <Badge
+                        key={category}
+                        variant="secondary"
+                        className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-sm px-3 py-1"
+                      >
+                        <Leaf className="w-3 h-3 mr-1" />
+                        {category}
+                      </Badge>
+                    ))}
+                    {user.sustainability_categories.length > 5 && (
+                      <Badge
+                        variant="secondary"
+                        className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 text-sm px-3 py-1"
+                      >
+                        +{user.sustainability_categories.length - 5}
+                      </Badge>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Stats */}
-            <div className="flex items-center space-x-6 text-sm">
-              <div className="flex items-center space-x-1">
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  {(user.following_count || 0).toLocaleString()}
-                </span>
-                <span className="text-gray-600 dark:text-gray-400">Following</span>
+            {/* Right Column: Action Buttons and Stats (Desktop Only) */}
+            <div className="hidden lg:flex lg:flex-col lg:items-end lg:space-y-4 lg:mt-16 lg:min-w-0 lg:ml-8">
+              {/* Action Buttons */}
+              <div className="flex flex-col items-end space-y-3">
+                {!isOwnProfile ? (
+                  <>
+                    {followsYou && (
+                      <div className="flex items-center space-x-1 text-sm text-gray-600 dark:text-gray-400">
+                        <span>Follows you</span>
+                      </div>
+                    )}
+                    <div className="flex space-x-3">
+                      <Button variant="outline" size="sm" onClick={handleMessage} className="text-sm px-4">
+                        <MessageCircle className="w-4 h-4 mr-2" />
+                        Message
+                      </Button>
+                      <Button
+                        onClick={handleFollow}
+                        className={`text-sm px-4 ${isFollowing ? "bg-gray-200 text-gray-800 hover:bg-gray-300" : "sustainability-gradient"}`}
+                      >
+                        {isFollowing ? (
+                          <>
+                            <UserMinus className="w-4 h-4 mr-2" />
+                            Unfollow
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="w-4 h-4 mr-2" />
+                            {followsYou ? "Follow back" : "Follow"}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <Button variant="outline" size="sm" asChild className="text-sm px-4">
+                    <a href="/settings">
+                      <Settings className="w-4 h-4 mr-2" />
+                      Edit Profile
+                    </a>
+                  </Button>
+                )}
               </div>
-              <div className="flex items-center space-x-1">
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  {(user.followers_count || 0).toLocaleString()}
-                </span>
-                <span className="text-gray-600 dark:text-gray-400">Followers</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  {(user.posts_count || 0).toLocaleString()}
-                </span>
-                <span className="text-gray-600 dark:text-gray-400">Posts</span>
-              </div>
-            </div>
 
-            {/* Sustainability Categories */}
-            <div className="flex flex-wrap gap-2">
-              {user.sustainability_categories?.map((category: string) => (
-                <Badge
-                  key={category}
-                  variant="secondary"
-                  className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                >
-                  <Leaf className="w-3 h-3 mr-1" />
-                  {category}
-                </Badge>
-              ))}
+              {/* Stats - Desktop Only */}
+              <div className="flex space-x-6">
+                <Link href={`/profile/${user.username}/following`} className="text-center cursor-pointer hover:opacity-80 transition-opacity">
+                  <div className="font-bold text-gray-900 dark:text-gray-100 text-lg">
+                    {(user.following_count || 0).toLocaleString()}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Following</div>
+                </Link>
+                <Link href={`/profile/${user.username}/followers`} className="text-center cursor-pointer hover:opacity-80 transition-opacity">
+                  <div className="font-bold text-gray-900 dark:text-gray-100 text-lg">
+                    {(user.followers_count || 0).toLocaleString()}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Followers</div>
+                </Link>
+                <div className="text-center">
+                  <div className="font-bold text-gray-900 dark:text-gray-100 text-lg">
+                    {(user.posts_count || 0).toLocaleString()}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Posts</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Content Tabs */}
-        <div className="px-4 mb-6">
+        <div className="px-2 sm:px-4 mb-4 sm:mb-6">
           <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
             <button
               onClick={() => setActiveTab("posts")}
-              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              className={`flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                 activeTab === "posts"
                   ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
                   : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
               }`}
             >
-              Posts ({user.posts_count || 0})
+              <span className="hidden sm:inline">Posts ({user.posts_count || 0})</span>
+              <span className="sm:hidden">Posts</span>
             </button>
             <button
               onClick={() => setActiveTab("reputation")}
-              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              className={`flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                 activeTab === "reputation"
                   ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
                   : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
               }`}
             >
-              Reputation & Achievements
+              <span className="hidden sm:inline">Reputation & Achievements</span>
+              <span className="sm:hidden">Rep</span>
             </button>
             <button
               onClick={() => setActiveTab("gallery")}
-              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              className={`flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                 activeTab === "gallery"
                   ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
                   : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
@@ -572,22 +762,22 @@ export default function ProfilePage() {
         </div>
 
         {/* Tab Content */}
-        <div className="px-4">
+        <div className="px-2 sm:px-4">
           {activeTab === "posts" && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {posts.length > 0 ? (
                 posts.map((post) => (
                   <PostCard key={post.id} post={post} onUpdate={handlePostUpdate} />
                 ))
               ) : (
-                <div className="text-center py-12">
+                <div className="text-center py-8 sm:py-12">
                   <div className="text-gray-400 mb-4">
-                    <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-12 h-12 sm:w-16 sm:h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No posts yet</h3>
-                  <p className="text-gray-600 dark:text-gray-400">
+                  <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No posts yet</h3>
+                  <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 px-4">
                     {isOwnProfile ? "Share your first sustainability post!" : `${user.full_name} hasn't posted anything yet.`}
                   </p>
                 </div>
@@ -596,24 +786,24 @@ export default function ProfilePage() {
           )}
 
           {activeTab === "reputation" && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <ReputationDashboard userId={user.id} username={user.username} />
               
               {/* Legacy Achievements Section */}
               {user.achievements && user.achievements.length > 0 && (
                 <Card>
-                  <CardContent className="p-6">
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Profile Achievements</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <CardContent className="p-4 sm:p-6">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 text-base sm:text-lg">Profile Achievements</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                       {user.achievements.map((achievement: any, index: number) => (
                         <div
                           key={index}
-                          className="flex items-center space-x-3 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
+                          className="flex items-center space-x-2 sm:space-x-3 p-3 sm:p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
                         >
-                          <span className="text-2xl">{achievement.icon}</span>
-                          <div>
-                            <p className="font-medium text-gray-900 dark:text-gray-100">{achievement.name}</p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">{achievement.description}</p>
+                          <span className="text-xl sm:text-2xl">{achievement.icon}</span>
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-900 dark:text-gray-100 text-sm sm:text-base">{achievement.name}</p>
+                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">{achievement.description}</p>
                           </div>
                         </div>
                       ))}
@@ -626,8 +816,8 @@ export default function ProfilePage() {
 
           {activeTab === "gallery" && (
             <Card>
-              <CardContent className="p-6">
-                <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Recent Photos</h3>
+              <CardContent className="p-4 sm:p-6">
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 text-base sm:text-lg">Recent Photos</h3>
                 {(() => {
                   // Extract all images from user's posts
                   const allImages: string[] = []
@@ -638,7 +828,7 @@ export default function ProfilePage() {
                   })
                   
                   return allImages.length > 0 ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
                       {allImages.map((src, index) => (
                         <div
                            key={index}
@@ -656,14 +846,14 @@ export default function ProfilePage() {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-12">
+                    <div className="text-center py-8 sm:py-12">
                       <div className="text-gray-400 mb-4">
-                        <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-12 h-12 sm:w-16 sm:h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                       </div>
-                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No photos yet</h3>
-                      <p className="text-gray-600 dark:text-gray-400">
+                      <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No photos yet</h3>
+                      <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 px-4">
                         {isOwnProfile ? "Share posts with photos to see them here!" : `${user.full_name} hasn't shared any photos yet.`}
                       </p>
                     </div>

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -84,22 +84,29 @@ type BookmarkedPost = {
     username: string;
     full_name: string;
     avatar_url: string;
-    verified: boolean;
+    verified?: boolean;
   };
   content: string;
-  media_urls: string[];
-  location: string;
-  sustainability_category: string;
-  impact_score: number;
+  media_urls?: string[];
+  location?: string;
+  sustainability_category?: string;
+  impact_score?: number;
   likes_count: number;
   comments_count: number;
   reposts_count: number;
   created_at: string;
+  updated_at: string;
+  parent_id?: string;
   liked_by_user: boolean;
   bookmarked_by_user: boolean;
   reposted_by_user: boolean;
-  collection_id: string | null;
-  collection_name: string | null;
+  link_preview_url?: string;
+  link_preview_title?: string;
+  link_preview_description?: string;
+  link_preview_image?: string;
+  link_preview_domain?: string;
+  collection_id?: string;
+  collection_name?: string;
 };
 
 export default function BookmarksPage() {
@@ -179,9 +186,16 @@ export default function BookmarksPage() {
         comments_count: 0,
         reposts_count: 0,
         created_at: p.created_at,
+        updated_at: p.updated_at || p.created_at,
+        parent_id: p.parent_id,
         liked_by_user: false, // Optionally fetch likes
         bookmarked_by_user: true,
         reposted_by_user: false,
+        link_preview_url: p.link_preview_url,
+        link_preview_title: p.link_preview_title,
+        link_preview_description: p.link_preview_description,
+        link_preview_image: p.link_preview_image,
+        link_preview_domain: p.link_preview_domain,
         collection_id: b.collection_id,
         collection_name: b.collections?.name || null
       }
@@ -327,31 +341,32 @@ export default function BookmarksPage() {
     <MainLayout>
       <div className="max-w-4xl mx-auto p-4 pb-20 lg:pb-4">
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-4">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/20 rounded-full flex items-center justify-center">
-                <Bookmark className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+              <div className="p-2 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg">
+                <Bookmark className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Bookmarks</h1>
-                <p className="text-gray-600 dark:text-gray-400">{posts.length} saved posts</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Bookmarks</h1>
+                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">{posts.length} saved posts</p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm">
-                <Download className="w-4 h-4 mr-2" />
-                Export
+              <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
+                <Download className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Export</span>
               </Button>
               <Dialog open={isNewCollectionOpen} onOpenChange={setIsNewCollectionOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <FolderPlus className="w-4 h-4 mr-2" />
-                    New Collection
+                  <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
+                    <FolderPlus className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">New Collection</span>
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Create New Collection</DialogTitle>
+                    <DialogDescription>Set up a collection to organize bookmarks</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div>
@@ -396,8 +411,8 @@ export default function BookmarksPage() {
           </div>
 
           {/* Visual Header */}
-          <div className="mb-6">
-            <div className="relative h-32 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg overflow-hidden">
+          <div className="mb-4 sm:mb-6">
+            <div className="relative h-24 sm:h-32 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg overflow-hidden">
               <Image
                 src="https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=1200&h=400&fit=crop"
                 alt="Bookmarks collection"
@@ -405,18 +420,18 @@ export default function BookmarksPage() {
                 className="object-cover opacity-20"
               />
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center text-white">
-                  <Bookmark className="w-12 h-12 mx-auto mb-2" />
-                  <h2 className="text-xl font-bold">Your Saved Content</h2>
-                  <p className="text-yellow-100">Organize and revisit your favorite sustainability posts</p>
+                <div className="text-center text-white px-4">
+                  <Bookmark className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2" />
+                  <h2 className="text-lg sm:text-xl font-bold">Your Saved Content</h2>
+                  <p className="text-sm sm:text-base text-yellow-100 hidden sm:block">Organize and revisit your favorite sustainability posts</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4">
             <Select value={selectedCollection || "all"} onValueChange={(value) => setSelectedCollection(value === "all" ? null : value)}>
-              <SelectTrigger className="w-full sm:w-48">
+              <SelectTrigger className="w-full sm:w-48 h-10">
                 <Filter className="w-4 h-4 mr-2" />
                 <SelectValue placeholder="All Collections" />
               </SelectTrigger>
@@ -431,7 +446,7 @@ export default function BookmarksPage() {
             </Select>
 
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-full sm:w-48">
+              <SelectTrigger className="w-full sm:w-48 h-10">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -443,8 +458,8 @@ export default function BookmarksPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+          <div className="lg:col-span-2 space-y-4 lg:space-y-6 order-2 lg:order-1">
             {sortedPosts.length > 0 ? (
               sortedPosts.map((post) => <PostCard key={post.id} post={post} onUpdate={handlePostUpdate} />)
             ) : (
@@ -460,7 +475,7 @@ export default function BookmarksPage() {
             )}
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4 lg:space-y-6 order-1 lg:order-2">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -476,20 +491,20 @@ export default function BookmarksPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div
-                  className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
+                  className={`flex items-center justify-between p-3 sm:p-4 rounded-lg cursor-pointer transition-colors min-h-[48px] ${
                     !selectedCollection
                       ? "bg-green-100 dark:bg-green-900/20"
                       : "hover:bg-gray-50 dark:hover:bg-gray-800"
                   }`}
                   onClick={() => setSelectedCollection(null)}
                 >
-                  <span className="font-medium">All Bookmarks</span>
-                  <Badge variant="secondary">{posts.length}</Badge>
+                  <span className="font-medium text-sm sm:text-base">All Bookmarks</span>
+                  <Badge variant="secondary" className="text-xs">{posts.length}</Badge>
                 </div>
                 {collections.map((collection) => (
                   <div
                     key={collection.id}
-                    className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
+                    className={`flex items-center justify-between p-3 sm:p-4 rounded-lg cursor-pointer transition-colors min-h-[48px] ${
                       selectedCollection === collection.id
                         ? "bg-green-100 dark:bg-green-900/20"
                         : "hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -498,12 +513,12 @@ export default function BookmarksPage() {
                   >
                     <div className="flex items-center space-x-2">
                       <div
-                        className="w-3 h-3 rounded-full"
+                        className="w-3 h-3 rounded-full flex-shrink-0"
                         style={{ backgroundColor: collection.color }}
                       />
-                      <span className="font-medium">{collection.name}</span>
+                      <span className="font-medium text-sm sm:text-base truncate">{collection.name}</span>
                     </div>
-                    <Badge variant="secondary">{collection.bookmark_count}</Badge>
+                    <Badge variant="secondary" className="text-xs flex-shrink-0">{collection.bookmark_count}</Badge>
                   </div>
                 ))}
               </CardContent>
@@ -514,18 +529,18 @@ export default function BookmarksPage() {
                 <CardTitle>Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <Button variant="outline" className="w-full justify-start">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export All Bookmarks
+                <Button variant="outline" className="w-full justify-start min-h-[44px] text-sm">
+                  <Download className="w-4 h-4 mr-2 flex-shrink-0" />
+                  <span className="truncate">Export All Bookmarks</span>
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="w-full justify-start"
+                  className="w-full justify-start min-h-[44px] text-sm"
                   onClick={clearAllCollections}
                   disabled={loading}
                 >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Clear All Collections
+                  <Trash2 className="w-4 h-4 mr-2 flex-shrink-0" />
+                  <span className="truncate">Clear All Collections</span>
                 </Button>
               </CardContent>
             </Card>

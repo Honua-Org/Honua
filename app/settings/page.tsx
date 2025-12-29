@@ -190,7 +190,15 @@ export default function SettingsPage() {
     linkedin_url: "",
   })
 
-  const [upgradeRequest, setUpgradeRequest] = useState(null)
+  const [upgradeRequest, setUpgradeRequest] = useState<{
+    id: string;
+    status: string;
+    admin_notes?: string;
+    organization_name: string;
+    industry: string;
+    request_type: string;
+    submitted_at: string;
+  } | null>(null)
   const [uploadingDocuments, setUploadingDocuments] = useState(false)
   const [submittingUpgrade, setSubmittingUpgrade] = useState(false)
 
@@ -535,80 +543,111 @@ export default function SettingsPage() {
 
   return (
     <MainLayout>
-      <div className="max-w-4xl mx-auto p-4 pb-20 lg:pb-4">
-        <div className="flex items-center space-x-3 mb-6">
-          <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
-            <Settings className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+      <div className="max-w-4xl mx-auto p-3 sm:p-4 pb-20 lg:pb-4">
+        <div className="flex items-center space-x-3 mb-4 sm:mb-6">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
+            <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
-            <p className="text-gray-600 dark:text-gray-400">Manage your account and preferences</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Manage your account and preferences</p>
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
+          {/* Mobile: Horizontal scrollable tabs */}
+          <div className="sm:hidden">
+            <div className="flex space-x-1 overflow-x-auto pb-2 scrollbar-hide">
+              {[
+                { value: 'profile', icon: User, label: 'Profile' },
+                { value: 'account', icon: Shield, label: 'Account' },
+                { value: 'organization', icon: Building2, label: 'Org' },
+                { value: 'privacy', icon: Lock, label: 'Privacy' },
+                { value: 'notifications', icon: Bell, label: 'Notify' },
+                { value: 'data', icon: Download, label: 'Data' },
+              ].map((tab) => {
+                const Icon = tab.icon
+                return (
+                  <button
+                    key={tab.value}
+                    onClick={() => setActiveTab(tab.value)}
+                    className={`flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-lg text-xs transition-colors min-w-[3.5rem] ${
+                      activeTab === tab.value
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span className="font-medium leading-tight">{tab.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          
+          {/* Desktop: Standard tabs */}
+          <TabsList className="hidden sm:grid w-full grid-cols-6">
             <TabsTrigger value="profile" className="flex items-center space-x-2">
               <User className="w-4 h-4" />
-              <span className="hidden sm:inline">Profile</span>
+              <span>Profile</span>
             </TabsTrigger>
             <TabsTrigger value="account" className="flex items-center space-x-2">
               <Shield className="w-4 h-4" />
-              <span className="hidden sm:inline">Account</span>
+              <span>Account</span>
             </TabsTrigger>
             <TabsTrigger value="organization" className="flex items-center space-x-2">
               <Building2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Organization</span>
+              <span>Organization</span>
             </TabsTrigger>
             <TabsTrigger value="privacy" className="flex items-center space-x-2">
               <Lock className="w-4 h-4" />
-              <span className="hidden sm:inline">Privacy</span>
+              <span>Privacy</span>
             </TabsTrigger>
             <TabsTrigger value="notifications" className="flex items-center space-x-2">
               <Bell className="w-4 h-4" />
-              <span className="hidden sm:inline">Notifications</span>
+              <span>Notifications</span>
             </TabsTrigger>
             <TabsTrigger value="data" className="flex items-center space-x-2">
               <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">Data</span>
+              <span>Data</span>
             </TabsTrigger>
           </TabsList>
 
           {/* Profile Settings */}
-          <TabsContent value="profile" className="space-y-6">
+          <TabsContent value="profile" className="space-y-4 sm:space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <User className="w-5 h-5" />
+              <CardHeader className="pb-4 sm:pb-6">
+                <CardTitle className="flex items-center space-x-2 text-lg sm:text-xl">
+                  <User className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span>Profile Information</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6">
                 {/* Avatar Section */}
-                <div className="flex items-center space-x-6">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6">
                   <div className="relative">
-                    <Avatar className="w-24 h-24">
+                    <Avatar className="w-20 h-20 sm:w-24 sm:h-24">
                       <AvatarImage src={profileData.avatar_url || "/placeholder.svg"} />
-                      <AvatarFallback className="bg-green-500 text-white text-xl">
+                      <AvatarFallback className="bg-green-500 text-white text-lg sm:text-xl">
                         {profileData.full_name.charAt(0)}
                       </AvatarFallback>
                     </Avatar>
                     <Button
                       size="sm"
-                      className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0"
+                      className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 rounded-full w-7 h-7 sm:w-8 sm:h-8 p-0"
                       variant="secondary"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploadingAvatar}
                     >
-                      <Camera className="w-4 h-4" />
+                      <Camera className="w-3 h-3 sm:w-4 sm:h-4" />
                     </Button>
                   </div>
-                  <div className="space-y-2">
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">Profile Photo</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <div className="space-y-2 text-center sm:text-left">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base">Profile Photo</h3>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                       Upload a new profile photo. JPG, PNG or GIF. Max size 10MB.
                     </p>
-                    <div className="flex space-x-2">
+                    <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                       <input
                         ref={fileInputRef}
                         type="file"
@@ -622,10 +661,11 @@ export default function SettingsPage() {
                         variant="outline"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={uploadingAvatar}
+                        className="h-9 sm:h-auto text-xs sm:text-sm"
                       >
                         {uploadingAvatar ? "Uploading..." : "Upload Photo"}
                       </Button>
-                      <Button size="sm" variant="ghost" className="text-red-600">
+                      <Button size="sm" variant="ghost" className="text-red-600 h-9 sm:h-auto text-xs sm:text-sm">
                         Remove
                       </Button>
                     </div>
@@ -635,23 +675,25 @@ export default function SettingsPage() {
                 <Separator />
 
                 {/* Basic Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="full_name">Full Name</Label>
+                    <Label htmlFor="full_name" className="text-sm sm:text-base">Full Name</Label>
                     <Input
                       id="full_name"
                       value={profileData.full_name}
                       onChange={(e) => setProfileData({ ...profileData, full_name: e.target.value })}
                       placeholder="Enter your full name"
+                      className="h-10 sm:h-auto"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
+                    <Label htmlFor="username" className="text-sm sm:text-base">Username</Label>
                     <Input
                       id="username"
                       value={profileData.username}
                       onChange={(e) => setProfileData({ ...profileData, username: e.target.value })}
                       placeholder="Enter your username"
+                      className="h-10 sm:h-auto"
                     />
                   </div>
                 </div>
@@ -710,33 +752,34 @@ export default function SettingsPage() {
           </TabsContent>
 
           {/* Account Settings */}
-          <TabsContent value="account" className="space-y-6">
+          <TabsContent value="account" className="space-y-4 sm:space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Shield className="w-5 h-5" />
+              <CardHeader className="pb-4 sm:pb-6">
+                <CardTitle className="flex items-center space-x-2 text-lg sm:text-xl">
+                  <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span>Account Security</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
+                  <Label htmlFor="email" className="text-sm sm:text-base">Email Address</Label>
                   <Input
                     id="email"
                     type="email"
                     value={accountData.email}
                     onChange={(e) => setAccountData({ ...accountData, email: e.target.value })}
                     placeholder="your@email.com"
+                    className="h-10 sm:h-auto"
                   />
                 </div>
 
                 <Separator />
 
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Change Password</h3>
-                  <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base">Change Password</h3>
+                  <div className="space-y-3 sm:space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="current_password">Current Password</Label>
+                      <Label htmlFor="current_password" className="text-sm sm:text-base">Current Password</Label>
                       <div className="relative">
                         <Input
                           id="current_password"
@@ -744,7 +787,7 @@ export default function SettingsPage() {
                           value={accountData.current_password}
                           onChange={(e) => setAccountData({ ...accountData, current_password: e.target.value })}
                           placeholder="Enter current password"
-                          className="pr-10"
+                          className="pr-10 h-10 sm:h-auto"
                         />
                         <Button
                           type="button"
@@ -763,7 +806,7 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="new_password">New Password</Label>
+                      <Label htmlFor="new_password" className="text-sm sm:text-base">New Password</Label>
                       <div className="relative">
                         <Input
                           id="new_password"
@@ -771,7 +814,7 @@ export default function SettingsPage() {
                           value={accountData.new_password}
                           onChange={(e) => setAccountData({ ...accountData, new_password: e.target.value })}
                           placeholder="Enter new password"
-                          className="pr-10"
+                          className="pr-10 h-10 sm:h-auto"
                         />
                         <Button
                           type="button"
@@ -790,7 +833,7 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="confirm_password">Confirm New Password</Label>
+                      <Label htmlFor="confirm_password" className="text-sm sm:text-base">Confirm New Password</Label>
                       <div className="relative">
                         <Input
                           id="confirm_password"
@@ -798,7 +841,7 @@ export default function SettingsPage() {
                           value={accountData.confirm_password}
                           onChange={(e) => setAccountData({ ...accountData, confirm_password: e.target.value })}
                           placeholder="Confirm new password"
-                          className="pr-10"
+                          className="pr-10 h-10 sm:h-auto"
                         />
                         <Button
                           type="button"
@@ -819,7 +862,7 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="flex justify-end">
-                  <Button onClick={handleSaveAccount} className="sustainability-gradient">
+                  <Button onClick={handleSaveAccount} className="sustainability-gradient h-10 sm:h-auto text-sm sm:text-base">
                     <Save className="w-4 h-4 mr-2" />
                     Update Account
                   </Button>
@@ -829,18 +872,18 @@ export default function SettingsPage() {
           </TabsContent>
 
           {/* Organization Upgrade */}
-          <TabsContent value="organization" className="space-y-6">
+          <TabsContent value="organization" className="space-y-4 sm:space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Building2 className="w-5 h-5" />
+              <CardHeader className="pb-4 sm:pb-6">
+                <CardTitle className="flex items-center space-x-2 text-lg sm:text-xl">
+                  <Building2 className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span>Organization Account Upgrade</span>
                 </CardTitle>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   Upgrade your account to access organization features, marketplace access, and business tools.
                 </p>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6">
                 {upgradeRequest ? (
                   <div className="space-y-4">
                     <div className="flex items-center space-x-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
@@ -890,37 +933,37 @@ export default function SettingsPage() {
                       )}
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Organization Name</Label>
-                        <p className="text-sm text-gray-900 dark:text-gray-100">{upgradeRequest.organization_name}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                      <div className="space-y-1 sm:space-y-2">
+                        <Label className="text-sm sm:text-base">Organization Name</Label>
+                        <p className="text-xs sm:text-sm text-gray-900 dark:text-gray-100">{upgradeRequest.organization_name}</p>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Industry</Label>
-                        <p className="text-sm text-gray-900 dark:text-gray-100">{upgradeRequest.industry}</p>
+                      <div className="space-y-1 sm:space-y-2">
+                        <Label className="text-sm sm:text-base">Industry</Label>
+                        <p className="text-xs sm:text-sm text-gray-900 dark:text-gray-100">{upgradeRequest.industry}</p>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Request Type</Label>
-                        <p className="text-sm text-gray-900 dark:text-gray-100 capitalize">{upgradeRequest.request_type}</p>
+                      <div className="space-y-1 sm:space-y-2">
+                        <Label className="text-sm sm:text-base">Request Type</Label>
+                        <p className="text-xs sm:text-sm text-gray-900 dark:text-gray-100 capitalize">{upgradeRequest.request_type}</p>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Submitted</Label>
-                        <p className="text-sm text-gray-900 dark:text-gray-100">
+                      <div className="space-y-1 sm:space-y-2">
+                        <Label className="text-sm sm:text-base">Submitted</Label>
+                        <p className="text-xs sm:text-sm text-gray-900 dark:text-gray-100">
                           {new Date(upgradeRequest.submitted_at).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4 sm:space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="request_type">Account Type</Label>
+                        <Label htmlFor="request_type" className="text-sm sm:text-base">Account Type</Label>
                         <Select
                           value={organizationData.request_type}
                           onValueChange={(value) => setOrganizationData({ ...organizationData, request_type: value })}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="h-10 sm:h-auto">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -930,34 +973,36 @@ export default function SettingsPage() {
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="organization_name">Organization Name *</Label>
+                        <Label htmlFor="organization_name" className="text-sm sm:text-base">Organization Name *</Label>
                         <Input
                           id="organization_name"
                           value={organizationData.organization_name}
                           onChange={(e) => setOrganizationData({ ...organizationData, organization_name: e.target.value })}
                           placeholder="Enter your organization name"
+                          className="h-10 sm:h-auto"
                           required
                         />
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="organization_type">Organization Type</Label>
+                        <Label htmlFor="organization_type" className="text-sm sm:text-base">Organization Type</Label>
                         <Input
                           id="organization_type"
                           value={organizationData.organization_type}
                           onChange={(e) => setOrganizationData({ ...organizationData, organization_type: e.target.value })}
                           placeholder="e.g., Non-Profit, LLC, Corporation"
+                          className="h-10 sm:h-auto"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="industry">Industry *</Label>
+                        <Label htmlFor="industry" className="text-sm sm:text-base">Industry *</Label>
                         <Select
                           value={organizationData.industry}
                           onValueChange={(value) => setOrganizationData({ ...organizationData, industry: value })}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="h-10 sm:h-auto">
                             <SelectValue placeholder="Select industry" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1176,26 +1221,26 @@ export default function SettingsPage() {
           </TabsContent>
 
           {/* Privacy Settings */}
-          <TabsContent value="privacy" className="space-y-6">
+          <TabsContent value="privacy" className="space-y-4 sm:space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Lock className="w-5 h-5" />
+              <CardHeader className="pb-4 sm:pb-6">
+                <CardTitle className="flex items-center space-x-2 text-lg sm:text-xl">
+                  <Lock className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span>Privacy & Visibility</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+              <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-0 rounded-lg sm:rounded-none bg-gray-50 sm:bg-transparent dark:bg-gray-800 sm:dark:bg-transparent">
                     <div className="space-y-1">
-                      <Label>Profile Visibility</Label>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Control who can see your profile</p>
+                      <Label className="text-sm sm:text-base">Profile Visibility</Label>
+                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Control who can see your profile</p>
                     </div>
                     <Select
                       value={privacySettings.profile_visibility}
                       onValueChange={(value) => setPrivacySettings({ ...privacySettings, profile_visibility: value })}
                     >
-                      <SelectTrigger className="w-32">
+                      <SelectTrigger className="w-full sm:w-32 h-10 sm:h-auto">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1223,7 +1268,7 @@ export default function SettingsPage() {
 
                   <Separator />
 
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {[
                       {
                         key: "show_email",
@@ -1251,24 +1296,25 @@ export default function SettingsPage() {
                         description: "Show when you're online or recently active",
                       },
                     ].map((setting) => (
-                      <div key={setting.key} className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <Label>{setting.label}</Label>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{setting.description}</p>
+                      <div key={setting.key} className="flex items-start sm:items-center justify-between gap-3 p-3 sm:p-0 rounded-lg sm:rounded-none bg-gray-50 sm:bg-transparent dark:bg-gray-800 sm:dark:bg-transparent">
+                        <div className="space-y-1 flex-1 min-w-0">
+                          <Label className="text-sm sm:text-base">{setting.label}</Label>
+                          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 break-words">{setting.description}</p>
                         </div>
                         <Switch
                           checked={privacySettings[setting.key as keyof typeof privacySettings] as boolean}
                           onCheckedChange={(checked) =>
                             setPrivacySettings({ ...privacySettings, [setting.key]: checked })
                           }
+                          className="shrink-0"
                         />
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="flex justify-end">
-                  <Button onClick={handleSavePrivacy} className="sustainability-gradient">
+                <div className="flex justify-end pt-2">
+                  <Button onClick={handleSavePrivacy} className="sustainability-gradient w-full sm:w-auto h-10 sm:h-auto">
                     <Save className="w-4 h-4 mr-2" />
                     Save Privacy Settings
                   </Button>
@@ -1278,33 +1324,34 @@ export default function SettingsPage() {
           </TabsContent>
 
           {/* Notification Settings */}
-          <TabsContent value="notifications" className="space-y-6">
+          <TabsContent value="notifications" className="space-y-4 sm:space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Bell className="w-5 h-5" />
+              <CardHeader className="pb-4 sm:pb-6">
+                <CardTitle className="flex items-center space-x-2 text-lg sm:text-xl">
+                  <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span>Notification Preferences</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label>Email Notifications</Label>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Receive notifications via email</p>
+              <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="flex items-start sm:items-center justify-between gap-3 p-3 sm:p-0 rounded-lg sm:rounded-none bg-gray-50 sm:bg-transparent dark:bg-gray-800 sm:dark:bg-transparent">
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <Label className="text-sm sm:text-base">Email Notifications</Label>
+                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Receive notifications via email</p>
                     </div>
                     <Switch
                       checked={notificationSettings.email_notifications}
                       onCheckedChange={(checked) =>
                         setNotificationSettings({ ...notificationSettings, email_notifications: checked })
                       }
+                      className="shrink-0"
                     />
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label>Push Notifications</Label>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <div className="flex items-start sm:items-center justify-between gap-3 p-3 sm:p-0 rounded-lg sm:rounded-none bg-gray-50 sm:bg-transparent dark:bg-gray-800 sm:dark:bg-transparent">
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <Label className="text-sm sm:text-base">Push Notifications</Label>
+                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                         Receive push notifications in your browser
                       </p>
                     </div>
@@ -1313,13 +1360,14 @@ export default function SettingsPage() {
                       onCheckedChange={(checked) =>
                         setNotificationSettings({ ...notificationSettings, push_notifications: checked })
                       }
+                      className="shrink-0"
                     />
                   </div>
 
                   <Separator />
 
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">Activity Notifications</h3>
+                  <div className="space-y-3 sm:space-y-4">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base">Activity Notifications</h3>
                     {[
                       { key: "likes", label: "Likes", description: "When someone likes your posts" },
                       { key: "comments", label: "Comments", description: "When someone comments on your posts" },
@@ -1327,16 +1375,17 @@ export default function SettingsPage() {
                       { key: "mentions", label: "Mentions", description: "When someone mentions you" },
                       { key: "reposts", label: "Reposts", description: "When someone reposts your content" },
                     ].map((setting) => (
-                      <div key={setting.key} className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <Label>{setting.label}</Label>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{setting.description}</p>
+                      <div key={setting.key} className="flex items-start sm:items-center justify-between gap-3 p-3 sm:p-0 rounded-lg sm:rounded-none bg-gray-50 sm:bg-transparent dark:bg-gray-800 sm:dark:bg-transparent">
+                        <div className="space-y-1 flex-1 min-w-0">
+                          <Label className="text-sm sm:text-base">{setting.label}</Label>
+                          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">{setting.description}</p>
                         </div>
                         <Switch
                           checked={notificationSettings[setting.key as keyof typeof notificationSettings] as boolean}
                           onCheckedChange={(checked) =>
                             setNotificationSettings({ ...notificationSettings, [setting.key]: checked })
                           }
+                          className="shrink-0"
                         />
                       </div>
                     ))}
@@ -1344,8 +1393,8 @@ export default function SettingsPage() {
 
                   <Separator />
 
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">Sustainability Updates</h3>
+                  <div className="space-y-3 sm:space-y-4">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base">Sustainability Updates</h3>
                     {[
                       {
                         key: "sustainability_updates",
@@ -1363,16 +1412,17 @@ export default function SettingsPage() {
                         description: "Notifications about local sustainability events",
                       },
                     ].map((setting) => (
-                      <div key={setting.key} className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <Label>{setting.label}</Label>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{setting.description}</p>
+                      <div key={setting.key} className="flex items-start sm:items-center justify-between gap-3 p-3 sm:p-0 rounded-lg sm:rounded-none bg-gray-50 sm:bg-transparent dark:bg-gray-800 sm:dark:bg-transparent">
+                        <div className="space-y-1 flex-1 min-w-0">
+                          <Label className="text-sm sm:text-base">{setting.label}</Label>
+                          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">{setting.description}</p>
                         </div>
                         <Switch
                           checked={notificationSettings[setting.key as keyof typeof notificationSettings] as boolean}
                           onCheckedChange={(checked) =>
                             setNotificationSettings({ ...notificationSettings, [setting.key]: checked })
                           }
+                          className="shrink-0"
                         />
                       </div>
                     ))}
@@ -1380,7 +1430,7 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="flex justify-end">
-                  <Button onClick={handleSaveNotifications} className="sustainability-gradient">
+                  <Button onClick={handleSaveNotifications} className="sustainability-gradient w-full sm:w-auto h-10 sm:h-9 text-sm sm:text-base">
                     <Save className="w-4 h-4 mr-2" />
                     Save Notification Settings
                   </Button>
@@ -1390,22 +1440,22 @@ export default function SettingsPage() {
           </TabsContent>
 
           {/* Data & Export */}
-          <TabsContent value="data" className="space-y-6">
+          <TabsContent value="data" className="space-y-4 sm:space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Download className="w-5 h-5" />
+              <CardHeader className="pb-4 sm:pb-6">
+                <CardTitle className="flex items-center space-x-2 text-lg sm:text-xl">
+                  <Download className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span>Data Management</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Export Your Data</h3>
-                    <p className="text-sm text-blue-800 dark:text-blue-200 mb-4">
+              <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+                <div className="space-y-4 sm:space-y-6">
+                  <div className="p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2 text-sm sm:text-base">Export Your Data</h3>
+                    <p className="text-xs sm:text-sm text-blue-800 dark:text-blue-200 mb-3 sm:mb-4">
                       Download a copy of all your data including posts, comments, likes, and profile information.
                     </p>
-                    <Button onClick={handleExportData} variant="outline" className="border-blue-300 text-blue-700">
+                    <Button onClick={handleExportData} variant="outline" className="border-blue-300 text-blue-700 w-full sm:w-auto h-10 sm:h-9">
                       <Download className="w-4 h-4 mr-2" />
                       Request Data Export
                     </Button>
@@ -1413,15 +1463,15 @@ export default function SettingsPage() {
 
                   <Separator />
 
-                  <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                    <div className="flex items-start space-x-3">
-                      <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-red-900 dark:text-red-100 mb-2">Delete Account</h3>
-                        <p className="text-sm text-red-800 dark:text-red-200 mb-4">
+                  <div className="p-3 sm:p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                    <div className="flex items-start space-x-2 sm:space-x-3">
+                      <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-red-900 dark:text-red-100 mb-2 text-sm sm:text-base">Delete Account</h3>
+                        <p className="text-xs sm:text-sm text-red-800 dark:text-red-200 mb-3 sm:mb-4">
                           Permanently delete your account and all associated data. This action cannot be undone.
                         </p>
-                        <Button onClick={handleDeleteAccount} variant="destructive">
+                        <Button onClick={handleDeleteAccount} variant="destructive" className="w-full sm:w-auto h-10 sm:h-9">
                           <Trash2 className="w-4 h-4 mr-2" />
                           Delete Account
                         </Button>
@@ -1470,26 +1520,26 @@ export default function SettingsPage() {
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>Account Statistics</CardTitle>
+              <CardHeader className="pb-4 sm:pb-6">
+                <CardTitle className="text-lg sm:text-xl">Account Statistics</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">234</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">Posts</div>
+              <CardContent className="p-4 sm:p-6">
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="text-center p-3 sm:p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">234</div>
+                    <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Posts</div>
                   </div>
-                  <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">2,847</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">Followers</div>
+                  <div className="text-center p-3 sm:p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">2,847</div>
+                    <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Followers</div>
                   </div>
-                  <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">456</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">Following</div>
+                  <div className="text-center p-3 sm:p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">456</div>
+                    <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Following</div>
                   </div>
-                  <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">850</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">Reputation</div>
+                  <div className="text-center p-3 sm:p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">850</div>
+                    <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Reputation</div>
                   </div>
                 </div>
               </CardContent>

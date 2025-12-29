@@ -237,20 +237,20 @@ function SignupPageContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-900 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-900 p-4 sm:p-6">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
+        <div className="text-center mb-6 sm:mb-8 px-2">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-4 shadow-lg">
             <Image src="/images/honua-logo.svg" alt="Honua Logo" width={40} height={40} className="w-10 h-10" />
           </div>
-          <h1 className="text-3xl font-bold text-green-800 dark:text-green-200">Honua</h1>
-          <p className="text-green-600 dark:text-green-400">Join the sustainability movement</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-green-800 dark:text-green-200">Honua</h1>
+          <p className="text-sm sm:text-base text-green-600 dark:text-green-400">Join the sustainability movement</p>
         </div>
 
-        <Card className="shadow-xl border-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-center">Create account</CardTitle>
-            <CardDescription className="text-center">
+        <Card className="shadow-xl border-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm mx-2 sm:mx-0">
+          <CardHeader className="space-y-1 p-4 sm:p-6">
+            <CardTitle className="text-xl sm:text-2xl font-bold text-center">Create account</CardTitle>
+            <CardDescription className="text-center text-sm sm:text-base">
               Join Honua and connect with like-minded sustainability advocates
             </CardDescription>
             
@@ -262,11 +262,11 @@ function SignupPageContent() {
               </div>
             )}
           </CardHeader>
-          <CardContent className="space-y-4">
-            <form onSubmit={handleSignup} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+          <CardContent className="space-y-4 p-4 sm:p-6">
+            <form onSubmit={handleSignup} className="space-y-4 sm:space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="fullName">Full Name</Label>
+                  <Label htmlFor="fullName" className="text-sm font-medium">Full Name</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -276,13 +276,13 @@ function SignupPageContent() {
                       placeholder="John Doe"
                       value={formData.fullName}
                       onChange={handleInputChange}
-                      className="pl-10"
+                      className="pl-10 h-11 sm:h-10 text-base sm:text-sm rounded-lg"
                       required
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
+                  <Label htmlFor="username" className="text-sm font-medium">Username</Label>
                   <Input
                     id="username"
                     name="username"
@@ -290,13 +290,14 @@ function SignupPageContent() {
                     placeholder="johndoe"
                     value={formData.username}
                     onChange={handleInputChange}
+                    className="h-11 sm:h-10 text-base sm:text-sm px-4 rounded-lg"
                     required
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-sm font-medium">Email</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -306,14 +307,14 @@ function SignupPageContent() {
                     placeholder="john@example.com"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="pl-10"
+                    className="pl-10 h-11 sm:h-10 text-base sm:text-sm rounded-lg"
                     required
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-sm font-medium">Password</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -323,27 +324,27 @@ function SignupPageContent() {
                     placeholder="Create a strong password"
                     value={formData.password}
                     onChange={handleInputChange}
-                    className="pl-10 pr-10"
+                    className="pl-10 pr-12 h-11 sm:h-10 text-base sm:text-sm rounded-lg"
                     required
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent min-w-[44px] min-h-[44px] sm:min-w-auto sm:min-h-auto"
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      <EyeOff className="h-5 w-5 sm:h-4 sm:w-4 text-muted-foreground" />
                     ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
+                      <Eye className="h-5 w-5 sm:h-4 sm:w-4 text-muted-foreground" />
                     )}
                   </Button>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Label htmlFor="confirmPassword" className="text-sm font-medium">Confirm Password</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -353,59 +354,61 @@ function SignupPageContent() {
                     placeholder="Confirm your password"
                     value={formData.confirmPassword}
                     onChange={handleInputChange}
-                    className="pl-10 pr-10"
+                    className="pl-10 pr-12 h-11 sm:h-10 text-base sm:text-sm rounded-lg"
                     required
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent min-w-[44px] min-h-[44px] sm:min-w-auto sm:min-h-auto"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
                     {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      <EyeOff className="h-5 w-5 sm:h-4 sm:w-4 text-muted-foreground" />
                     ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
+                      <Eye className="h-5 w-5 sm:h-4 sm:w-4 text-muted-foreground" />
                     )}
                   </Button>
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex items-start space-x-3 py-2">
                 <Checkbox
                   id="terms"
                   checked={acceptTerms}
                   onCheckedChange={(checked) => setAcceptTerms(checked as boolean)}
+                  required
+                  className="mt-1 min-w-[20px] min-h-[20px]"
                 />
-                <Label htmlFor="terms" className="text-sm">
+                <Label htmlFor="terms" className="text-sm text-muted-foreground leading-relaxed cursor-pointer">
                   I agree to the{" "}
-                  <Link href="/terms" className="text-green-600 hover:text-green-500">
+                  <Link href="/terms" className="text-green-600 hover:text-green-700 underline font-medium">
                     Terms of Service
                   </Link>{" "}
                   and{" "}
-                  <Link href="/privacy" className="text-green-600 hover:text-green-500">
+                  <Link href="/privacy" className="text-green-600 hover:text-green-700 underline font-medium">
                     Privacy Policy
                   </Link>
                 </Label>
               </div>
 
-              <Button type="submit" className="w-full sustainability-gradient" disabled={loading}>
+              <Button type="submit" className="w-full sustainability-gradient h-12 sm:h-10 text-base sm:text-sm font-medium rounded-lg" disabled={loading}>
                 {loading ? "Creating account..." : "Create account"}
               </Button>
             </form>
 
-            <div className="relative">
+            <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
-                <Separator className="w-full" />
+                <span className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                <span className="bg-background px-4 text-muted-foreground font-medium">Or continue with</span>
               </div>
             </div>
 
-            <Button type="button" variant="outline" className="w-full" onClick={handleGoogleSignup}>
-              <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+            <Button type="button" variant="outline" className="w-full h-12 sm:h-10 text-base sm:text-sm rounded-lg border-2 hover:bg-gray-50 dark:hover:bg-gray-800" onClick={handleGoogleSignup}>
+              <svg className="mr-3 h-5 w-5 sm:h-4 sm:w-4" viewBox="0 0 24 24">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                   fill="#4285F4"
@@ -426,9 +429,9 @@ function SignupPageContent() {
               Continue with Google
             </Button>
 
-            <div className="text-center text-sm">
-              <span className="text-muted-foreground">Already have an account? </span>
-              <Link href="/auth/login" className="text-green-600 hover:text-green-500 dark:text-green-400 font-medium">
+            <div className="text-center text-sm text-muted-foreground px-4 py-2">
+              Already have an account?{" "}
+              <Link href="/auth/login" className="text-green-600 hover:text-green-700 underline font-medium text-base sm:text-sm">
                 Sign in
               </Link>
             </div>

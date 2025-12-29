@@ -9,9 +9,9 @@ import MentionTextarea from "@/components/mention-textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
-import { ImageIcon, MapPin, Smile, Calendar, Globe, Users, Lock, X, ExternalLink } from "lucide-react"
+import { ImageIcon, MapPin, Smile, Globe, Users, Lock, X, ExternalLink } from "lucide-react"
 import Image from "next/image"
 import EmojiPicker from "@/components/emoji-picker"
 import { uploadPostMedia, type UploadResult } from "@/lib/storage"
@@ -76,6 +76,7 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
   const session = useSession()
   const supabase = createClientComponentClient()
   const { toast } = useToast()
+  const [showLocationInput, setShowLocationInput] = useState(false)
 
   // Fetch current user profile
   useEffect(() => {
@@ -393,27 +394,56 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-sm sm:max-w-md md:max-w-lg lg:max-w-2xl max-h-[85vh] sm:max-h-[90vh] overflow-y-auto mx-4 sm:mx-6">
+        {/* <DialogHeader>
           <DialogTitle>Create Post</DialogTitle>
-        </DialogHeader>
+          <DialogDescription>Share a sustainability update with optional media and details</DialogDescription>
+        </DialogHeader> */}
 
-        <div className="space-y-4">
-          <div className="flex space-x-4">
-            <Avatar className="w-12 h-12">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex space-x-3 sm:space-x-4">
+            <Avatar className="w-10 h-10 sm:w-12 sm:h-12">
               <AvatarImage src={profile?.avatar_url || "/placeholder.svg"} />
               <AvatarFallback className="bg-green-500 text-white">
                 {(profile?.full_name || session?.user?.user_metadata?.full_name || session?.user?.email)?.charAt(0)?.toUpperCase() || "U"}
               </AvatarFallback>
             </Avatar>
 
-            <div className="flex-1 space-y-4">
+            <div className="flex-1 space-y-3 sm:space-y-4">
+              <div className="flex items-center justify-start">
+                <Select value={privacy} onValueChange={setPrivacy}>
+                  <SelectTrigger className="w-28 sm:w-36">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public">
+                      <div className="flex items-center">
+                        <Globe className="w-4 h-4 mr-2" />
+                        Public
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="followers">
+                      <div className="flex items-center">
+                        <Users className="w-4 h-4 mr-2" />
+                        Followers
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="private">
+                      <div className="flex items-center">
+                        <Lock className="w-4 h-4 mr-2" />
+                        Private
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <MentionTextarea
-                placeholder="What's your latest sustainability action? Share your impact..."
+                placeholder="What's on your mind?"
                 value={content}
                 onChange={handleContentChange}
-                className="border-none shadow-none text-lg placeholder:text-gray-500 focus-visible:ring-0"
-                minHeight="120px"
+                unstyled
+                className="bg-transparent text-base sm:text-lg placeholder:text-gray-500"
+                minHeight="100px"
               />
 
               {/* Link Preview */}
@@ -479,7 +509,7 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
 
               {/* Image Preview */}
               {selectedImages.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                   {selectedImages.map((image, index) => (
                     <div
                       key={index}
@@ -502,7 +532,7 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:gap-4">
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
@@ -515,7 +545,9 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
 
+              {showLocationInput && (
                 <div className="relative">
                   <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <input
@@ -527,8 +559,6 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
                     onBlur={() => setTimeout(() => setShowSuggestions(false), 300)}
                     className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
-                  
-                  {/* Location Suggestions Dropdown */}
                   {showSuggestions && (locationSuggestions.length > 0 || loadingSuggestions) && (
                     <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 max-h-48 overflow-y-auto">
                       {loadingSuggestions ? (
@@ -556,10 +586,10 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
                     </div>
                   )}
                 </div>
-              </div>
+              )}
 
-              <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-                <div className="flex items-center space-x-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-3 sm:pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3 sm:space-y-0">
+                <div className="flex items-center space-x-1 sm:space-x-2 overflow-x-auto">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -571,51 +601,36 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-green-600 hover:text-green-700"
+                    className="text-green-600 hover:text-green-700 flex-shrink-0 px-2"
                     onClick={handleImageUpload}
                     disabled={uploadingImages}
                   >
-                    <ImageIcon className="w-4 h-4 mr-2" />
-                    {uploadingImages ? "Uploading..." : "Media"}
+                    <ImageIcon className="w-4 h-4" />
                   </Button>
                   <EmojiPicker onEmojiSelect={handleEmojiSelect}>
-                    <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700">
-                      <Smile className="w-4 h-4 mr-2" />
-                      Emoji
+                    <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700 flex-shrink-0 px-2">
+                      <Smile className="w-4 h-4" />
                     </Button>
                   </EmojiPicker>
-                  <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Schedule
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-green-600 hover:text-green-700 flex-shrink-0 px-2"
+                    onClick={() => setShowLocationInput((prev) => !prev)}
+                  >
+                    <MapPin className="w-4 h-4" />
                   </Button>
                 </div>
 
                 <div className="flex items-center space-x-2">
-                  <Select value={privacy} onValueChange={setPrivacy}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="public">
-                        <div className="flex items-center">
-                          <Globe className="w-4 h-4 mr-2" />
-                          Public
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="followers">
-                        <div className="flex items-center">
-                          <Users className="w-4 h-4 mr-2" />
-                          Followers
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="private">
-                        <div className="flex items-center">
-                          <Lock className="w-4 h-4 mr-2" />
-                          Private
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={!content.trim() || loading}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    size="sm"
+                  >
+                    {loading ? "Posting..." : "Post"}
+                  </Button>
                 </div>
               </div>
 
@@ -638,19 +653,9 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
                 </div>
               )}
 
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-500">{content.length}/280 characters</div>
-                <div className="flex items-center space-x-2">
-                  <Button variant="ghost" onClick={handleCancel}>
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={!content.trim() || loading}
-                    className="sustainability-gradient"
-                  >
-                    {loading ? "Posting..." : "Post"}
-                  </Button>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+                <div className="text-[10px] text-gray-500 text-center sm:text-left">{content.length}/280 characters</div>
+                <div className="flex items-center justify-center sm:justify-end space-x-2">
                 </div>
               </div>
             </div>

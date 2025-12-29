@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ posts: [] })
     }
 
-    const supabase = createClient()
+    const supabase = createRouteHandlerClient({ cookies })
 
     // Search for posts by content
     const { data: posts, error } = await supabase
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to search posts' }, { status: 500 })
     }
 
-    let transformedPosts = []
+    let transformedPosts: any[] = []
     
     if (posts && posts.length > 0) {
       // Get counts for each post
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
       }, {} as Record<string, number>) || {}
       
       // Transform the data to match the expected format
-      transformedPosts = posts.map(post => ({
+      transformedPosts = (posts as any[]).map(post => ({
         id: post.id,
         content: post.content,
         media_urls: post.media_urls,

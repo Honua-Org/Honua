@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
@@ -256,54 +256,58 @@ export default function ForumPage() {
 
   return (
     <MainLayout>
-      <div className="max-w-6xl mx-auto p-4 pb-20 lg:pb-4">
-        <div className="flex items-center justify-between mb-6">
+      <div className="max-w-6xl mx-auto p-3 sm:p-4 pb-20 lg:pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-3 sm:space-y-0">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/20 rounded-full flex items-center justify-center">
-              <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-100 dark:bg-purple-900/20 rounded-full flex items-center justify-center">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Community Forum</h1>
-              <p className="text-gray-600 dark:text-gray-400">Connect and discuss sustainability topics</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Community Forum</h1>
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Connect and discuss sustainability topics</p>
             </div>
           </div>
-          <div className="flex space-x-2">
+          <div className="flex space-x-2 w-full sm:w-auto">
             <Dialog open={isCreateForumOpen} onOpenChange={setIsCreateForumOpen}>
               <DialogTrigger asChild>
-                <Button className="sustainability-gradient">
+                <Button className="sustainability-gradient w-full sm:w-auto h-10 sm:h-9">
                   <Plus className="w-4 h-4 mr-2" />
-                  Create Forum
+                  <span className="hidden sm:inline">Create Forum</span>
+                  <span className="sm:hidden">Create</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                  <DialogTitle>Create New Forum</DialogTitle>
+              <DialogContent className="sm:max-w-[500px] mx-4 max-h-[90vh] overflow-y-auto">
+                <DialogHeader className="space-y-2">
+                  <DialogTitle className="text-lg sm:text-xl">Create New Forum</DialogTitle>
+                  <DialogDescription>Enter forum details and choose a category</DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
+                <div className="space-y-4 sm:space-y-6">
                   <div>
-                    <label className="text-sm font-medium mb-2 block">Forum Name</label>
+                    <label className="text-sm sm:text-base font-medium mb-2 block">Forum Name</label>
                     <Input
                       placeholder="Enter forum name..."
                       value={newForumData.name}
                       onChange={(e) => setNewForumData((prev) => ({ ...prev, name: e.target.value }))}
+                      className="h-10 sm:h-9"
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium mb-2 block">Description</label>
+                    <label className="text-sm sm:text-base font-medium mb-2 block">Description</label>
                     <Textarea
                       placeholder="Describe what this forum is about..."
                       value={newForumData.description}
                       onChange={(e) => setNewForumData((prev) => ({ ...prev, description: e.target.value }))}
                       rows={3}
+                      className="min-h-[80px] sm:min-h-[100px] resize-none"
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium mb-2 block">Category</label>
+                    <label className="text-sm sm:text-base font-medium mb-2 block">Category</label>
                     <Select
                       value={newForumData.category}
                       onValueChange={(value) => setNewForumData((prev) => ({ ...prev, category: value }))}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-10 sm:h-9">
                         <SelectValue placeholder="Select a category" />
                       </SelectTrigger>
                       <SelectContent>
@@ -315,23 +319,23 @@ export default function ForumPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 py-2">
                     <input
                       type="checkbox"
                       id="private"
                       checked={newForumData.is_private}
                       onChange={(e) => setNewForumData((prev) => ({ ...prev, is_private: e.target.checked }))}
-                      className="rounded"
+                      className="rounded h-4 w-4 sm:h-5 sm:w-5"
                     />
-                    <label htmlFor="private" className="text-sm">
+                    <label htmlFor="private" className="text-xs sm:text-sm">
                       Make this forum private
                     </label>
                   </div>
-                  <div className="flex space-x-2 pt-4">
-                    <Button onClick={handleCreateForum} className="flex-1">
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 pt-4">
+                    <Button onClick={handleCreateForum} className="flex-1 w-full sm:w-auto h-10 sm:h-9">
                       Create Forum
                     </Button>
-                    <Button variant="outline" onClick={() => setIsCreateForumOpen(false)}>
+                    <Button variant="outline" onClick={() => setIsCreateForumOpen(false)} className="w-full sm:w-auto h-10 sm:h-9">
                       Cancel
                     </Button>
                   </div>
@@ -341,26 +345,26 @@ export default function ForumPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-6">
           <div className="lg:col-span-3">
-            <div className="mb-6">
-              <div className="flex flex-col sm:flex-row gap-4 mb-4">
+            <div className="mb-4 sm:mb-6">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
                     placeholder="Search forums and threads..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 h-10 sm:h-9"
                   />
                 </div>
               </div>
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="forums">Forums</TabsTrigger>
-                <TabsTrigger value="threads">Recent Threads</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 mb-4 sm:mb-6 h-10 sm:h-9">
+                <TabsTrigger value="forums" className="text-sm sm:text-base">Forums</TabsTrigger>
+                <TabsTrigger value="threads" className="text-sm sm:text-base">Recent Threads</TabsTrigger>
               </TabsList>
 
               <TabsContent value="forums" className="space-y-4">
@@ -371,43 +375,45 @@ export default function ForumPage() {
                 ) : filteredForums.length > 0 ? (
                   filteredForums.map((forum) => (
                     <Card key={forum.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between">
+                      <CardContent className="p-4 sm:p-6">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0">
                           <div className="flex-1">
-                            <div className="flex items-center space-x-2 mb-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 mb-2">
                               <Link
                                 href={`/forum/${forum.id}`}
-                                className="text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-green-600"
+                                className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-green-600 break-words"
                               >
                                 {forum.name}
                               </Link>
-                              {forum.is_private && <Lock className="w-4 h-4 text-gray-500" />}
-                              {isForumCreator(forum) && (
-                                <Badge variant="secondary" className="text-xs">
-                                  Creator
-                                </Badge>
-                              )}
+                              <div className="flex items-center space-x-2">
+                                {forum.is_private && <Lock className="w-4 h-4 text-gray-500" />}
+                                {isForumCreator(forum) && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Creator
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
-                            <p className="text-gray-600 dark:text-gray-400 mb-3">{forum.description}</p>
-                            <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">{forum.description}</p>
+                            <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                               <div className="flex items-center space-x-1">
-                                <Users className="w-4 h-4" />
+                                <Users className="w-3 h-3 sm:w-4 sm:h-4" />
                                 <span>{forum.member_count.toLocaleString()} members</span>
                               </div>
                               <div className="flex items-center space-x-1">
-                                <MessageSquare className="w-4 h-4" />
+                                <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4" />
                                 <span>{forum.thread_count} threads</span>
                               </div>
                               <div className="flex items-center space-x-1">
-                                <Clock className="w-4 h-4" />
+                                <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
                                 <span>Active {formatTimeAgo(forum.latest_activity)}</span>
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <Badge variant="secondary">{forum.category}</Badge>
+                          <div className="flex items-center justify-between sm:justify-end space-x-2">
+                            <Badge variant="secondary" className="text-xs">{forum.category}</Badge>
                             {isForumCreator(forum) && (
-                              <Button variant="ghost" size="sm" asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" asChild>
                                 <Link href={`/forum/${forum.id}/manage`}>
                                   <Settings className="w-4 h-4" />
                                 </Link>
@@ -419,10 +425,10 @@ export default function ForumPage() {
                     </Card>
                   ))
                 ) : (
-                  <div className="text-center py-12">
-                    <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No user-created forums found</h3>
-                    <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  <div className="text-center py-8 sm:py-12 px-4">
+                    <MessageSquare className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No user-created forums found</h3>
+                    <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-4">
                       {searchQuery 
                         ? "No forums match your search criteria." 
                         : currentUser 
@@ -441,7 +447,7 @@ export default function ForumPage() {
                           });
                         }
                       }} 
-                      className="sustainability-gradient"
+                      className="sustainability-gradient h-10 sm:h-9"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Create Forum
@@ -458,26 +464,26 @@ export default function ForumPage() {
                 ) : filteredThreads.length > 0 ? (
                   filteredThreads.map((thread) => (
                     <Card key={thread.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-6">
-                        <div className="flex items-start space-x-4">
-                          <Avatar className="w-10 h-10">
+                      <CardContent className="p-4 sm:p-6">
+                        <div className="flex items-start space-x-3 sm:space-x-4">
+                          <Avatar className="w-8 h-8 sm:w-10 sm:h-10">
                             <AvatarImage src={thread.author.avatar_url || "/placeholder.svg"} />
                             <AvatarFallback>{thread.author.full_name.charAt(0)}</AvatarFallback>
                           </Avatar>
 
                           <div className="flex-1">
                             <div className="flex items-center space-x-2 mb-1">
-                              {thread.is_pinned && <Pin className="w-4 h-4 text-green-600" />}
+                              {thread.is_pinned && <Pin className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />}
                               <Link
                                 href={`/forum/thread/${thread.id}`}
-                                className="text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-green-600"
+                                className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-green-600 break-words"
                               >
                                 {thread.title}
                               </Link>
-                              {thread.is_locked && <Lock className="w-4 h-4 text-gray-500" />}
+                              {thread.is_locked && <Lock className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />}
                             </div>
 
-                            <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 mb-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">
                               <span>by</span>
                               <Link
                                 href={`/profile/${thread.author.username}`}
@@ -491,16 +497,16 @@ export default function ForumPage() {
                               </Badge>
                             </div>
 
-                            <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                            <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                               <div className="flex items-center space-x-1">
-                                <MessageSquare className="w-4 h-4" />
+                                <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4" />
                                 <span>{thread.replies_count} replies</span>
                               </div>
                               <div className="flex items-center space-x-1">
                                 <span>{thread.views_count} views</span>
                               </div>
                               <div className="flex items-center space-x-1">
-                                <Clock className="w-4 h-4" />
+                                <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
                                 <span>Last activity {formatTimeAgo(thread.last_activity)}</span>
                               </div>
                             </div>
@@ -510,10 +516,10 @@ export default function ForumPage() {
                     </Card>
                   ))
                 ) : (
-                  <div className="text-center py-12">
-                    <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No threads found</h3>
-                    <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  <div className="text-center py-8 sm:py-12 px-4">
+                    <MessageSquare className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No threads found</h3>
+                    <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-4">
                       {searchQuery 
                         ? "No threads match your search criteria." 
                         : forums.length > 0 
@@ -523,14 +529,14 @@ export default function ForumPage() {
                             : "Log in to create forums and participate in discussions."}
                     </p>
                     {forums.length > 0 && (
-                      <p className="text-gray-600 dark:text-gray-400 mb-4">
+                      <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-4">
                         Visit a forum to create the first thread!
                       </p>
                     )}
                     {forums.length === 0 && currentUser && (
                       <Button 
                         onClick={() => setIsCreateForumOpen(true)} 
-                        className="sustainability-gradient"
+                        className="sustainability-gradient h-10 sm:h-9"
                       >
                         <Plus className="w-4 h-4 mr-2" />
                         Create Forum
@@ -542,17 +548,17 @@ export default function ForumPage() {
             </Tabs>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Categories</CardTitle>
+              <CardHeader className="pb-3 sm:pb-6">
+                <CardTitle className="text-base sm:text-lg">Categories</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-1 sm:space-y-2 pt-0">
                 {forumCategories.map((category) => (
                   <Button
                     key={category}
                     variant={selectedCategory === category ? "default" : "ghost"}
-                    className="w-full justify-start"
+                    className="w-full justify-start text-sm sm:text-base h-8 sm:h-9"
                     onClick={() => setSelectedCategory(category)}
                   >
                     {category}
@@ -562,39 +568,39 @@ export default function ForumPage() {
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <TrendingUp className="w-5 h-5" />
+              <CardHeader className="pb-3 sm:pb-6">
+                <CardTitle className="flex items-center space-x-2 text-base sm:text-lg">
+                  <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span>Popular Topics</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">#SolarInstallation</p>
-                  <p className="text-sm font-medium">#ZeroWasteChallenge</p>
-                  <p className="text-sm font-medium">#ClimateAction</p>
-                  <p className="text-sm font-medium">#GreenTech</p>
-                  <p className="text-sm font-medium">#SustainableLiving</p>
+              <CardContent className="space-y-2 sm:space-y-3 pt-0">
+                <div className="space-y-1 sm:space-y-2">
+                  <p className="text-xs sm:text-sm font-medium">#SolarInstallation</p>
+                  <p className="text-xs sm:text-sm font-medium">#ZeroWasteChallenge</p>
+                  <p className="text-xs sm:text-sm font-medium">#ClimateAction</p>
+                  <p className="text-xs sm:text-sm font-medium">#GreenTech</p>
+                  <p className="text-xs sm:text-sm font-medium">#SustainableLiving</p>
                 </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>Forum Stats</CardTitle>
+              <CardHeader className="pb-3 sm:pb-6">
+                <CardTitle className="text-base sm:text-lg">Forum Stats</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-2 sm:space-y-3 pt-0">
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Total Forums</span>
-                  <span className="font-medium">{forums.length}</span>
+                  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Total Forums</span>
+                  <span className="font-medium text-sm sm:text-base">{forums.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Total Threads</span>
-                  <span className="font-medium">{threads.length}</span>
+                  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Total Threads</span>
+                  <span className="font-medium text-sm sm:text-base">{threads.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Active Members</span>
-                  <span className="font-medium">5,840</span>
+                  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Active Members</span>
+                  <span className="font-medium text-sm sm:text-base">5,840</span>
                 </div>
               </CardContent>
             </Card>

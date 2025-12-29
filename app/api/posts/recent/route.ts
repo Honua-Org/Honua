@@ -20,12 +20,8 @@ export async function GET(request: NextRequest) {
         id,
         content,
         media_urls,
-        image_url,
         created_at,
         updated_at,
-        likes_count,
-        comments_count,
-        reposts_count,
         location,
         sustainability_category,
         impact_score,
@@ -42,10 +38,12 @@ export async function GET(request: NextRequest) {
           avatar_url,
           verified
         ),
-        ${currentUserId ? `
-          post_likes!left (user_id),
-          bookmarks!left (user_id),
-          reposts!left (user_id)
+        likes:likes!left (count),
+        comments:comments!left (count),
+        reposts:reposts!left (count)${currentUserId ? `,
+          user_likes:likes!left (user_id),
+          user_bookmarks:bookmarks!left (user_id),
+          user_reposts:reposts!left (user_id)
         ` : ''}
       `)
 
@@ -65,13 +63,22 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform posts to include user interaction status
-    const transformedPosts = (posts || []).map((post: any) => ({
-      ...post,
-      liked_by_user: currentUserId ? (post.post_likes || []).some((like: any) => like.user_id === currentUserId) : false,
-      bookmarked_by_user: currentUserId ? (post.bookmarks || []).some((bookmark: any) => bookmark.user_id === currentUserId) : false,
-      reposted_by_user: currentUserId ? (post.reposts || []).some((repost: any) => repost.user_id === currentUserId) : false,
-      shares_count: post.reposts_count || 0 // Alias for compatibility
-    })).map(({ post_likes, bookmarks, reposts, ...post }) => post) // Remove internal fields
+    const transformedPosts = (posts || []).map((post: any) => {
+      const likesCount = post.likes?.[0]?.count || 0
+      const commentsCount = post.comments?.[0]?.count || 0
+      const repostsCount = post.reposts?.[0]?.count || 0
+      
+      return {
+        ...post,
+        likes_count: likesCount,
+        comments_count: commentsCount,
+        reposts_count: repostsCount,
+        liked_by_user: currentUserId ? (post.user_likes || []).some((like: any) => like.user_id === currentUserId) : false,
+        bookmarked_by_user: currentUserId ? (post.user_bookmarks || []).some((bookmark: any) => bookmark.user_id === currentUserId) : false,
+        reposted_by_user: currentUserId ? (post.user_reposts || []).some((repost: any) => repost.user_id === currentUserId) : false,
+        shares_count: repostsCount // Alias for compatibility
+      }
+    }).map(({ likes, comments, reposts, user_likes, user_bookmarks, user_reposts, ...post }) => post) // Remove internal fields
 
     return NextResponse.json(transformedPosts)
   } catch (error) {
