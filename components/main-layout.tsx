@@ -505,20 +505,22 @@ export default function MainLayout({ children }: MainLayoutProps) {
         </div>
 
         {/* Page Content */}
-        <main className="flex-1 h-full overflow-auto">{children}</main>
-        <footer className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-center">
-            <a href="https://www.f6s.com/honua.green" target="_blank" rel="noopener noreferrer" aria-label="Honua on F6S">
-              <Image
-                src="/images/F6S_Top_Company_Climate Tech_13.png"
-                alt="F6S Top Company Climate Tech"
-                width={160}
-                height={48}
-                className="h-12 w-auto"
-              />
-            </a>
+        <main className="flex-1 h-full overflow-auto">
+          <div className="sticky top-0 z-40 bg-secondary text-secondary-foreground">
+            <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-center bg-secondary/70 rounded-md">
+              <a href="https://www.f6s.com/honua.green" target="_blank" rel="noopener noreferrer" aria-label="Honua on F6S">
+                <Image
+                  src="/images/F6S_Top_Company_Climate Tech_13.png"
+                  alt="F6S Top Company Climate Tech"
+                  width={160}
+                  height={48}
+                  className="h-10 sm:h-12 w-auto"
+                />
+              </a>
+            </div>
           </div>
-        </footer>
+          {children}
+        </main>
       </div>
 
       {/* Mobile Bottom Navigation */}

@@ -292,8 +292,7 @@ export default function HomeFeed() {
         {/* Floating Action Button */}
         <Button
           onClick={() => setCreatePostOpen(true)}
-          className="fixed bottom-20 right-4 lg:bottom-6 lg:right-6 w-14 h-14 rounded-full sustainability-gradient shadow-lg hover:shadow-xl transition-shadow z-50"
-          size="lg"
+          className="fixed bottom-20 right-4 lg:bottom-6 lg:right-6 w-14 h-14 p-0 rounded-full sustainability-gradient shadow-lg hover:shadow-xl transition-shadow z-50"
         >
           <Plus className="w-6 h-6" />
         </Button>

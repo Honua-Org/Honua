@@ -395,10 +395,10 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm sm:max-w-md md:max-w-lg lg:max-w-2xl max-h-[85vh] sm:max-h-[90vh] overflow-y-auto mx-4 sm:mx-6">
-        {/* <DialogHeader>
-          <DialogTitle>Create Post</DialogTitle>
-          <DialogDescription>Share a sustainability update with optional media and details</DialogDescription>
-        </DialogHeader> */}
+        <DialogHeader>
+          <DialogTitle className="sr-only">Create Post</DialogTitle>
+          <DialogDescription className="sr-only">Compose a new post</DialogDescription>
+        </DialogHeader>
 
         <div className="space-y-3 sm:space-y-4">
           <div className="flex space-x-3 sm:space-x-4">
@@ -410,9 +410,9 @@ export default function CreatePostModal({ open, onOpenChange, onPostCreated }: C
             </Avatar>
 
             <div className="flex-1 space-y-3 sm:space-y-4">
-              <div className="flex items-center justify-start">
+              <div className="flex items-center gap-3 flex-wrap">
                 <Select value={privacy} onValueChange={setPrivacy}>
-                  <SelectTrigger className="w-28 sm:w-36">
+                  <SelectTrigger className="w-24 sm:w-36">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
