@@ -507,7 +507,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         {/* Page Content */}
         <main className="flex-1 h-full overflow-auto">
           <div className="sticky top-0 z-40 bg-secondary text-secondary-foreground">
-            <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-center bg-secondary/70 rounded-md">
+            <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-center bg-white rounded-md">
               <a href="https://www.f6s.com/honua.green" target="_blank" rel="noopener noreferrer" aria-label="Honua on F6S">
                 <Image
                   src="/images/F6S_Top_Company_Climate Tech_13.png"
