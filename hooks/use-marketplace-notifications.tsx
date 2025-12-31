@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { toast } from 'sonner'
 import { RealtimeChannel } from '@supabase/supabase-js'
@@ -28,9 +28,14 @@ export function useMarketplaceNotifications(userId?: string) {
   const BASE_RETRY_DELAY = 1000 // 1 second
   const MAX_RETRY_DELAY = 30000 // 30 seconds
   const supabase = createClientComponentClient()
+  const initializedRef = useRef<string | null>(null)
+  const isDev = process.env.NODE_ENV !== 'production'
+  const HMR_FLAG_KEY = '__honuaRealtimeInitializedUserId'
 
   useEffect(() => {
     if (!userId) return
+    if (initializedRef.current === userId) return
+    if (typeof window !== 'undefined' && (window as any)[HMR_FLAG_KEY] === userId) return
 
     let orderChannel: RealtimeChannel | null = null
     let messageChannel: RealtimeChannel | null = null
@@ -116,6 +121,10 @@ export function useMarketplaceNotifications(userId?: string) {
               setIsConnecting(false)
               setRetryCount(0) // Reset retry count on successful connection
               setLastRetryTime(0)
+              initializedRef.current = userId
+              if (typeof window !== 'undefined') {
+                (window as any)[HMR_FLAG_KEY] = userId
+              }
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
               console.warn('Order subscription connection issue:', status, '- will attempt reconnection')
               setIsConnected(false)
@@ -199,6 +208,9 @@ export function useMarketplaceNotifications(userId?: string) {
     }
 
     const retryConnection = () => {
+      if (isDev) {
+        return
+      }
       // Prevent multiple simultaneous retry attempts
       if (isConnecting || retryCount >= MAX_RETRIES || isCleanedUp) {
         if (retryCount >= MAX_RETRIES) {
@@ -409,6 +421,10 @@ export function useMarketplaceNotifications(userId?: string) {
       setIsConnecting(false)
       setRetryCount(0)
       setLastRetryTime(0)
+      // Preserve initialization flag during development to avoid HMR resubscribe loops
+      if (typeof window !== 'undefined' && !isDev) {
+        delete (window as any)[HMR_FLAG_KEY]
+      }
       console.log('Cleaned up marketplace notification subscriptions')
     }
   }, [userId])

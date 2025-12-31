@@ -42,6 +42,7 @@ import Image from "next/image"
 import SearchModal from "@/components/search-modal"
 import InviteModal from "@/components/invite-modal"
 import { MarketplaceNotifications } from "@/components/marketplace/notifications"
+import { useCart } from "@/hooks/use-cart"
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -63,12 +64,13 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
   const supabase = createClientComponentClient()
+  const { items } = useCart()
 
   // Define navigation items with dynamic badges
   const navigationItems = [
     { icon: Home, label: "Home", href: "/", badge: null },
     { icon: Compass, label: "Explore", href: "/explore", badge: null },
-    { icon: ShoppingBag, label: "Marketplace", href: "/marketplace", badge: null },
+    { icon: ShoppingBag, label: "Marketplace", href: "/marketplace", badge: items.length > 0 ? items.length : null },
     { icon: Bookmark, label: "Bookmarks", href: "/bookmarks", badge: null },
     { icon: Bell, label: "Notifications", href: "/notifications", badge: unreadNotifications > 0 ? unreadNotifications : null },
     { icon: MessageCircle, label: "Messages", href: "/messages", badge: unreadMessages > 0 ? unreadMessages : null },
@@ -323,6 +325,19 @@ export default function MainLayout({ children }: MainLayoutProps) {
               </li>
             )
           })}
+          {/* Mobile-only Invite Friends action */}
+          <li className="lg:hidden">
+            <button
+              className="flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 w-full"
+              onClick={() => {
+                setIsInviteModalOpen(true)
+                setIsMobileMenuOpen(false)
+              }}
+            >
+              <UserPlus className="w-5 h-5" />
+              <span className="font-medium">Invite Friends</span>
+            </button>
+          </li>
         </ul>
       </nav>
 
@@ -491,6 +506,19 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
         {/* Page Content */}
         <main className="flex-1 h-full overflow-auto">{children}</main>
+        <footer className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-center">
+            <a href="https://www.f6s.com/honua.green" target="_blank" rel="noopener noreferrer" aria-label="Honua on F6S">
+              <Image
+                src="/images/F6S_Top_Company_Climate Tech_13.png"
+                alt="F6S Top Company Climate Tech"
+                width={160}
+                height={48}
+                className="h-12 w-auto"
+              />
+            </a>
+          </div>
+        </footer>
       </div>
 
       {/* Mobile Bottom Navigation */}

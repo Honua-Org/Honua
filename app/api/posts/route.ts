@@ -8,9 +8,7 @@ export async function GET(request: NextRequest) {
     // Check if Supabase environment variables are configured
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       console.error('Missing Supabase environment variables')
-      return NextResponse.json({ 
-        error: 'Server configuration error: Missing Supabase environment variables. Please check your .env.local file.' 
-      }, { status: 500 })
+      return NextResponse.json([], { status: 200 })
     }
 
     const supabase = createRouteHandlerClient({ cookies })

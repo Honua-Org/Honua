@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
@@ -82,6 +82,8 @@ function MessagesPageContent() {
   const { toast } = useToast()
   const supabase = createClientComponentClient()
   const searchParams = useSearchParams()
+  const fetchConvDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const messagesFetchControllerRef = useRef<AbortController | null>(null)
 
   // Get current user
   useEffect(() => {
@@ -168,24 +170,31 @@ function MessagesPageContent() {
         }
       })
 
-      // Fetch latest messages for all conversations
-      const conversationsWithMessages = await Promise.all(
-        conversationsWithParticipants.map(async conversation => {
-          const { data: latestMessages } = await supabase
-            .from('messages')
-            .select('id, content, created_at, sender_id')
-            .eq('conversation_id', conversation.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-          
-          const latestMessage = latestMessages && latestMessages.length > 0 ? latestMessages[0] : null
-
-          return {
-            ...conversation,
-            latestMessage
+      const conversationIds = conversationsWithParticipants.map(c => c.id)
+      type LatestMessageRow = {
+        id: string
+        content: string
+        created_at: string
+        sender_id: string
+        conversation_id: string
+      }
+      let latestMessagesMap: Record<string, LatestMessageRow> = {}
+      if (conversationIds.length > 0) {
+        const { data: latestMessagesAll } = await supabase
+          .from('messages')
+          .select('id, content, created_at, sender_id, conversation_id')
+          .in('conversation_id', conversationIds)
+          .order('created_at', { ascending: false })
+        for (const m of (latestMessagesAll || []) as LatestMessageRow[]) {
+          if (!latestMessagesMap[m.conversation_id]) {
+            latestMessagesMap[m.conversation_id] = m
           }
-        })
-      )
+        }
+      }
+      const conversationsWithMessages = conversationsWithParticipants.map(conv => ({
+        ...conv,
+        latestMessage: latestMessagesMap[conv.id] || null
+      }))
 
       const transformedConversations = conversationsWithMessages.map(conv => ({
         id: conv.id,
@@ -219,11 +228,25 @@ function MessagesPageContent() {
     }
   }
 
+  const scheduleFetchConversations = (delay = 300) => {
+    if (fetchConvDebounceRef.current) {
+      clearTimeout(fetchConvDebounceRef.current)
+    }
+    fetchConvDebounceRef.current = setTimeout(() => {
+      fetchConversations()
+    }, delay)
+  }
+
   // Fetch messages for selected conversation
   const fetchMessages = async (conversationId: string) => {
     setMessagesLoading(true)
     try {
-      const response = await fetch(`/api/messages?conversation_id=${conversationId}`)
+      if (messagesFetchControllerRef.current) {
+        messagesFetchControllerRef.current.abort()
+      }
+      const controller = new AbortController()
+      messagesFetchControllerRef.current = controller
+      const response = await fetch(`/api/messages?conversation_id=${conversationId}`, { signal: controller.signal })
       if (response.ok) {
         const data = await response.json()
         setMessages(data)
@@ -235,13 +258,15 @@ function MessagesPageContent() {
           variant: "destructive"
         })
       }
-    } catch (error) {
-      console.error('Error fetching messages:', error)
-      toast({
-        title: "Error",
-        description: "Failed to load messages",
-        variant: "destructive"
-      })
+    } catch (error: unknown) {
+      if ((error as { name?: string })?.name !== 'AbortError') {
+        console.error('Error fetching messages:', error)
+        toast({
+          title: "Error",
+          description: "Failed to load messages",
+          variant: "destructive"
+        })
+      }
     } finally {
       setMessagesLoading(false)
     }
@@ -275,10 +300,6 @@ function MessagesPageContent() {
       if (response.ok) {
         setMessageInput('')
         setReplyingTo(null)
-        // Refresh messages to show the new message
-        await fetchMessages(selectedConversation.id)
-        // Also refresh conversations to update latest message
-        fetchConversations()
         toast({
           title: "Success",
           description: "Message sent successfully"
@@ -402,7 +423,7 @@ function MessagesPageContent() {
           filter: `or(participant_one_id.eq.${user?.id},participant_two_id.eq.${user?.id})`,
         },
         () => {
-          fetchConversations()
+          scheduleFetchConversations()
         }
       )
       .subscribe()
@@ -417,9 +438,8 @@ function MessagesPageContent() {
           table: 'messages',
         },
         async (payload) => {
-          // Update conversations list
-          fetchConversations()
-          
+          scheduleFetchConversations()
+         
           // If message is for selected conversation, add it to messages
           if (selectedConversation && payload.new.conversation_id === selectedConversation.id) {
             // Fetch complete message with sender profile

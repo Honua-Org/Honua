@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
@@ -279,6 +279,7 @@ export default function ForumPage() {
               <DialogContent className="sm:max-w-[500px] mx-4 max-h-[90vh] overflow-y-auto">
                 <DialogHeader className="space-y-2">
                   <DialogTitle className="text-lg sm:text-xl">Create New Forum</DialogTitle>
+                  <DialogDescription>Enter forum details and choose a category</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 sm:space-y-6">
                   <div>

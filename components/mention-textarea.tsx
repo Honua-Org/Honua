@@ -20,6 +20,7 @@ interface MentionTextareaProps {
   placeholder?: string
   className?: string
   minHeight?: string
+  unstyled?: boolean
 }
 
 export default function MentionTextarea({
@@ -27,7 +28,8 @@ export default function MentionTextarea({
   onChange,
   placeholder,
   className,
-  minHeight = "120px"
+  minHeight = "120px",
+  unstyled = false
 }: MentionTextareaProps) {
   const [users, setUsers] = useState<User[]>([])
   const [showMentions, setShowMentions] = useState(false)
@@ -181,6 +183,7 @@ export default function MentionTextarea({
   return (
     <div className="relative">
       <Textarea
+        unstyled={unstyled}
         ref={textareaRef}
         value={value}
         onChange={handleChange}

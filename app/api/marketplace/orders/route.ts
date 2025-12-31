@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import Stripe from 'stripe'
 
 // Helper function to get authenticated user from either cookies or Bearer token
 async function getAuthenticatedUser(request: NextRequest) {
@@ -301,7 +302,13 @@ export async function POST(request: NextRequest) {
       title: product.title,
       price: product.price,
       sellerId: product.seller_id,
-      type: product.type
+      sellerIdFromRecord: product.seller_id,
+      sellerFromJoin: product.seller,
+      type: product.type,
+      currency: product.currency,
+      greenPointsPrice: product.green_points_price,
+      stockQuantity: product.stock_quantity,
+      hasAllRequiredFields: !!(product.id && product.title && product.price && product.seller_id && product.type && product.currency)
     })
 
     // Check if user is trying to buy their own product
@@ -347,15 +354,41 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Insufficient green points' }, { status: 400 })
       }
     } else if (payment_method === 'stripe') {
+      console.log('Validating Stripe payment pricing:', {
+        total_price,
+        expected_total: product.price * quantity,
+        unit_price,
+        expected_unit_price: product.price,
+        quantity,
+        product_price: product.price,
+        total_match: total_price === product.price * quantity,
+        unit_match: unit_price === product.price
+      })
+      
       if (total_price !== product.price * quantity) {
+        console.error('Total price validation failed:', {
+          received: total_price,
+          expected: product.price * quantity,
+          difference: Math.abs(total_price - (product.price * quantity))
+        })
         return NextResponse.json({ error: 'Invalid total price' }, { status: 400 })
       }
       if (unit_price !== product.price) {
+        console.error('Unit price validation failed:', {
+          received: unit_price,
+          expected: product.price,
+          difference: Math.abs(unit_price - product.price)
+        })
         return NextResponse.json({ error: 'Invalid unit price' }, { status: 400 })
       }
     }
 
     // Validate shipping address for physical products
+    console.log('Validating shipping address:', {
+      product_type: product.type,
+      has_shipping_address: !!shipping_address,
+      shipping_address: shipping_address
+    })
     if (product.type === 'physical' && !shipping_address) {
       return NextResponse.json({ error: 'Shipping address is required for physical products' }, { status: 400 })
     }
@@ -377,11 +410,8 @@ export async function POST(request: NextRequest) {
       })
       
       try {
-        // Import Stripe directly to avoid internal API call authentication issues
-        const Stripe = require('stripe')
-        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-          apiVersion: '2024-06-20',
-        })
+        // Initialize Stripe client
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
         // Validate Stripe credentials
         if (!process.env.STRIPE_SECRET_KEY) {
@@ -550,10 +580,10 @@ export async function POST(request: NextRequest) {
       paymentStatus: order.payment_status
     })
 
-    // If payment is with green points, process through transactions API
+    const origin = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin
     if (payment_method === 'green_points' && green_points_used > 0) {
       // Use the green points transactions API to handle the payment
-      const transactionResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/green-points/transactions`, {
+      const transactionResponse = await fetch(`${origin}/api/green-points/transactions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -605,7 +635,7 @@ export async function POST(request: NextRequest) {
     const sellerRewardPoints = Math.floor((total_price || 0) * 0.05)
     if (sellerRewardPoints > 0) {
       try {
-        const sellerRewardResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/green-points/transactions`, {
+      const sellerRewardResponse = await fetch(`${origin}/api/green-points/transactions`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -654,7 +684,7 @@ export async function POST(request: NextRequest) {
 
     // Send order placed email notifications
     try {
-      const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/emails/order`, {
+      const emailResponse = await fetch(`${origin}/api/emails/order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

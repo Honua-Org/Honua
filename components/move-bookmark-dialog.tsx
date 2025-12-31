@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useSession } from "@supabase/auth-helpers-react"
 import { useRouter } from "next/navigation"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -118,6 +118,7 @@ export default function MoveBookmarkDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Move to Collection</DialogTitle>
+          <DialogDescription>Select a destination collection for this bookmark</DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[60vh]">
           <RadioGroup value={selectedCollectionId} onValueChange={setSelectedCollectionId}>
